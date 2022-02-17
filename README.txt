@@ -13,6 +13,8 @@ When will it be playable?
     Not sure, depends on how much free time I find to work on it.
     
 Credits
+    LibGDX
+        https://libgdx.com/
     SGX UI Skin
         SGX UI Ver. 1
 
