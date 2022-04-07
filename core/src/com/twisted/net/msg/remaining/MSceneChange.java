@@ -1,4 +1,6 @@
-package com.twisted.net.msg;
+package com.twisted.net.msg.remaining;
+
+import com.twisted.net.msg.Message;
 
 public class MSceneChange implements Message {
 

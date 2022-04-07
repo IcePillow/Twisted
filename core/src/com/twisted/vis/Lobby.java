@@ -18,6 +18,9 @@ import com.twisted.logic.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
+import com.twisted.net.msg.remaining.MSceneChange;
+import com.twisted.net.msg.remaining.MChat;
+import com.twisted.net.msg.remaining.MCommand;
 
 import java.util.Arrays;
 
@@ -35,7 +38,8 @@ public class Lobby implements Screen, ClientContact {
 
     //exterior references
     private final Main main;
-    private ClientsideContact contact;
+    private Client client;
+    private LobbyHost host;
 
     //graphics
     private Stage stage;
@@ -102,35 +106,66 @@ public class Lobby implements Screen, ClientContact {
 
     @Override
     public void connectedToServer() {
-        //prepare the terminal group
-        terminateButton.setText("Leave");
-        terminateButton.setVisible(true);
+        //if hosting
+        if(host != null) {
+            //prepare the terminal group
+            terminateButton.setText("Close");
+            terminateButton.setVisible(true);
 
-        //fix the previous group
-        attemptingJoin.setVisible(false);
-        hostButton.setDisabled(false);
-        connectButton.setDisabled(false);
-        clientGroup.setVisible(false);
+            //fix the previous group
+            attemptingLaunch.setVisible(false);
+            joinButton.setDisabled(false);
+            launchButton.setDisabled(false);
+            serverGroup.setVisible(false);
+
+            //chat
+            addToTerminal(MChat.Type.LOGISTICAL, "> You started hosting a server on port " + host.getPort());
+        }
+        //if just a client
+        else {
+            //prepare the terminal group
+            terminateButton.setText("Leave");
+            terminateButton.setVisible(true);
+
+            //fix the previous group
+            attemptingJoin.setVisible(false);
+            hostButton.setDisabled(false);
+            connectButton.setDisabled(false);
+            clientGroup.setVisible(false);
+        }
+
+        //switch which high level group is visible
         initialGroup.setVisible(false);
-
-        //make terminal group visible
         terminalGroup.setVisible(true);
 
+        //scroll the terminal
+        terminalPane.setScrollPercentY(1);
+
         //name change
-        contact.send(new MNameChange(desiredUsername));
+        client.send(new MCommand(new String[]{"name", desiredUsername}));
     }
 
     @Override
     public void failedToConnect() {
         attemptingJoin.setVisible(false);
         connectButton.setDisabled(false);
+
+        disconnectedLabel.setText("Failed to connect");
+        disconnectedLabel.setVisible(true);
+        new Thread(() -> {
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            disconnectedLabel.setVisible(false);
+        }).start();
     }
 
     @Override
     public void clientReceived(Message message) {
-
         if(message instanceof MChat){
-            addToTerminal(((MChat) message).string);
+            addToTerminal(((MChat) message).type, ((MChat) message).string);
         }
         else if(message instanceof MSceneChange){
             if(((MSceneChange) message).getChange() == MSceneChange.Change.GAME){
@@ -139,15 +174,12 @@ public class Lobby implements Screen, ClientContact {
                         //create the new game
                         Game game = new Game(main);
 
-                        //set the contact for the game, differently for host and not host
-                        if(contact instanceof LobbyHost) {
-                            game.setContact(((LobbyHost) contact).getGameHost());
-                            ((LobbyHost) contact).getGameHost().getLocalClient().setContact(game);
-                        }
-                        else {
-                            game.setContact(contact);
-                            ((Client) contact).setContact(game);
-                        }
+                        //set the client for the game, set the contact for the client
+                        game.setClient(client);
+                        client.setContact(game);
+
+                        //set the host
+                        if(host != null) game.setHost(host.getGameHost());
 
                         //change screen
                         main.setScreen(game);
@@ -160,25 +192,25 @@ public class Lobby implements Screen, ClientContact {
                 System.out.println(Arrays.toString(new Exception().getStackTrace()));
             }
         }
-
     }
 
     @Override
-    public void kickedFromServer(Message message) {
+    public void disconnected(String reason){
         //visual groups
         terminalGroup.setVisible(false);
         initialGroup.setVisible(true);
 
         //update terminal
-        addToTerminal("> You were kicked from the server.");
+        addToTerminal(MChat.Type.LOGISTICAL,
+                "> You disconnected from the server.\n   Reason: " + reason);
 
         //tell user what happened
-        disconnectedLabel.setText("You were kicked from the server.");
+        disconnectedLabel.setText("Disconnected: " + reason);
         disconnectedLabel.setPosition(600, 200);
         disconnectedLabel.setVisible(true);
         new Thread(() -> {
             try {
-                Thread.sleep(5000);
+                Thread.sleep(3000);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -186,18 +218,18 @@ public class Lobby implements Screen, ClientContact {
         }).start();
 
         //logical stuff
-        contact.shutdown();
-        contact = null;
+        client.shutdown();
+        client = null;
     }
 
     @Override
-    public void lostConnectionToServer() {
+    public void lostConnection() {
         //visual groups
         terminalGroup.setVisible(false);
         initialGroup.setVisible(true);
 
         //update terminal
-        addToTerminal("> You lost connection with the server.");
+        addToTerminal(MChat.Type.WARNING_ERROR,"> You lost connection with the server.");
 
         //tell user what happened
         disconnectedLabel.setText("Lost connection to the server.");
@@ -213,8 +245,8 @@ public class Lobby implements Screen, ClientContact {
         }).start();
 
         //logical stuff
-        contact.shutdown();
-        contact = null;
+        client.shutdown();
+        client = null;
     }
 
 
@@ -223,20 +255,8 @@ public class Lobby implements Screen, ClientContact {
     /**
      * Called by LobbyHost when hosting has begun.
      */
-    public void serverLaunched(){
-        //prepare the terminal group
-        terminateButton.setText("Close");
-        terminateButton.setVisible(true);
-
-        //fix the previous group
-        attemptingLaunch.setVisible(false);
-        joinButton.setDisabled(false);
-        launchButton.setDisabled(false);
-        serverGroup.setVisible(false);
-        initialGroup.setVisible(false);
-
-        //make the terminal group visible
-        terminalGroup.setVisible(true);
+    public void serverLaunched(int port){
+        client = new Client(this, "localhost", port);
     }
 
     /**
@@ -260,18 +280,17 @@ public class Lobby implements Screen, ClientContact {
 
         //commands
         if(string.charAt(0) == '/' && string.length() > 1){
-
             MCommand command = new MCommand(string.substring(1).split(" "));
 
-            contact.send(command);
+            client.send(command);
         }
         //basic chats
         else if(string.charAt(0) != '/'){
             //create the chat
-            MChat chat = new MChat(0, string);
+            MChat chat = new MChat(MChat.Type.PLAYER_CHAT, string);
 
             //send the chat
-            contact.send(chat);
+            client.send(chat);
         }
 
     }
@@ -279,13 +298,23 @@ public class Lobby implements Screen, ClientContact {
     /**
      * Utility method to add a string to the terminal output.
      */
-    public void addToTerminal(String string){
+    public void addToTerminal(MChat.Type type, String string){
 
         //create the label
         Label label = new Label(string, skin, "small");
         label.setWrap(true);
         label.setStyle(terminalLabelStyle);
         label.setFontScale(0.7f);
+
+        //set label color
+        switch(type){
+            case LOGISTICAL:
+                label.setColor(Color.LIGHT_GRAY);
+                break;
+            case WARNING_ERROR:
+                label.setColor(1, 0.5f, 0.5f, 1);
+                break;
+        }
 
         //add the label to the widget
         terminalWidget.row();
@@ -294,7 +323,7 @@ public class Lobby implements Screen, ClientContact {
         //had to do thread for some reason
         new Thread(() -> {
             try {
-                Thread.sleep(1);
+                Thread.sleep(20);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
@@ -389,8 +418,8 @@ public class Lobby implements Screen, ClientContact {
         serverGroup.setVisible(false);
 
         //disconnected label, not shown initially
-        disconnectedLabel = new Label("[???]", skin);
-        disconnectedLabel.setPosition(-disconnectedLabel.getWidth()/2 + 720, 200);
+        disconnectedLabel = new Label("[???]", skin, "small");
+        disconnectedLabel.setPosition(640, 300);
         disconnectedLabel.setVisible(false);
         group.addActor(disconnectedLabel);
 
@@ -449,8 +478,8 @@ public class Lobby implements Screen, ClientContact {
         cancelButton.setBounds(720-45-55, 335, 90, 40);
 
         //attempting label
-        attemptingJoin = new Label("Attempting to join...", skin, "small");
-        attemptingJoin.setPosition(630, 300);
+        attemptingJoin = new Label("Attempting to connect", skin, "small");
+        attemptingJoin.setPosition(640, 300);
         attemptingJoin.setVisible(false);
 
         //listeners
@@ -460,7 +489,7 @@ public class Lobby implements Screen, ClientContact {
                 String[] address = addressArea.getText().split(":");
 
                 if(address.length == 2){
-                    contact = new Client(this, address[0], Integer.parseInt(address[1]));
+                    client = new Client(this, address[0], Integer.parseInt(address[1]));
                     attemptingJoin.setVisible(true);
                     connectButton.setDisabled(true);
                 }
@@ -475,8 +504,10 @@ public class Lobby implements Screen, ClientContact {
                 connectButton.setDisabled(false);
                 hostButton.setDisabled(false);
 
-                contact.shutdown();
-                contact = null;
+                if(client != null){
+                    client.shutdown();
+                    client = null;
+                }
 
                 return true;
             }
@@ -528,12 +559,13 @@ public class Lobby implements Screen, ClientContact {
                 attemptingLaunch.setVisible(true);
                 launchButton.setDisabled(true);
 
-                if(userArea.getText().length() > 0){
-                    contact = new LobbyHost(this, userArea.getText());
+                desiredUsername = userArea.getText();
+                if(desiredUsername.equals("")){
+                    desiredUsername = "Host";
                 }
-                else {
-                    contact = new LobbyHost(this, "Host");
-                }
+
+                //create the host
+                host = new LobbyHost(this);
 
                 return true;
             }
@@ -592,22 +624,22 @@ public class Lobby implements Screen, ClientContact {
             if(event instanceof ChangeListener.ChangeEvent) {
 
                 //if you were hosting
-                if(contact instanceof LobbyHost){
-                    addToTerminal("> You closed the server.");
-                    addToTerminal(" ");
-                    addToTerminal(" ");
+                if(host != null){
+                    addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
+
+                    host.shutdown();
+                    host = null;
                 }
-                //if you were just a client
+                //if you were a client
                 else {
-                    addToTerminal("> You left the server.");
-                    addToTerminal(" ");
-                    addToTerminal(" ");
-                    contact.send(new MDisconnect());
+                    client.shutdown();
+                    client = null;
+
+                    addToTerminal(MChat.Type.LOGISTICAL, "> You left the server.");
                 }
 
-                //shutdown
-                contact.shutdown();
-                contact = null;
+                addToTerminal(MChat.Type.LOGISTICAL," ");
+                addToTerminal(MChat.Type.LOGISTICAL," ");
 
                 textField.setText("");
                 terminalGroup.setVisible(false);

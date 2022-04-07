@@ -8,6 +8,9 @@ import com.twisted.net.msg.Message;
  */
 public interface ClientContact {
 
+    /**
+     * Called when the client connects to the server.
+     */
     void connectedToServer();
 
     /**
@@ -16,19 +19,18 @@ public interface ClientContact {
     void failedToConnect();
 
     /**
-     * Called when a message is received from the server that is not dealt with my the network
-     * sector.
+     * Called when a message is received from the server.
      */
     void clientReceived(Message message);
 
     /**
-     * Called when purposefully kicked from the server.
+     * Called when formally disconnected (receives a Disconnect message).
      */
-    void kickedFromServer(Message message);
+    void disconnected(String reason);
 
     /**
-     * Called when something went wrong to lose the server connection.
+     * Called when the server disconnects without sending Disconnect.
      */
-    void lostConnectionToServer();
+    void lostConnection();
 
 }

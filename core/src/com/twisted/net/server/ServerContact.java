@@ -19,7 +19,12 @@ public interface ServerContact {
     void clientConnected(int clientId);
 
     /**
-     * Called when a client unexpectedly disconnects from the server.
+     * Called when a client sends a disconnect message, closing the connection.
+     */
+    void clientDisconnected(int clientId, String reason);
+
+    /**
+     * Called when a client disconnects without sending Disconnect.
      */
     void clientLostConnection(int clientId);
 

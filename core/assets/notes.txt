@@ -1,3 +1,8 @@
+Colors
+    Light blue - 0x42a5f5ff
+    Orange - 0xfb8c00ff
+    Light green - 0x4caf50ff
+    Purple - 0xab47bcff
 Skins & Fonts
     Credits for sgx
         SGX UI Ver. 1
@@ -10,3 +15,19 @@ Skins & Fonts
         http://creativecommons.org/licenses/by/4.0/
     Don't currently know where Andale credits are
     Play Font downloaded from https://www.1001freefonts.com/play.font
+
+Game Launch Sequence
+    > Lobby takes user input
+    > Lobby sends Command over network to Server
+    > Server tells LobbyHost
+    > LobbyHost calls server.stopListening()
+    > LobbyHost creates new thread that does
+        > Tells players, kicks unnecessary players
+        > Creates GameHost, during construction it
+            > Copies over data from LobbyHost
+            > Sends SceneChange to players
+            > Creates thread that loads state, sends initial state
+    > Lobby receives SceneChange
+        > Creates Game
+        > Transfers client contact to Game and GameHost to Game
+        > Switches the graphics to Game scene

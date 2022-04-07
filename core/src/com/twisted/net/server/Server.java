@@ -1,7 +1,8 @@
 package com.twisted.net.server;
 
-import com.twisted.net.msg.MDisconnect;
+import com.twisted.net.msg.Disconnect;
 import com.twisted.net.msg.Message;
+import com.twisted.net.msg.Transmission;
 
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -20,13 +21,18 @@ public class Server {
 
     //state tracking
     private int nextId;
-    public int getNextId() {
-        return nextId;
+    public int useNextId() {
+        nextId++;
+        return nextId-1;
     }
     private boolean listening;
+    private boolean shutdown;
+    boolean getShutdown(){
+        return shutdown;
+    }
 
     //client storage
-    private HashMap<Integer, RepClient> clients;
+    private HashMap<Integer, NetworkClient> clients;
 
     //server objects
     private ServerSocket serverSocket;
@@ -36,6 +42,7 @@ public class Server {
 
     public Server(ServerContact contact){
         this.contact = contact;
+        this.shutdown = false;
         nextId = 1;
         clients = new HashMap<>();
     }
@@ -74,7 +81,6 @@ public class Server {
 
                     //increment id
                     nextId++;
-
                 }
                 catch (SocketTimeoutException | SocketException e){
                     assert true;
@@ -82,7 +88,6 @@ public class Server {
                 catch (IOException e) {
                     e.printStackTrace();
                 }
-
             }
 
             try {
@@ -105,39 +110,41 @@ public class Server {
     }
 
     /**
-     * Connects a new local client to the server
-     */
-    public void connectLocalClient(LocalClient client){
-        clients.put(client.getId(), client);
-        nextId++;
-    }
-
-    /**
      * Sends a message to a particular client.
      */
-    public void sendMessage(int id, Message message){
-        clients.get(id).writeToStream(message);
+    public void sendMessage(int id, Transmission t){
+        clients.get(id).writeToStream(t);
     }
 
     /**
      * Sends a message to all clients.
      */
-    public void broadcastMessage(Message message){
+    public void broadcastMessage(Transmission t){
         for(Integer id : clients.keySet()){
-            sendMessage(id, message);
+            sendMessage(id, t);
+        }
+    }
+
+    /**
+     * Utility method to send a message to all clients save one.
+     */
+    public void sendMessageToAllButOne(int excludedId, Transmission t){
+        for(NetworkClient client : clients.values()){
+            if(client.getId() != excludedId) sendMessage(client.getId(), t);
         }
     }
 
     /**
      * Kicks a particular client.
      */
-    public void kickClient(int id){
+    public void kickClient(int id, String reason){
         //send the disconnect message
-        MDisconnect msg = new MDisconnect();
-        msg.reasonText = "You have been kicked.";
+        Disconnect msg = new Disconnect();
+        msg.reasonText = reason;
         sendMessage(id, msg);
 
-        clients.get(id).disconnect();
+        //clean up the client
+        clients.get(id).shutdown();
         clients.remove(id);
     }
 
@@ -145,6 +152,8 @@ public class Server {
      * Closes the server.
      */
     public void closeServer(){
+        //set shutdown flag
+        shutdown = true;
 
         //stop adding new clients
         if(listening) stopListening();
@@ -155,37 +164,42 @@ public class Server {
         }
 
         //tell the clients
-        MDisconnect message = new MDisconnect();
-        message.reasonText = "Server closed";
-        broadcastMessage(new MDisconnect());
+        Disconnect disconnect = new Disconnect();
+        disconnect.reasonText = "Server closed";
+        broadcastMessage(disconnect);
 
         //close the client connections
-        for(RepClient client : clients.values()){
-            client.disconnect();
+        for(NetworkClient client : clients.values()){
+            client.shutdown();
         }
 
         //clear the map
         clients.clear();
         clients = null;
-
     }
 
 
     /* Internal Methods */
 
     /**
-     * Called by a Client when a message is received.
+     * Called by a NetworkClient when a message is received.
      */
     void messageReceived(int id, Message message){
         contact.serverReceived(id, message);
     }
 
     /**
-     * Called when a client unexpectedly disconnects from the server. The Client object should
-     * automatically close itself.
+     * Called when a client disconnects cleanly.
      */
-    void lostConnection(int id){
-        clients.remove(id);
+    void disconnectedFrom(int id, String reason){
+        contact.clientDisconnected(id, reason);
+    }
+
+    /**
+     * Called when a client loses connection with the server.
+     */
+    void lostConnectionWith(int id){
+        if(clients != null) clients.remove(id);
         contact.clientLostConnection(id);
     }
 

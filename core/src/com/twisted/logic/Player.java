@@ -12,10 +12,15 @@ public class Player {
 
     private final Server server;
 
-    private final int clientId;
-    public int getClientId(){
-        return clientId;
+    //used for game logic
+    private final int id;
+    public int getId(){
+        return id;
     }
+
+    //flags
+    public final boolean ai;
+
 
     /* State Variables */
 
@@ -24,17 +29,21 @@ public class Player {
 
     /* Constructor */
 
-    public Player(Server server, int clientId, String name){
+    public Player(Server server, int id, String name, boolean ai){
         this.server = server;
-        this.clientId = clientId;
+        this.id = id;
         this.name = name;
+        this.ai = ai;
     }
 
 
     /* Utility */
 
     public void sendMessage(Message msg){
-        if(clientId > 0) server.sendMessage(this.clientId, msg);
+        //only send message if player is not an ai
+        if(!ai){
+            server.sendMessage(this.id, msg);
+        }
     }
 
 }

@@ -1,7 +1,8 @@
 package com.twisted.net.server;
 
-import com.twisted.net.msg.MDisconnect;
+import com.twisted.net.msg.Disconnect;
 import com.twisted.net.msg.Message;
+import com.twisted.net.msg.Transmission;
 
 import java.io.*;
 import java.net.Socket;
@@ -10,20 +11,21 @@ import java.net.SocketException;
 /**
  * A representation of a Client connection to a Server on the server-side.
  */
-public class NetworkClient implements RepClient {
+public class NetworkClient {
 
     //outward references
-    private Server server;
+    private final Server server;
 
     //id
     private final int id;
 
     //state
     private boolean listen;
+    private boolean closing;
 
     //streams
-    private ObjectOutputStream output;
-    private ObjectInputStream input;
+    private final ObjectOutputStream output;
+    private final ObjectInputStream input;
 
 
     /* Constructor */
@@ -33,6 +35,7 @@ public class NetworkClient implements RepClient {
         this.id = id;
         this.server = server;
         this.listen = true;
+        this.closing = false;
 
         //streams
         output = new ObjectOutputStream(socket.getOutputStream());
@@ -44,15 +47,15 @@ public class NetworkClient implements RepClient {
 
             while(listen){
                 try {
-                    Message message = (Message) input.readObject();
+                    Transmission transmission = (Transmission) input.readObject();
 
-                    if(message instanceof MDisconnect) listen = false;
-
-                    server.messageReceived(id, message);
+                    //handle non-messages
+                    if(transmission instanceof Disconnect) disconnected((Disconnect) transmission);
+                    //tell server if a message was received
+                    else server.messageReceived(id, (Message) transmission);
                 }
                 catch(EOFException | SocketException e){
-                    server.lostConnection(id);
-                    lostConnectionShutdown();
+                    if(!closing) lostConnection();
                     break;
                 }
                 catch (IOException | ClassNotFoundException e) {
@@ -60,51 +63,72 @@ public class NetworkClient implements RepClient {
                 }
             }
 
+            //close the socket
+            try {
+                socket.close();
+            }
+            catch (IOException ignored) {}
+
+            //close streams
+            try {
+                output.close();
+                input.close();
+            }
+            catch (IOException ignored) {}
         }).start();
     }
 
 
     /* Utility Methods */
 
-    private void lostConnectionShutdown(){
-
+    /**
+     * Called when a disconnect message is received.
+     */
+    private void disconnected(Disconnect disconnect) {
         listen = false;
-        try {
-            input.close();
-            output.close();
-        }
-        catch (IOException e) {
-            e.printStackTrace();
-        }
+        closing = true;
 
+        server.disconnectedFrom(id, disconnect.reasonText);
+    }
+
+    /**
+     * Called when connection is lost unexpectedly.
+     */
+    private void lostConnection() {
+        listen = false;
+        closing = true;
+
+        server.lostConnectionWith(id);
     }
 
 
-    /* Client Methods */
+    /* Client Representation Methods */
 
-    @Override
     public int getId() {
         return id;
     }
 
-    @Override
-    public void writeToStream(Message message) {
+    public void writeToStream(Transmission transmission) {
         try {
-            output.writeObject(message);
+            output.writeObject(transmission);
         } catch (IOException e) {
-            e.printStackTrace();
+            if(!server.getShutdown()) e.printStackTrace();
         }
     }
 
-    @Override
-    public void disconnect() {
+    /**
+     * Called when the server initiates a disconnect.
+     */
+    public void shutdown(){
+        //stop listening and close streams
         listen = false;
-
+        closing = true;
         try {
             output.close();
             input.close();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+        catch (IOException ignored) {}
     }
+
+
 }

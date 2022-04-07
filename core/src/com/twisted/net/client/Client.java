@@ -1,8 +1,8 @@
 package com.twisted.net.client;
 
-import com.twisted.net.msg.MDisconnect;
+import com.twisted.net.msg.Disconnect;
 import com.twisted.net.msg.Message;
-import com.twisted.vis.ClientsideContact;
+import com.twisted.net.msg.Transmission;
 
 import java.io.EOFException;
 import java.io.IOException;
@@ -15,7 +15,7 @@ import java.net.SocketException;
 /**
  * The class that represents the client-side of the network connection.
  */
-public class Client implements ClientsideContact {
+public class Client {
 
     //exterior
     private ClientContact contact;
@@ -25,9 +25,11 @@ public class Client implements ClientsideContact {
 
     //state
     private boolean listen;
+    private boolean closing;
 
     //streams and sockets
     private Socket socket;
+    private ObjectInputStream input;
     private ObjectOutputStream output;
 
 
@@ -35,6 +37,8 @@ public class Client implements ClientsideContact {
 
     public Client(ClientContact contact, String hostname, int port){
         this.contact = contact;
+
+        closing = false;
 
         new Thread(() -> {
             socket = new Socket();
@@ -44,7 +48,7 @@ public class Client implements ClientsideContact {
 
                 //streams
                 output = new ObjectOutputStream(socket.getOutputStream());
-                ObjectInputStream input = new ObjectInputStream(socket.getInputStream());
+                input = new ObjectInputStream(socket.getInputStream());
 
                 //start conversing
                 converse(input);
@@ -52,13 +56,11 @@ public class Client implements ClientsideContact {
                 //tell contact
                 contact.connectedToServer();
 
-            } catch (IOException e) {
-                //send message back to lobby
-                contact.failedToConnect();
-
-                e.printStackTrace();
             }
-
+            catch (IOException | IllegalArgumentException  e) {
+                //send message back
+                contact.failedToConnect();
+            }
 
         }).start();
 
@@ -70,9 +72,9 @@ public class Client implements ClientsideContact {
     /**
      * Send a message over the network to the server.
      */
-    public void send(Message message){
+    public void send(Transmission t){
         try {
-            output.writeObject(message);
+            output.writeObject(t);
         }
         catch (IOException e) {
             //ignore exceptions
@@ -84,20 +86,13 @@ public class Client implements ClientsideContact {
      * Disconnect from the server, if connected, and close everything of the client's.
      */
     public void shutdown(){
-
-        listen = false;
-
-        //send disconnect and close socket
+        //send disconnect
         if(socket.isConnected()){
-            send(new MDisconnect());
-
-            //close socket
-            try {
-                socket.close();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            send(new Disconnect());
         }
+
+        closing = true;
+        listen = false;
     }
 
 
@@ -109,28 +104,20 @@ public class Client implements ClientsideContact {
         new Thread(() -> {
             while(listen){
                 try {
-                    Message message = (Message) input.readObject();
+                    Transmission transmission = (Transmission) input.readObject();
 
-                    if(message instanceof MDisconnect){
-                        listen = false;
-                        contact.kickedFromServer(message);
-                    }
-                    else {
-                        contact.clientReceived(message);
-                    }
+                    //handle non-messages
+                    if(transmission instanceof Disconnect) disconnected((Disconnect) transmission);
+                    //tell higher ups about messages
+                    else contact.clientReceived((Message) transmission);
                 }
                 catch(EOFException | SocketException e){
-                    //intentionally left
-                    if(listen) {
-                        contact.lostConnectionToServer();
-                        listen = false;
-                    }
+                    if(!closing) lostConnection();
                     break;
                 }
                 catch(IOException e) {
                     e.printStackTrace();
-                    contact.lostConnectionToServer();
-                    listen = false;
+                    if(!closing) lostConnection();
                     break;
                 }
                 catch(ClassNotFoundException e){
@@ -139,12 +126,31 @@ public class Client implements ClientsideContact {
                 }
             }
 
+            //close the socket
             try {
-                input.close();
-            } catch (IOException e) {
-                e.printStackTrace();
+                if(socket.isConnected()) socket.close();
             }
+            catch (IOException ignored) {}
+
+            //close the streams
+            try {
+                output.close();
+                input.close();
+            }
+            catch (IOException ignored) {}
         }).start();
+    }
+
+    private void disconnected(Disconnect disconnect){
+        listen = false;
+        closing = true;
+        contact.disconnected(disconnect.reasonText);
+    }
+
+    private void lostConnection(){
+        listen = false;
+        closing = true;
+        contact.lostConnection();
     }
 
 }

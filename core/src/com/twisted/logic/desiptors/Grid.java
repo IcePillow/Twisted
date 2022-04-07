@@ -1,7 +1,12 @@
-package com.twisted.logic;
+package com.twisted.logic.desiptors;
+
+import com.twisted.logic.entities.Station;
 
 import java.io.Serializable;
 
+/**
+ * Client and serverside representation of a particular part of space in game.
+ */
 public class Grid implements Serializable {
 
     /* Variables */

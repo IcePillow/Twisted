@@ -1,25 +1,35 @@
 package com.twisted.vis.state;
 
-import com.badlogic.gdx.graphics.Color;
+import com.twisted.vis.PlayColor;
 
+/**
+ * Clientside representation of a player.
+ */
 public class GamePlayer {
 
-    //the player id
-    private String name;
+    //player id
+    private final int id;
+    public int getId(){
+        return id;
+    }
+
+    //the player name
+    private final String name;
     public String getName() {
         return name;
     }
 
     //the color used for the player
-    public GameState.PlayerColor color;
+    public PlayColor color;
 
     /**
      * Constructor
      */
-    public GamePlayer(String name){
+    public GamePlayer(int id, String name){
+        this.id = id;
         this.name = name;
 
-        this.color = GameState.PlayerColor.BLACK;
+        this.color = PlayColor.BLACK;
     }
 
 }

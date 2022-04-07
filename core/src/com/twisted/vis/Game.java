@@ -1,19 +1,30 @@
 package com.twisted.vis;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
-import com.badlogic.gdx.scenes.scene2d.ui.Image;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Null;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
-import com.twisted.logic.Grid;
+import com.twisted.logic.GameHost;
+import com.twisted.logic.desiptors.Gem;
+import com.twisted.logic.desiptors.Grid;
+import com.twisted.logic.entities.Station;
+import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
-import com.twisted.net.msg.MGameStart;
-import com.twisted.net.msg.MGameState;
-import com.twisted.net.msg.Message;
+import com.twisted.net.msg.*;
+import com.twisted.net.msg.gameRequest.MJobRequest;
+import com.twisted.net.msg.remaining.MGameStart;
 import com.twisted.vis.state.GameState;
 
 
@@ -21,9 +32,8 @@ import com.twisted.vis.state.GameState;
  * The Game Screen
  *
  * Structure Comment
+    > shapeRenderer
     > stage
-        > [background image]
-        > viewGroup (main viewport)
         > minimapGroup (shows map and allows switching between grids)
         > fleetGroup (shows player controlled entities)
             ~ fleetWindowGroup
@@ -33,22 +43,40 @@ import com.twisted.vis.state.GameState;
  */
 public class Game implements Screen, ClientContact {
 
+    //static references
+    private static final String[] COLOR_FILENAMES = {"blue", "orange", "gray"};
+
     //exterior references
     private Main main;
-    private ClientsideContact contact;
-    public void setContact(ClientsideContact contact){
-        this.contact = contact;
+    private GameHost host;
+    public void setHost(GameHost host){
+        this.host = host;
+    }
+    private Client client;
+    public void setClient(Client client){
+        this.client = client;
     }
 
     //state tracking
     private GameState state;
+    private int activeGridId; //the id of the active grid
 
-    //graphics
+    //graphics high level utilities
     private Stage stage;
     private Skin skin;
+    private OrthographicCamera camera;
+    private Vector2 camPos;
+    private SpriteBatch sprite;
+
+    //graphics personalized utilities
+    private Thread industryLogFadeThread;
 
     //top level groups
-    private Group viewGroup, minimapGroup, fleetGroup, industryGroup, optionsGroup;
+    private Group minimapGroup, fleetGroup, industryGroup, optionsGroup;
+
+    //lower level industry actors
+    private VerticalGroup industryVertical;
+    private Label industryFocusStation, industryLogLabel;
 
 
     /* Constructor */
@@ -72,8 +100,19 @@ public class Game implements Screen, ClientContact {
 
     @Override
     public void render(float delta) {
+        //reset background
         Gdx.gl.glClearColor(0, 0, 0f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        //input
+        handleInput();
+
+        //live drawings
+        camera.update();
+        sprite.setProjectionMatrix(camera.combined);
+        if(state != null && state.readyToRender) renderViewport();
+
+        //scene2d updates
         stage.act(delta);
         stage.draw();
     }
@@ -100,17 +139,33 @@ public class Game implements Screen, ClientContact {
 
     @Override
     public void dispose() {
+        //top level
+        sprite.dispose();
+        skin.dispose();
 
+        //high level sprites
+        state.viewportBackground.dispose();
+
+        //station sprites
+        for(String key : Station.viewportSprites.keySet().toArray(new String[0])){
+            Station.viewportSprites.remove(key).dispose();
+        }
     }
 
 
     /* ClientContact Methods */
 
+    /**
+     * Should never be called in game.
+     */
     @Override
     public void connectedToServer() {
 
     }
 
+    /**
+     * Should never be called in Game.
+     */
     @Override
     public void failedToConnect() {
 
@@ -118,45 +173,141 @@ public class Game implements Screen, ClientContact {
 
     @Override
     public void clientReceived(Message msg) {
-
-        //standard message updating on the state of the game
-        if(msg instanceof MGameState){
-
-            //TODO update the state
-
-            //TODO update the visuals
-
-        }
         //start the game and load initial information
         if(msg instanceof MGameStart){
             if(state != null){
                 System.out.println("[Warning] Unexpected MGameStart received with an active GameState");
             }
             else {
-
                 //get the message and create the state
                 MGameStart m = (MGameStart) msg;
-                state = new GameState(m.yourPlayer, m.getPlayers());
+                state = new GameState(m.getPlayers(), m.getColors());
 
-                //copy data logically
+                //copy data
+                state.myId = m.yourPlayerId;
                 state.mapWidth = m.mapWidth;
                 state.mapHeight = m.mapHeight;
                 state.grids = m.grids;
 
-                //TODO load the graphics
-                loadMinimap();
+                //load the graphics on the gdx thread
+                Gdx.app.postRunnable(() -> {
+                    loadGraphics();
+                    loadMinimap();
+                    loadViewport();
+                    loadIndustry();
+
+                    state.readyToRender = true;
+                });
             }
         }
     }
 
     @Override
-    public void kickedFromServer(Message message) {
-
+    public void disconnected(String reason){
+        //TODO this function
     }
 
     @Override
-    public void lostConnectionToServer() {
+    public void lostConnection() {
+        //TODO this function
+    }
 
+
+    /* Handling Input */
+
+    /**
+     * Called each tick to handle user input.
+     */
+    private void handleInput(){
+
+        //move the camera around
+        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
+            camera.translate(5, 0);
+            camPos.x += 5;
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
+            camera.translate(-5, 0);
+            camPos.x -= 5;
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
+            camera.translate(0, 5);
+            camPos.y += 5;
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
+            camera.translate(0, -5);
+            camPos.y -= 5;
+        }
+
+    }
+
+    /**
+     * Called when the current grid being looked at in the viewport needs to be switched.
+     */
+    private void switchGrid(int newGrid){
+        activeGridId = newGrid;
+
+        //undo all movements of the camera and update the position
+        camera.translate(-camPos.x, -camPos.y);
+        camPos.x = 0;
+        camPos.y = 0;
+
+        //move minimap selection square
+        minimapGroup.getChild(2).setPosition(3 + state.grids[activeGridId].x*250f/1000f - 10,
+                3 + state.grids[activeGridId].y*250f/1000f - 10);
+    }
+
+    /**
+     * Called when the user clicks on a station in the industry menu.
+     */
+    private void industryFocusStation(Station station){
+
+        industryFocusStation.setText(station.name);
+
+        //TODO grab the job queue
+    }
+
+    /**
+     * Called when the user attempts to start a job at a station.
+     */
+    private void industryJobRequest(Station station, Station.Job job){
+        updateIndustryLog("Build " + job.name() + " @ " + station.name,
+                new float[]{0.7f, 0.7f, 0.7f});
+
+        client.send(new MJobRequest(station.grid, job));
+    }
+
+    /**
+     * Called when the industry log window needs to have a new message displayed.
+     * @param color Array of length 3 with the initial color in rgb form.
+     */
+    private void updateIndustryLog(String string, float[] color){
+
+        //deal with current thread if it exists
+        if(industryLogFadeThread != null) industryLogFadeThread.interrupt();
+
+        //set up the new string and initial color
+        industryLogLabel.setText(string);
+        industryLogLabel.setColor(color[0], color[1], color[2], 1);
+
+        //create and start the new thread
+        industryLogFadeThread = new Thread(() -> {
+            try {
+                Thread.sleep(500);
+
+                for(float i=1; i>0; i-=0.1f){
+                    //check a new string hasn't overwritten
+                    if(!(industryLogLabel.getText().toString().equals(string))) break;
+
+                    //update color then wait
+                    industryLogLabel.setColor(color[0], color[1], color[2], i);
+                        Thread.sleep(80);
+                }
+            } catch (InterruptedException e) {
+                //exit
+            }
+
+        });
+        industryLogFadeThread.start();
     }
 
 
@@ -164,6 +315,10 @@ public class Game implements Screen, ClientContact {
 
     /**
      * Initial function for loading
+     *
+     * Init Functions - Called once upon construction of the Game class.
+     * Load Functions - Called when the gameStart message is received from the network sector.
+     * Render Functions - Called each frame.
      */
     private void initGraphics(){
 
@@ -171,34 +326,80 @@ public class Game implements Screen, ClientContact {
         skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
 
         //and the background
-        initBackground();
+        initViewport();
 
         //and the groups
         stage.addActor(initMinimapGroup());
-        stage.addActor(initViewGroup());
         stage.addActor(initFleetGroup());
         stage.addActor(initIndustryGroup());
         stage.addActor(initOptionsGroup());
-    }
 
-    /**
-     * Background
-     */
-    private void initBackground(){
-        //set the background
-        Image image = new Image(new Texture(Gdx.files.internal("images/pixels/navy.png")));
-        image.setBounds(0, 0, Main.WIDTH, Main.HEIGHT);
-        stage.addActor(image);
+        //logic
+        activeGridId = 0;
+    }
+    private void loadGraphics(){
+        for(Grid g : state.grids){
+            if(g.station.owner == state.myId){
+                switchGrid(g.id);
+                break;
+            }
+        }
     }
 
     /**
      * Viewport
      */
-    private Group initViewGroup(){
+    private void initViewport(){
 
-        viewGroup = new Group();
+        camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
+        camPos = new Vector2(0, 0);
 
-        return viewGroup;
+        sprite = new SpriteBatch();
+
+    }
+    private void loadViewport(){
+
+        //load the background
+        state.viewportBackground = new Texture(Gdx.files.internal("images/pixels/navy.png"));
+
+        //load in the station graphics
+        for(Station.Type type : Station.Type.values()){
+            String s1 = type.name().toLowerCase();
+
+            //loop through the possible colors
+            for(String s2 : COLOR_FILENAMES){
+                Station.viewportSprites.put(s1 + "-" + s2,
+                        new Texture(Gdx.files.internal("images/stations/" + s1 + "-" + s2 + ".png")));
+            }
+        }
+
+    }
+    private void renderViewport(){
+
+        //access the grid and start drawing
+        Grid g = state.grids[activeGridId];
+        sprite.begin();
+
+        //background
+        sprite.draw(state.viewportBackground, camPos.x-stage.getWidth()/2, camPos.y-stage.getHeight()/2,
+                stage.getWidth(), stage.getHeight());
+
+        //draw the station
+        if(g.station.owner == 0){
+            //draw at center corrected for size
+            sprite.draw(Station.viewportSprites.get(
+                    g.station.getFilename().toLowerCase() + "-gray"),
+                    -50, -50, 100, 100);
+        }
+        else {
+                //draw at center corrected for size
+                sprite.draw(Station.viewportSprites.get(
+                                g.station.getFilename().toLowerCase() + "-" + state.players.get(g.station.owner).color.file),
+                        -50, -50, 100, 100);
+            }
+
+        //end drawing
+        sprite.end();
     }
 
     /**
@@ -217,29 +418,73 @@ public class Game implements Screen, ClientContact {
         embedded.setSize(minimapGroup.getWidth()-6, minimapGroup.getHeight()-6);
         minimapGroup.addActor(embedded);
 
+        Image activeSquare = new Image(new Texture(Gdx.files.internal("images/ui/white-square-1.png")));
+        activeSquare.setPosition(minimapGroup.getWidth()/2, minimapGroup.getHeight()/2);
+        activeSquare.setSize(20, 20);
+        minimapGroup.addActor(activeSquare);
+
         return minimapGroup;
     }
     private void loadMinimap(){
 
-        for(Grid grid : state.grids){
+        //load the grids
+        for(Grid g : state.grids){
+            //load the minimap icon
+            if(g.station.owner == 0){
+                g.station.minimapSprite = new Image(new Texture(Gdx.files.internal("images/circles/gray.png")));
+            }
+            else {
+                g.station.minimapSprite = new Image(new Texture(Gdx.files.internal("images/circles/"
+                        + state.players.get(g.station.owner).color.file + ".png")));
+            }
 
-            Gdx.app.postRunnable(() -> {
-                grid.station.minimapSprite = new Image(new Texture(Gdx.files.internal("images/circles/"
-                        + state.players.get(grid.station.owner).color.toString().toLowerCase() + ".png")));
+            //position is (indent + scaled positioning - half the width)
+            g.station.minimapSprite.setPosition(3 + g.x*250f/1000f - 5, 3 + g.y*250f/1000f - 5);
+            g.station.minimapSprite.setSize(10, 10);
 
-                grid.station.minimapSprite.setPosition(3 + grid.x*250f/1000f - 4.5f, 3 + grid.y*250f/1000f - 4.5f);
-                grid.station.minimapSprite.setSize(9, 9);
+            //load the minimap label
+            Label label = new Label(g.station.name, skin, "small", Color.GRAY);
+            g.station.minimapLabel = label;
+            label.setVisible(false);
+            if(g.station.minimapSprite.getX() < 3+label.getWidth()/2f){
+                label.setPosition((g.x*250f/1000f-label.getWidth()/2f) + (3+label.getWidth()/2f) - (g.station.minimapSprite.getX()), g.y*250f/1000f + 6);
+            }
+            else if(g.station.minimapSprite.getX() + label.getWidth()/2f > 248){
+                label.setPosition((g.x*250f/1000f-label.getWidth()/2f) - (g.station.minimapSprite.getX()+label.getWidth()/2f) + (248), g.y*250f/1000f + 6);
+            }
+            else {
+                label.setPosition((g.x*250f/1000f-label.getWidth()/2f), g.y*250f/1000f + 6);
+            }
 
-                grid.station.minimapSprite.addListener(event -> {
-                    if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.touchDown){
-                        //TODO input handling
-                    }
-                    return false;
-                });
+            //add to the minimap group
+            minimapGroup.addActor(g.station.minimapSprite);
+            minimapGroup.addActor(g.station.minimapLabel);
 
-                minimapGroup.addActor(grid.station.minimapSprite);
+            //listeners
+            g.station.minimapSprite.addListener(event -> {
+                //entering and exiting
+                if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                    g.station.minimapLabel.setVisible(true);
+                }
+                else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit){
+                    g.station.minimapLabel.setVisible(false);
+                }
+
+                return false;
+            });
+
+            g.station.minimapSprite.addListener(new ClickListener(Input.Buttons.LEFT){
+                @Override
+                public void clicked(InputEvent event, float x, float y){
+                    //update the active grid
+                    switchGrid(g.id);
+                }
             });
         }
+
+        //move the active square
+        Grid g = state.grids[activeGridId];
+        minimapGroup.getChild(2).setPosition(3 + g.x*250f/1000f - 10, 3 + g.y*250f/1000f - 10);
 
     }
 
@@ -275,16 +520,246 @@ public class Game implements Screen, ClientContact {
      * Industry Window
      */
     private Group initIndustryGroup(){
+        final int FOCUS_HEIGHT = 150;
+        final int LOG_HEIGHT = 20;
+
         //initialize the top level group
         industryGroup = new Group();
-        industryGroup.setBounds(Main.WIDTH-275, 260, 275, 395);
+        industryGroup.setBounds(Main.WIDTH-275, 260, 275, 410); //original height=395
 
         //main background
         Image main = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
         main.setSize(industryGroup.getWidth(), industryGroup.getHeight());
         industryGroup.addActor(main);
 
+        /* primary scroll pane */
+
+        //create the main scroll pane
+        industryVertical = new VerticalGroup();
+        industryVertical.top().left();
+        industryVertical.columnAlign(Align.left);
+
+        ScrollPane pane = new ScrollPane(industryVertical, skin);
+        pane.setBounds(3, 3 + FOCUS_HEIGHT+3, industryGroup.getWidth()-6,
+                industryGroup.getHeight()-6 - (3+FOCUS_HEIGHT) - (3+LOG_HEIGHT));
+        pane.setScrollingDisabled(true, false);
+        pane.setupFadeScrollBars(0.2f, 0.2f);
+        pane.setSmoothScrolling(false);
+        pane.setColor(Color.BLACK);
+
+        industryGroup.addActor(pane);
+
+        /* focus */
+
+        //create the focus group
+        Group focusGroup = new Group();
+        focusGroup.setBounds(3, 3, industryGroup.getWidth()-6, FOCUS_HEIGHT);
+        industryGroup.addActor(focusGroup);
+
+        //make the background image
+        Image focusBackground = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        focusBackground.setSize(focusGroup.getWidth(), focusGroup.getHeight());
+        focusGroup.addActor(focusBackground);
+
+        //name of the station currently in focus
+        industryFocusStation = new Label("[Station]", skin, "small", Color.WHITE);
+        industryFocusStation.setPosition(3, FOCUS_HEIGHT- industryFocusStation.getHeight()-3);
+        focusGroup.addActor(industryFocusStation);
+
+        //job queue title
+        Label jobQueueTitle = new Label("Job Queue", skin, "small", Color.GRAY);
+        jobQueueTitle.setPosition(focusGroup.getWidth()-3-150, industryFocusStation.getY()-jobQueueTitle.getHeight());
+        focusGroup.addActor(jobQueueTitle);
+
+        //job queue pane
+        VerticalGroup jobQueueWidget = new VerticalGroup();
+        ScrollPane queuePane = new ScrollPane(jobQueueWidget, skin);
+        queuePane.setBounds(focusGroup.getWidth()-3-150, 3, 150, jobQueueTitle.getY()-3);
+        queuePane.setColor(Color.GRAY);
+        focusGroup.addActor(queuePane);
+
+        //TODO add a flag/color for the current state (i.e. armored, reinforced)
+
+        /* Log Group */
+        Group logGroup = new Group();
+        logGroup.setBounds(3, industryGroup.getHeight()-3-LOG_HEIGHT, industryGroup.getWidth()-6, LOG_HEIGHT);
+        industryGroup.addActor(logGroup);
+
+        //make the image
+        Image logBackground = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        logBackground.setSize(logGroup.getWidth(), logGroup.getHeight());
+        logGroup.addActor(logBackground);
+
+        //make the label
+        industryLogLabel = new Label("Log label", skin, "small", Color.GRAY);
+        industryLogLabel.setPosition(3, -1);
+        logGroup.addActor(industryLogLabel);
+
+
         return industryGroup;
+    }
+    private void loadIndustry(){
+        //loop through the grids
+        for(Grid g : state.grids){
+
+            /* Top Level for Station */
+            VerticalGroup stationGroup = new VerticalGroup();
+            stationGroup.columnAlign(Align.left);
+            industryVertical.addActor(stationGroup);
+
+            /* Title bar for station */
+            HorizontalGroup stationTitleBar = new HorizontalGroup();
+
+            //create and add the dropdown icon
+            Image dropdown = new Image(new Texture(Gdx.files.internal("images/ui/gray-arrow-3.png")));
+            dropdown.setOrigin(dropdown.getWidth()/2f, dropdown.getHeight()/2f);
+            stationTitleBar.addActor(dropdown);
+
+            //create and add the name label
+            Label stationNameLabel = new Label(g.station.name, skin, "small");
+            stationNameLabel.setAlignment(Align.left);
+            stationTitleBar.addActor(stationNameLabel);
+
+            //add the group to the station group
+            stationGroup.addActor(stationTitleBar);
+
+            /* Expanded Section */
+            VerticalGroup child = new VerticalGroup();
+            child.columnAlign(Align.left);
+
+            Table resourceBar = new Table();
+            resourceBar.padLeft(16);
+
+            //calculate widths for resource bar
+            int allowedImageWidth = 18;
+            int allowedLabelWidth = (int) Math.floor((industryVertical.getWidth()-10-16-18*4)/4);
+
+            //loop through gem files
+            g.station.industryResourceLabels = new Label[4];
+            int index=0;
+            for(String filename : new String[]{"calcite", "kernite", "pyrene", "crystal"}){
+
+                Image image = new Image(new Texture(Gdx.files.internal("images/gems/" + filename + ".png")));
+                Label label = new Label("0", skin, "small");
+
+                resourceBar.add(image).minWidth(allowedImageWidth);
+                resourceBar.add(label).minWidth(allowedLabelWidth);
+
+                //add to the station object
+                g.station.industryResourceLabels[index] = label;
+                index++;
+            }
+            child.addActor(resourceBar);
+
+            /* Jobs */
+            //create costs groups
+            Table jobTable = new Table();
+            jobTable.align(Align.left);
+            jobTable.padLeft(12).padBottom(5);
+            child.addActor(jobTable);
+
+            //loop through all the jobs
+            for(Station.Job job : g.station.getPossibleJobs()){
+
+                Label nameLabel = new Label(job.name(), skin, "small", Color.WHITE);
+                nameLabel.setColor(Color.GRAY);
+                jobTable.add(nameLabel).align(Align.left).padRight(10);
+
+                //create the cost labels
+                Label[] costLabels = new Label[4];
+                int i=0;
+                for(Gem gem : Gem.orderedGems){
+                    costLabels[i] = new Label(""+job.getGemCost(gem), skin, "small", Color.WHITE);
+                    costLabels[i].setColor(Color.GRAY);
+                    jobTable.add(costLabels[i]).width(40);
+                    i++;
+                }
+
+                jobTable.row();
+
+                //listener for color change
+                nameLabel.addListener(new InputListener() {
+                    /*
+                    These extra complications were necessary because of what seems like a bug in
+                    the library. Clicking on the actor without moving causes an enter event then an
+                    exit event to occur. These two booleans track and account for this.
+                     */
+                    boolean entered = false;
+                    boolean extraEnter = false;
+                    @Override
+                    public void enter(InputEvent event, float x, float y, int pointer, @Null Actor fromActor){
+                        if(entered){
+                            extraEnter = true;
+                        }
+                        else {
+                            changeNodeColors(Color.LIGHT_GRAY);
+                            entered = true;
+                        }
+                    }
+                    @Override
+                    public void exit(InputEvent event, float x, float y, int pointer, @Null Actor fromActor){
+                        if(extraEnter){
+                            extraEnter = false;
+                        }
+                        else {
+                            entered = false;
+                            changeNodeColors(Color.GRAY);
+                        }
+                    }
+
+                    //changes the color to light gray and back
+                    private void changeNodeColors(Color color){
+                        nameLabel.setColor(color);
+                        for(Label label : costLabels){
+                            label.setColor(color);
+                        }
+                    }
+                });
+                //listener for requesting jobs on clicks
+                nameLabel.addListener(new ClickListener(Input.Buttons.LEFT) {
+                    @Override
+                    public void clicked(InputEvent event, float x, float y){
+                        industryJobRequest(g.station, job);
+                    }
+                });
+            }
+
+            /* Add listeners */
+            dropdown.addListener(new ClickListener(Input.Buttons.LEFT){
+                private boolean down = false;
+                @Override
+                public void clicked(InputEvent event, float x, float y){
+                    if(down){
+                        dropdown.rotateBy(90);
+
+                        //remove the child
+                        stationGroup.removeActor(child);
+                    }
+                    //not down
+                    else {
+                        dropdown.rotateBy(-90);
+
+                        //add the child
+                        stationGroup.addActorAfter(stationTitleBar, child);
+                    }
+                    down = !down;
+                }
+            });
+            stationNameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
+                @Override
+                public void clicked(InputEvent event, float x, float y){
+                    industryFocusStation(g.station);
+                }
+            });
+
+            /* Visibility */
+            if(g.station.owner != state.myId){
+                stationGroup.getParent().removeActor(stationGroup);
+
+                //TODO add them back to the parent when ownership is regained
+            }
+
+        }
     }
 
     /**
