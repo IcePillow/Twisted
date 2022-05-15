@@ -1,8 +1,10 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup;
 import com.twisted.logic.desiptors.Gem;
 import com.twisted.logic.desiptors.CurrentJob;
 
@@ -59,7 +61,7 @@ public abstract class Station implements Serializable {
     /* Data Methods */
 
     public abstract String getFilename();
-
+    public abstract Vector2 getSize();
     public abstract Job[] getPossibleJobs();
 
 
@@ -67,6 +69,7 @@ public abstract class Station implements Serializable {
 
     /**
      * Checks if a resource array has enough for this job.
+     * @return true if there are enough resources, false otherwise.
      */
     public boolean enoughForJob(Job job){
         for(int i=0; i<Gem.orderedGems.length; i++){
@@ -115,7 +118,7 @@ public abstract class Station implements Serializable {
      */
     public enum Job {
 
-        Frigate(10, 2, 0, 0, 15),
+        Frigate(10, 2, 0, 0, 5),
         Cruiser(25, 5, 2, 0, 30),
         Battleship(100, 0, 10, 10, 90),
         Barge(150, 50, 0, 0, 120),

@@ -1,10 +1,13 @@
 package com.twisted.logic.entities;
 
-public class Harvester extends Station{
+import com.badlogic.gdx.math.Vector2;
+
+public class Harvester extends Station {
 
     private static final Job[] possibleJobs = new Job[]{
             Job.Frigate, Job.Cruiser, Job.Battleship, Job.Titan,
             Job.Extractor};
+    private static final Vector2 size = new Vector2(128, 128);
 
 
     /**
@@ -20,6 +23,11 @@ public class Harvester extends Station{
     @Override
     public String getFilename() {
         return "harvester";
+    }
+
+    @Override
+    public Vector2 getSize(){
+        return size;
     }
 
     @Override

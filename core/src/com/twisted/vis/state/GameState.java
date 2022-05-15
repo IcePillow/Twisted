@@ -1,6 +1,7 @@
 package com.twisted.vis.state;
 
 import com.badlogic.gdx.graphics.Texture;
+import com.twisted.logic.desiptors.CurrentJob;
 import com.twisted.logic.desiptors.Grid;
 import com.twisted.vis.PlayColor;
 
@@ -29,7 +30,10 @@ public class GameState {
     //map
     public int mapWidth;
     public int mapHeight;
+
+    //main state storage
     public Grid[] grids;
+    public HashMap<Integer, CurrentJob> jobs;
 
 
     /* Sprites */
@@ -57,6 +61,9 @@ public class GameState {
             //add it
             this.players.put(gamePlayer.getId(), gamePlayer);
         }
+
+        //prepare state storage
+        jobs = new HashMap<>();
 
     }
 

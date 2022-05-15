@@ -3,6 +3,7 @@ Colors
     Orange - 0xfb8c00ff
     Light green - 0x4caf50ff
     Purple - 0xab47bcff
+    Gray - 0x9d9d9dff
 Skins & Fonts
     Credits for sgx
         SGX UI Ver. 1

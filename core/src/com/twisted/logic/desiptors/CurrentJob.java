@@ -2,19 +2,23 @@ package com.twisted.logic.desiptors;
 
 import com.twisted.logic.entities.Station;
 
-public class CurrentJob {
+import java.io.Serializable;
+
+public class CurrentJob implements Serializable {
+
+    /* Details */
 
     public final int jobId;
-    public final int playerId;
-    public final Station.Job job;
+    public final int owner;
+    public final Station.Job jobType;
     public final int grid;
 
     public float timeLeft;
 
-    public CurrentJob(int jobId, int playerId, Station.Job job, int grid, float timeLeft){
+    public CurrentJob(int jobId, int owner, Station.Job jobType, int grid, float timeLeft){
         this.jobId = jobId;
-        this.playerId = playerId;
-        this.job = job;
+        this.owner = owner;
+        this.jobType = jobType;
         this.grid = grid;
         this.timeLeft = timeLeft;
     }

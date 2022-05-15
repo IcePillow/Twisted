@@ -17,15 +17,25 @@ import com.badlogic.gdx.utils.Null;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
 import com.twisted.logic.GameHost;
+import com.twisted.logic.desiptors.CurrentJob;
 import com.twisted.logic.desiptors.Gem;
 import com.twisted.logic.desiptors.Grid;
+import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameRequest.MJobRequest;
+import com.twisted.net.msg.gameUpdate.MAddShip;
+import com.twisted.net.msg.gameUpdate.MChangeJob;
+import com.twisted.net.msg.gameUpdate.MGameOverview;
+import com.twisted.net.msg.gameUpdate.MShipUpd;
+import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
 import com.twisted.vis.state.GameState;
+
+import java.util.ArrayList;
+import java.util.Map;
 
 
 /**
@@ -57,9 +67,12 @@ public class Game implements Screen, ClientContact {
         this.client = client;
     }
 
-    //state tracking
+    //game state tracking
     private GameState state;
+
+    //visual state tracking
     private int activeGridId; //the id of the active grid
+    private int industryFocusedStationId = -1; //the grid id of the focused station
 
     //graphics high level utilities
     private Stage stage;
@@ -75,7 +88,7 @@ public class Game implements Screen, ClientContact {
     private Group minimapGroup, fleetGroup, industryGroup, optionsGroup;
 
     //lower level industry actors
-    private VerticalGroup industryVertical;
+    private VerticalGroup industryVertical, jobQueueWidget;
     private Label industryFocusStation, industryLogLabel;
 
 
@@ -110,7 +123,10 @@ public class Game implements Screen, ClientContact {
         //live drawings
         camera.update();
         sprite.setProjectionMatrix(camera.combined);
-        if(state != null && state.readyToRender) renderViewport();
+        if(state != null && state.readyToRender) {
+            renderViewport();
+            renderIndustry();
+        }
 
         //scene2d updates
         stage.act(delta);
@@ -156,7 +172,7 @@ public class Game implements Screen, ClientContact {
     /* ClientContact Methods */
 
     /**
-     * Should never be called in game.
+     * Should never be called in Game.
      */
     @Override
     public void connectedToServer() {
@@ -171,9 +187,11 @@ public class Game implements Screen, ClientContact {
 
     }
 
+    /**
+     * Receiving messages from the server.
+     */
     @Override
     public void clientReceived(Message msg) {
-        //start the game and load initial information
         if(msg instanceof MGameStart){
             if(state != null){
                 System.out.println("[Warning] Unexpected MGameStart received with an active GameState");
@@ -199,6 +217,49 @@ public class Game implements Screen, ClientContact {
                     state.readyToRender = true;
                 });
             }
+        }
+        else if(msg instanceof MGameOverview){
+            MGameOverview m = (MGameOverview) msg;
+
+            //update each timer
+            for(Map.Entry<Integer, Float> e : m.jobToTimeLeft.entrySet()){
+                state.jobs.get(e.getKey()).timeLeft = e.getValue();
+            }
+            //update station resources
+            for(Map.Entry<Integer, int[]> e : m.stationToResources.entrySet()){
+                System.arraycopy(e.getValue(), 0, state.grids[e.getKey()].station.resources, 0, e.getValue().length);
+            }
+        }
+        else if(msg instanceof MChangeJob){
+            MChangeJob m = (MChangeJob) msg;
+
+            if(m.action == MChangeJob.Action.ADDING){
+                state.jobs.put(m.job.jobId, m.job);
+                state.grids[m.job.grid].station.currentJobs.add(m.job);
+            }
+            else if(m.action == MChangeJob.Action.FINISHED){
+                state.jobs.remove(m.jobId);
+                state.grids[m.gridId].station.currentJobs.remove(0);
+            }
+            else if(m.action == MChangeJob.Action.CANCELING){
+                //TODO
+            }
+        }
+        else if(msg instanceof MDenyRequest){
+            MDenyRequest deny = (MDenyRequest) msg;
+
+            if(deny.request instanceof MJobRequest){
+                updateIndustryLog(deny.reason, new float[]{1,0,0});
+            }
+        }
+        else if(msg instanceof MAddShip){
+            MAddShip add = (MAddShip) msg;
+
+            state.grids[add.grid].ships.put(add.ship.shipId, add.ship);
+        }
+        else if(msg instanceof MShipUpd){
+            MShipUpd upd = (MShipUpd) msg;
+            upd.copyDataToShip(state.grids[upd.grid].ships.get(upd.shipId));
         }
     }
 
@@ -261,9 +322,24 @@ public class Game implements Screen, ClientContact {
      */
     private void industryFocusStation(Station station){
 
+        industryFocusedStationId = station.grid;
         industryFocusStation.setText(station.name);
 
-        //TODO grab the job queue
+        //add to have enough children
+        for(int i=jobQueueWidget.getChildren().size; i<station.currentJobs.size(); i++){
+            jobQueueWidget.addActor(new Label("X", skin, "small", Color.LIGHT_GRAY));
+        }
+        //remove to not have too many children
+        for(int i=jobQueueWidget.getChildren().size; i>station.currentJobs.size(); i--){
+            jobQueueWidget.removeActorAt(i-1, false).clear();
+        }
+
+        //fill in the current data
+        for(int i=0; i<jobQueueWidget.getChildren().size; i++){
+            ((Label) jobQueueWidget.getChild(i)).setText(station.currentJobs.get(i).jobType + "  " +
+                    (int) Math.ceil(station.currentJobs.get(i).timeLeft));
+        }
+
     }
 
     /**
@@ -373,6 +449,16 @@ public class Game implements Screen, ClientContact {
             }
         }
 
+        //load in the ship graphics
+        for(Ship.Type type : Ship.Type.values()){
+            String s1 = type.name().toLowerCase();
+
+            for(String s2 : COLOR_FILENAMES){
+                Ship.viewportSprites.put(s1 + "-" + s2,
+                        new Texture(Gdx.files.internal("images/ships/" + s1 + "-" + s2 + ".png")));
+            }
+        }
+
     }
     private void renderViewport(){
 
@@ -381,22 +467,39 @@ public class Game implements Screen, ClientContact {
         sprite.begin();
 
         //background
-        sprite.draw(state.viewportBackground, camPos.x-stage.getWidth()/2, camPos.y-stage.getHeight()/2,
+        sprite.draw(state.viewportBackground, camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f,
                 stage.getWidth(), stage.getHeight());
 
         //draw the station
-        if(g.station.owner == 0){
-            //draw at center corrected for size
-            sprite.draw(Station.viewportSprites.get(
-                    g.station.getFilename().toLowerCase() + "-gray"),
-                    -50, -50, 100, 100);
+        Texture stationTexture;
+        if(g.station.owner == 0) {
+            stationTexture = Station.viewportSprites.get(g.station.getFilename().toLowerCase() + "-gray");
         }
         else {
-                //draw at center corrected for size
-                sprite.draw(Station.viewportSprites.get(
-                                g.station.getFilename().toLowerCase() + "-" + state.players.get(g.station.owner).color.file),
-                        -50, -50, 100, 100);
+            stationTexture = Station.viewportSprites.get(g.station.getFilename().toLowerCase() + "-" + state.players.get(g.station.owner).color.file);
+        }
+        sprite.draw(stationTexture, -g.station.getSize().x/2f, -g.station.getSize().y/2f,
+                g.station.getSize().x/2f, g.station.getSize().y/2f,
+                g.station.getSize().x, g.station.getSize().y,
+                1, 1, 0f,
+                0, 0, 128, 128, false, false);
+
+        //draw the ships
+        for(Ship ship : g.ships.values()){
+            Texture shipTexture;
+            if(ship.owner == 0) {
+                shipTexture = Ship.viewportSprites.get(ship.getFilename().toLowerCase() + "-gray");
             }
+            else {
+                shipTexture = Ship.viewportSprites.get(ship.getFilename().toLowerCase() + "-" + state.players.get(ship.owner).color.file);
+            }
+
+            sprite.draw(shipTexture, ship.position.x-ship.getSize().x/2f, ship.position.y-ship.getSize().y/2f,
+                    ship.getSize().x/2f, ship.getSize().y/2f,
+                    ship.getSize().x, ship.getSize().y,
+                    1, 1, ship.rotation,
+                    0, 0, 16, 16, false, false);
+        }
 
         //end drawing
         sprite.end();
@@ -572,7 +675,8 @@ public class Game implements Screen, ClientContact {
         focusGroup.addActor(jobQueueTitle);
 
         //job queue pane
-        VerticalGroup jobQueueWidget = new VerticalGroup();
+        jobQueueWidget = new VerticalGroup();
+        jobQueueWidget.left();
         ScrollPane queuePane = new ScrollPane(jobQueueWidget, skin);
         queuePane.setBounds(focusGroup.getWidth()-3-150, 3, 150, jobQueueTitle.getY()-3);
         queuePane.setColor(Color.GRAY);
@@ -759,6 +863,33 @@ public class Game implements Screen, ClientContact {
                 //TODO add them back to the parent when ownership is regained
             }
 
+        }
+    }
+    private void renderIndustry(){
+        //update the times on the current jobs
+        if(industryFocusedStationId != -1){
+            ArrayList<CurrentJob> arr = state.grids[industryFocusedStationId].station.currentJobs;
+
+            //add to have enough children
+            for(int i=jobQueueWidget.getChildren().size; i<arr.size(); i++){
+                jobQueueWidget.addActor(new Label("", skin, "small", Color.LIGHT_GRAY));
+            }
+            //remove to not have too many children
+            for(int i=jobQueueWidget.getChildren().size; i>arr.size(); i--){
+                jobQueueWidget.removeActorAt(i-1, false).clear();
+            }
+
+            for(int i=0; i<arr.size(); i++){
+                CurrentJob job = arr.get(i);
+                ((Label) jobQueueWidget.getChild(i)).setText(job.jobType + "  " + (int) Math.ceil(job.timeLeft));
+            }
+
+        }
+        //update the resources per station
+        for(Grid g : state.grids){
+            for(int i=0; i<g.station.industryResourceLabels.length; i++){
+                g.station.industryResourceLabels[i].setText(g.station.resources[i]);
+            }
         }
     }
 

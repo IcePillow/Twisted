@@ -2,15 +2,16 @@ package com.twisted.logic;
 
 import com.twisted.logic.desiptors.CurrentJob;
 import com.twisted.logic.desiptors.Grid;
-import com.twisted.logic.entities.Extractor;
-import com.twisted.logic.entities.Harvester;
-import com.twisted.logic.entities.Liquidator;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.*;
 import com.twisted.net.msg.*;
+import com.twisted.net.msg.gameUpdate.MAddShip;
+import com.twisted.net.msg.gameUpdate.MShipUpd;
+import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.gameRequest.MGameRequest;
 import com.twisted.net.msg.gameRequest.MJobRequest;
+import com.twisted.net.msg.gameUpdate.MChangeJob;
+import com.twisted.net.msg.gameUpdate.MGameOverview;
 import com.twisted.net.msg.remaining.MGameStart;
-import com.twisted.net.msg.remaining.MReqRejected;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
@@ -25,6 +26,7 @@ public class GameHost implements ServerContact {
     /* Constants */
 
     public static final int TICK_DELAY = 250; //millis between each tick
+    public static final float FLOAT_DELAY = ((float) TICK_DELAY) / 1000f;
 
 
     /* Exterior Reference Variables */
@@ -39,9 +41,10 @@ public class GameHost implements ServerContact {
     private final int hostId;
 
     //networking and game loop
-    private HashMap<MGameRequest, Integer> requests; //requests being read during game logic
-    private final Map<MGameRequest, Integer> hotRequests; //requests stored between ticks
+    private final HashMap<MGameRequest, Integer> requests; //requests being read during game logic
+    private final Map<MGameRequest, Integer> hotRequests; //requests stored between ticks (synchronized)
     private boolean looping;
+    private float millisSinceMajor;
 
     //map details
     private int mapWidth;
@@ -50,11 +53,16 @@ public class GameHost implements ServerContact {
     //state variables
     private Grid[] grids;
 
-    //tracking variables
+    //tracking variables, should only be accessed through their respective sync'd methods
     private int nextJobId = 1;
     public synchronized int useNextJobId(){
         nextJobId++;
         return nextJobId-1;
+    }
+    private int nextShipId = 1;
+    public synchronized int useNextShipId(){
+        nextShipId++;
+        return nextShipId-1;
     }
 
 
@@ -146,6 +154,12 @@ public class GameHost implements ServerContact {
         grids[6].station = new Liquidator(6, "Liquidator A", 0, Station.Stage.NONE);
         grids[7].station = new Liquidator(7, "Liquidator B", 0, Station.Stage.NONE);
 
+        //add initial resources
+        grids[0].station.resources[0] += 20;
+        grids[0].station.resources[1] += 6;
+        grids[3].station.resources[0] += 20;
+        grids[3].station.resources[1] += 6;
+
     }
 
     /**
@@ -236,7 +250,7 @@ public class GameHost implements ServerContact {
                 loop();
 
                 //sleep
-                sleepTime = startTime+50 - System.currentTimeMillis();
+                sleepTime = startTime+TICK_DELAY - System.currentTimeMillis();
                 if(sleepTime > 0){
                     try {
                         Thread.sleep(sleepTime);
@@ -269,12 +283,110 @@ public class GameHost implements ServerContact {
 
         //handle requests
         for(MGameRequest request : requests.keySet()){
-            int id = requests.get(request);
+            int userId = requests.get(request);
 
-            if(request instanceof MJobRequest) handleJobRequest(id, (MJobRequest) request);
+            if(request instanceof MJobRequest) handleJobRequest(userId, (MJobRequest) request);
+        }
+
+        //updating
+        updateStationTimers();
+        updateShipPhysics();
+
+
+        //major update
+        millisSinceMajor += TICK_DELAY;
+        if(millisSinceMajor > 1000){
+            millisSinceMajor -= 1000;
+            majorLoop();
+        }
+    }
+
+    /**
+     * A function approximately called once per second to do less frequent updates. It does not
+     * change game state, only updates users.
+     */
+    private void majorLoop(){
+
+        HashMap<Integer, MGameOverview> overviews = new HashMap<>(); //playerId -> message
+
+        //create message shells
+        for(Player player : players.values()) {
+            overviews.put(player.getId(), new MGameOverview());
+        }
+
+        //fill station timers
+        for(Grid g : grids){
+            for(CurrentJob j : g.station.currentJobs){
+                overviews.get(j.owner).jobToTimeLeft.put(j.jobId, j.timeLeft);
+            }
+        }
+        //fill station resources
+        for(Grid g : grids){
+            Station s = g.station;
+            if(s.owner > 0){ //check there is an owner
+                overviews.get(s.owner).stationToResources.put(s.grid, s.resources.clone());
+            }
+        }
+
+        //send messages
+        for(Map.Entry<Integer, MGameOverview> e : overviews.entrySet()) {
+            if(!players.get(e.getKey()).ai){
+                server.sendMessage(e.getKey(), e.getValue());
+            }
+        }
+    }
+
+
+    /* Game Loop Utility */
+
+    private void updateStationTimers(){
+        for(Grid grid : grids){
+            //skip if no jobs
+            if(grid.station.currentJobs.size() > 0) {
+                //otherwise, grab the first job
+                CurrentJob job = grid.station.currentJobs.get(0);
+                job.timeLeft -= FLOAT_DELAY;
+
+                if(job.timeLeft <= 0){
+                    //end the job and tell the user
+                    grid.station.currentJobs.remove(0);
+                    server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
+                            job.jobId, job.grid, null));
+
+                    //create the ship
+                    Ship createdShip = null;
+                    switch(job.jobType){
+                        case Frigate:
+                            //TODO place ship to not intersect with something else
+                            createdShip = new Frigate(useNextShipId(), job.owner, 150, 0);
+                            break;
+                        default:
+                            System.out.println("Unexpected job type in GameHost.updateStationTimers()");
+                            break;
+                    }
+
+                    if(createdShip != null){
+                        //add it serverside
+                        grid.ships.put(createdShip.shipId, createdShip);
+
+                        //tell users
+                        server.broadcastMessage(new MAddShip(job.grid, createdShip));
+                    }
+                }
+            }
+        }
+    }
+
+    private void updateShipPhysics(){
+
+        for(Grid g : grids){
+            for(Ship s : g.ships.values()){
+                server.broadcastMessage(MShipUpd.createFromShip(s, g.id));
+            }
         }
 
     }
+
 
 
     /* Client Request Handling */
@@ -282,25 +394,32 @@ public class GameHost implements ServerContact {
     /**
      * Handles MJobRequest
      */
-    private void handleJobRequest(int id, MJobRequest msg){
+    private void handleJobRequest(int userId, MJobRequest msg){
 
         Station s = grids[msg.stationGrid].station;
         Station.Job j = msg.job;
 
         //reject if conditions not met
-        if(s.owner != id || s.enoughForJob(j) || s.stage == Station.Stage.NONE ||
+        if(s.owner != userId || !s.enoughForJob(j) || s.stage == Station.Stage.NONE ||
                 s.stage == Station.Stage.DEPLOYMENT){
-            server.sendMessage(id, new MReqRejected(msg));
+
+            MDenyRequest deny = new MDenyRequest(msg);
+            if(!s.enoughForJob(j)) deny.reason = "Not enough resources for job";
+            else if(s.owner == userId) deny.reason = "Station cannot build right now";
+            else deny.reason = "Unknown reason for denial";
+
+            server.sendMessage(userId, deny);
         }
         //otherwise accept
         else {
-
             //update on the serverside
             s.removeResourcesForJob(j);
-            s.currentJobs.add(new CurrentJob(useNextJobId(), id, j, s.grid, j.duration));
+            CurrentJob currentJob = new CurrentJob(useNextJobId(), userId, j, s.grid, j.duration);
+            s.currentJobs.add(currentJob);
 
-            //TODO send information to the client
-
+            //send information to the client
+            server.sendMessage(userId, new MChangeJob(MChangeJob.Action.ADDING,
+                    currentJob.jobId, currentJob.grid, currentJob));
         }
 
     }
