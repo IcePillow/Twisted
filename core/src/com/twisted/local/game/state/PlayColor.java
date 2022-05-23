@@ -1,4 +1,4 @@
-package com.twisted.vis;
+package com.twisted.local.game.state;
 
 import com.badlogic.gdx.graphics.Color;
 

@@ -1,7 +1,9 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
 
 import java.io.Serializable;
 import java.util.HashMap;
@@ -12,11 +14,18 @@ public abstract class Ship implements Serializable {
 
     public static HashMap<String, Texture> viewportSprites = new HashMap<>();
 
-    /* State */
-
+    public Polygon polygon;
     public Vector2 position;
     public Vector2 velocity;
     public float rotation;
+
+
+    /* Logic (serverside) */
+
+    public Body body;
+
+
+    /* State */
 
     public int owner;
     public int shipId;
@@ -25,10 +34,8 @@ public abstract class Ship implements Serializable {
     /**
      * Constructor
      */
-    public Ship(int shipId, int owner, float xpos, float ypos){
+    protected Ship(int shipId, int owner){
         this.shipId = shipId;
-        this.position = new Vector2(xpos, ypos);
-        this.velocity = new Vector2(0, 0);
         this.owner = owner;
     }
 
@@ -36,12 +43,21 @@ public abstract class Ship implements Serializable {
 
     public abstract String getFilename();
     public abstract Vector2 getSize();
+    public abstract float[] getVertices();
+
+
+    /* Utility Methods */
+
+    public Type getType(){
+        if(this instanceof Frigate) return Type.Frigate;
+        else return null;
+    }
 
 
     /* Enums */
 
     public enum Type {
-        FRIGATE
+        Frigate
     }
 
 }

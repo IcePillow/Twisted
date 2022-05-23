@@ -1,7 +1,10 @@
-package com.twisted.logic;
+package com.twisted.logic.game;
 
-import com.twisted.logic.desiptors.CurrentJob;
-import com.twisted.logic.desiptors.Grid;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.*;
+import com.twisted.logic.Player;
+import com.twisted.logic.descriptors.CurrentJob;
+import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameUpdate.MAddShip;
@@ -15,7 +18,7 @@ import com.twisted.net.msg.remaining.MGameStart;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
-import com.twisted.vis.PlayColor;
+import com.twisted.local.game.state.PlayColor;
 
 import java.util.*;
 
@@ -25,7 +28,7 @@ public class GameHost implements ServerContact {
 
     /* Constants */
 
-    public static final int TICK_DELAY = 250; //millis between each tick
+    public static final int TICK_DELAY = 200; //millis between each tick
     public static final float FLOAT_DELAY = ((float) TICK_DELAY) / 1000f;
 
 
@@ -135,30 +138,35 @@ public class GameHost implements ServerContact {
 
         //grids and stations
         grids = new Grid[]{
-                new Grid(0, 50, 320),
-                new Grid(1, 200, 100),
-                new Grid(2, 80, 920),
-                new Grid(3, 950, 680),
-                new Grid(4, 800, 900),
-                new Grid(5, 920, 80),
-                new Grid(6, 400, 500),
-                new Grid(7, 500, 400),
+                new Grid(0, new Vector2(50, 320)),
+                new Grid(1, new Vector2(200, 100)),
+                new Grid(2, new Vector2(80, 920)),
+                new Grid(3, new Vector2(950, 680)),
+                new Grid(4, new Vector2(800, 900)),
+                new Grid(5, new Vector2(920, 80)),
+                new Grid(6, new Vector2(400, 500)),
+                new Grid(7, new Vector2(500, 400)),
         };
-
-        grids[0].station = new Extractor(0, "Extractor A", players[0].getId(), Station.Stage.ARMORED);
-        grids[1].station = new Extractor(1, "Extractor B", players[0].getId(), Station.Stage.ARMORED);
-        grids[2].station = new Harvester(2, "Harvester A", players[0].getId(), Station.Stage.ARMORED);
-        grids[3].station = new Extractor(3, "Extractor C", players[1].getId(), Station.Stage.ARMORED);
-        grids[4].station = new Extractor(4, "Extractor D", players[1].getId(), Station.Stage.ARMORED);
-        grids[5].station = new Harvester(5, "Harvester B", players[1].getId(), Station.Stage.ARMORED);
-        grids[6].station = new Liquidator(6, "Liquidator A", 0, Station.Stage.NONE);
-        grids[7].station = new Liquidator(7, "Liquidator B", 0, Station.Stage.NONE);
+        grids[0].station = new Extractor(0, "Extractor A", players[0].getId(), Station.Stage.ARMORED, false);
+        grids[1].station = new Extractor(1, "Extractor B", players[0].getId(), Station.Stage.ARMORED, false);
+        grids[2].station = new Harvester(2, "Harvester A", players[0].getId(), Station.Stage.ARMORED, false);
+        grids[3].station = new Extractor(3, "Extractor C", players[1].getId(), Station.Stage.ARMORED, false);
+        grids[4].station = new Extractor(4, "Extractor D", players[1].getId(), Station.Stage.ARMORED, false);
+        grids[5].station = new Harvester(5, "Harvester B", players[1].getId(), Station.Stage.ARMORED, false);
+        grids[6].station = new Liquidator(6, "Liquidator A", 0, Station.Stage.NONE, false);
+        grids[7].station = new Liquidator(7, "Liquidator B", 0, Station.Stage.NONE, false);
 
         //add initial resources
         grids[0].station.resources[0] += 20;
         grids[0].station.resources[1] += 6;
         grids[3].station.resources[0] += 20;
         grids[3].station.resources[1] += 6;
+
+        //add worlds to each grid, then add station to world
+        for(Grid g : grids){
+            g.world = new World(new Vector2(0, 0), true);
+            createBodyForStation(g.station, new Vector2(0, 0), 0);
+        }
 
     }
 
@@ -172,7 +180,6 @@ public class GameHost implements ServerContact {
         for (Player p : players.values()){
             idToName.put(p.getId(), p.name);
         }
-
         HashMap<Integer, PlayColor> idToColor = new HashMap<>();
         int i = 0;
         for(Player p : players.values()){
@@ -183,12 +190,23 @@ public class GameHost implements ServerContact {
         }
 
         //create the message
-        MGameStart msg = new MGameStart(idToName, idToColor);
+        MGameStart msg = new MGameStart(idToName, idToColor, grids.length);
 
         //fill in the message
         msg.mapWidth = mapWidth;
         msg.mapHeight = mapHeight;
-        msg.grids = grids;
+
+        //fill in the grid parts of the message
+        for(int j=0; j<grids.length; j++){
+            Grid g = grids[j];
+
+            msg.gridPositions[j] = g.position;
+            msg.stationTypes[j] = g.station.getType();
+            msg.stationNames[j] = g.station.name;
+            msg.stationOwners[j] = g.station.owner;
+            msg.stationStages[j] = g.station.stage;
+            msg.stationResources[j] = g.station.resources;
+        }
 
         //send the message to each player
         for(Player p : players.values()){
@@ -203,6 +221,9 @@ public class GameHost implements ServerContact {
 
     /* ServerContact Methods */
 
+    /**
+     * Called when the server receives a message from a client.
+     */
     @Override
     public void serverReceived(int clientId, Message message) {
 
@@ -290,8 +311,10 @@ public class GameHost implements ServerContact {
 
         //updating
         updateStationTimers();
-        updateShipPhysics();
+        updatePhysics();
 
+        //telling clients
+        sendEntityData();
 
         //major update
         millisSinceMajor += TICK_DELAY;
@@ -337,8 +360,11 @@ public class GameHost implements ServerContact {
     }
 
 
-    /* Game Loop Utility */
+    /* Game Loop Methods */
 
+    /**
+     * Updates the station state due to time-based events.
+     */
     private void updateStationTimers(){
         for(Grid grid : grids){
             //skip if no jobs
@@ -354,31 +380,49 @@ public class GameHost implements ServerContact {
                             job.jobId, job.grid, null));
 
                     //create the ship
-                    Ship createdShip = null;
+                    Ship sh = null;
                     switch(job.jobType){
                         case Frigate:
                             //TODO place ship to not intersect with something else
-                            createdShip = new Frigate(useNextShipId(), job.owner, 150, 0);
+                            sh = new Frigate(useNextShipId(), job.owner, false);
                             break;
+                        //TODO add the rest of the ships
                         default:
                             System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                             break;
                     }
 
-                    if(createdShip != null){
-                        //add it serverside
-                        grid.ships.put(createdShip.shipId, createdShip);
+                    if(sh != null){
+                        //create the body and add the ship to the grid
+                        createBodyForShip(grid.id, sh, new Vector2(1f, 0f), new Vector2(0, 0), 0);
+                        grid.ships.put(sh.shipId, sh);
 
                         //tell users
-                        server.broadcastMessage(new MAddShip(job.grid, createdShip));
+                        server.broadcastMessage(MAddShip.createFromShipBody(grid.id, sh));
                     }
                 }
             }
         }
     }
 
-    private void updateShipPhysics(){
+    /**
+     * Updates the world of each grid.
+     */
+    private void updatePhysics(){
 
+        //take the time step
+        for(Grid g : grids){
+            g.world.step(TICK_DELAY/1000f, 8, 3);
+        }
+
+    }
+
+    /**
+     * Send entity data to the users.
+     */
+    private void sendEntityData(){
+
+        //ship data
         for(Grid g : grids){
             for(Ship s : g.ships.values()){
                 server.broadcastMessage(MShipUpd.createFromShip(s, g.id));
@@ -386,7 +430,6 @@ public class GameHost implements ServerContact {
         }
 
     }
-
 
 
     /* Client Request Handling */
@@ -421,7 +464,64 @@ public class GameHost implements ServerContact {
             server.sendMessage(userId, new MChangeJob(MChangeJob.Action.ADDING,
                     currentJob.jobId, currentJob.grid, currentJob));
         }
+    }
 
+
+    /* Utility Methods */
+
+    /**
+     * Creates a body object for the passed in ship. Adds the body to the ship and to the world.
+     */
+    private void createBodyForShip(int grid, Ship ship, Vector2 pos, Vector2 vel, float rot){
+        //make the body def
+        BodyDef bodyDef = new BodyDef();
+        bodyDef.type = BodyDef.BodyType.DynamicBody;
+        bodyDef.position.set(pos);
+        bodyDef.linearVelocity.set(vel);
+        bodyDef.angle = rot;
+
+        //create the body, then create the shape
+        ship.body = grids[grid].world.createBody(bodyDef);
+        PolygonShape shape = new PolygonShape();
+        shape.set(ship.getVertices());
+
+        //create the fixture and add it to the body
+        FixtureDef fixtureDef = new FixtureDef();
+        fixtureDef.shape = shape;
+        fixtureDef.density = 1f; //TODO set these physics values based on ship
+        fixtureDef.friction = 0.2f;
+        fixtureDef.restitution = 0.1f;
+        ship.body.createFixture(fixtureDef);
+
+        //clean
+        shape.dispose();
+    }
+
+    /**
+     * Creates a body for the passed station and adds the body to the station.
+     */
+    private void createBodyForStation(Station station, Vector2 pos, float rot){
+        //make the body def
+        BodyDef bodyDef = new BodyDef();
+        bodyDef.type = BodyDef.BodyType.StaticBody;
+        bodyDef.position.set(pos);
+        bodyDef.angle = rot;
+
+        //create the body and the shape
+        station.body = grids[station.grid].world.createBody(bodyDef);
+        PolygonShape shape = new PolygonShape();
+        shape.set(station.getVertices());
+
+        //create the fixture and add it to the body
+        FixtureDef fixtureDef = new FixtureDef();
+        fixtureDef.shape = shape;
+        fixtureDef.density = 2f; //TODO set these physics values based on ship
+        fixtureDef.friction = 0.2f;
+        fixtureDef.restitution = 0.1f;
+        station.body.createFixture(fixtureDef);
+
+        //clean
+        shape.dispose();
     }
 
 }

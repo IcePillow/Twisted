@@ -2,7 +2,7 @@ package com.twisted;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Screen;
-import com.twisted.vis.Lobby;
+import com.twisted.local.lobby.Lobby;
 
 public class Main extends Game {
 

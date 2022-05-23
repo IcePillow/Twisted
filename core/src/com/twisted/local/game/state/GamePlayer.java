@@ -1,6 +1,4 @@
-package com.twisted.vis.state;
-
-import com.twisted.vis.PlayColor;
+package com.twisted.local.game.state;
 
 /**
  * Clientside representation of a player.

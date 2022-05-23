@@ -1,4 +1,4 @@
-package com.twisted.vis;
+package com.twisted.local.lobby;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
@@ -14,13 +14,14 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
-import com.twisted.logic.LobbyHost;
+import com.twisted.logic.lobby.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.msg.remaining.MChat;
 import com.twisted.net.msg.remaining.MCommand;
+import com.twisted.local.game.Game;
 
 import java.util.Arrays;
 

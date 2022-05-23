@@ -1,16 +1,24 @@
 package com.twisted.logic.entities;
 
+import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 
 public class Frigate extends Ship{
 
-    private static final Vector2 size = new Vector2(16, 16);
+    /* Data */
+
+    private static final Vector2 size = new Vector2(0.16f, 0.16f);
+    public final static float[] vertices = new float[]{-0.08f,-0.08f,  0.08f,-0.08f,  0,0.08f};
 
     /**
      * Constructor
      */
-    public Frigate(int shipId, int owner, float xpos, float ypos){
-        super(shipId, owner, xpos, ypos);
+    public Frigate(int shipId, int owner, boolean graphics){
+        super(shipId, owner);
+
+        if(graphics){
+            polygon = new Polygon(vertices);
+        }
     }
 
 
@@ -23,6 +31,10 @@ public class Frigate extends Ship{
     @Override
     public Vector2 getSize() {
         return size;
+    }
+    @Override
+    public float[] getVertices(){
+        return vertices;
     }
 
 }

@@ -1,5 +1,7 @@
-package com.twisted.logic.desiptors;
+package com.twisted.logic.descriptors;
 
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.World;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 
@@ -11,17 +13,20 @@ import java.util.HashMap;
  */
 public class Grid implements Serializable {
 
+    /* Serverside Logic */
+
+    public World world;
+
+
     /* Variables */
 
     public final int id; //this is also the index in the grid array
-
-    public final int x;
-    public final int y;
-
-    public Station station;
+    public final Vector2 position;
 
 
     /* State */
+
+    public Station station;
 
     public final HashMap<Integer, Ship> ships;
 
@@ -31,10 +36,9 @@ public class Grid implements Serializable {
     /**
      * Constructor
      */
-    public Grid(int id, int x, int y){
+    public Grid(int id, Vector2 position){
         this.id = id;
-        this.x = x;
-        this.y = y;
+        this.position = position;
 
         this.ships = new HashMap<>();
     }

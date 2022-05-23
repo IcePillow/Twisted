@@ -1,7 +1,6 @@
 package com.twisted.net.msg.gameUpdate;
 
-import com.badlogic.gdx.utils.Null;
-import com.twisted.logic.desiptors.CurrentJob;
+import com.twisted.logic.descriptors.CurrentJob;
 
 /**
  * Adding or removing a CurrentJob to a given station.

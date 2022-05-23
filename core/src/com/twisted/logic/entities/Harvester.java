@@ -1,5 +1,6 @@
 package com.twisted.logic.entities;
 
+import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 
 public class Harvester extends Station {
@@ -7,14 +8,21 @@ public class Harvester extends Station {
     private static final Job[] possibleJobs = new Job[]{
             Job.Frigate, Job.Cruiser, Job.Battleship, Job.Titan,
             Job.Extractor};
-    private static final Vector2 size = new Vector2(128, 128);
-
+    private static final Vector2 size = new Vector2(1.28f, 1.28f);
+    public final static float[] vertices = new float[]{
+            -0.64f, 0,  -0.32f, 0.64f,   0.32f, 0.64f,
+            0.64f, 0,  0.32f, -0.64f, -0.32f, -0.64f
+    };
 
     /**
      * Constructor
      */
-    public Harvester(int grid, String name, int owner, Stage stage) {
+    public Harvester(int grid, String name, int owner, Stage stage, boolean graphics) {
         super(grid, name, owner, stage);
+
+        if(graphics){
+            this.polygon = new Polygon(vertices);
+        }
     }
 
 
@@ -24,14 +32,16 @@ public class Harvester extends Station {
     public String getFilename() {
         return "harvester";
     }
-
     @Override
     public Vector2 getSize(){
         return size;
     }
-
     @Override
     public Job[] getPossibleJobs() {
         return possibleJobs;
+    }
+    @Override
+    public float[] getVertices() {
+        return vertices;
     }
 }

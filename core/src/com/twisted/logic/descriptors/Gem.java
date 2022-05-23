@@ -1,4 +1,4 @@
-package com.twisted.logic.desiptors;
+package com.twisted.logic.descriptors;
 
 public enum Gem {
 

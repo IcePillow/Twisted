@@ -1,16 +1,16 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup;
-import com.twisted.logic.desiptors.Gem;
-import com.twisted.logic.desiptors.CurrentJob;
+import com.twisted.logic.descriptors.Gem;
+import com.twisted.logic.descriptors.CurrentJob;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 
 
@@ -27,6 +27,16 @@ public abstract class Station implements Serializable {
     public Label minimapLabel;
 
     public Label[] industryResourceLabels; //{calcite, kernite, pyrene, crystal}
+
+    public Polygon polygon;
+    public Vector2 position;
+    public Vector2 velocity;
+    public float rotation;
+
+
+    /* Logic (serverside) */
+
+    public Body body;
 
 
     /* Variables */
@@ -63,6 +73,7 @@ public abstract class Station implements Serializable {
     public abstract String getFilename();
     public abstract Vector2 getSize();
     public abstract Job[] getPossibleJobs();
+    public abstract float[] getVertices();
 
 
     /* Utility Methods */
@@ -88,6 +99,12 @@ public abstract class Station implements Serializable {
         }
     }
 
+    public Type getType(){
+        if(this instanceof Extractor) return Type.Extractor;
+        else if(this instanceof Harvester) return Type.Harvester;
+        else return Type.Liquidator;
+    }
+
 
     /* Enums */
 
@@ -97,9 +114,9 @@ public abstract class Station implements Serializable {
      * Lowercase of type is filename.
      */
     public enum Type {
-        EXTRACTOR,
-        HARVESTER,
-        LIQUIDATOR
+        Extractor,
+        Harvester,
+        Liquidator
     }
 
     /**
@@ -118,7 +135,7 @@ public abstract class Station implements Serializable {
      */
     public enum Job {
 
-        Frigate(10, 2, 0, 0, 5),
+        Frigate(10, 2, 0, 0, 1),
         Cruiser(25, 5, 2, 0, 30),
         Battleship(100, 0, 10, 10, 90),
         Barge(150, 50, 0, 0, 120),

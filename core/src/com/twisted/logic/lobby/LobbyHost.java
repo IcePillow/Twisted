@@ -1,11 +1,13 @@
-package com.twisted.logic;
+package com.twisted.logic.lobby;
 
+import com.twisted.logic.Player;
+import com.twisted.logic.game.GameHost;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.remaining.MChat;
 import com.twisted.net.msg.remaining.MCommand;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
-import com.twisted.vis.Lobby;
+import com.twisted.local.lobby.Lobby;
 
 import java.util.ArrayList;
 import java.util.HashMap;

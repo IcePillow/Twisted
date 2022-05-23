@@ -1,9 +1,8 @@
-package com.twisted.vis.state;
+package com.twisted.local.game.state;
 
 import com.badlogic.gdx.graphics.Texture;
-import com.twisted.logic.desiptors.CurrentJob;
-import com.twisted.logic.desiptors.Grid;
-import com.twisted.vis.PlayColor;
+import com.twisted.logic.descriptors.CurrentJob;
+import com.twisted.logic.descriptors.Grid;
 
 import java.util.HashMap;
 
