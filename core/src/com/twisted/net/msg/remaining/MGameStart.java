@@ -27,6 +27,9 @@ public class MGameStart implements Message {
 
     /* Game Data */
 
+    //server details
+    public int tickDelay; //millis between ticks
+
     //map details
     public int mapWidth; //array is {x, y}
     public int mapHeight;

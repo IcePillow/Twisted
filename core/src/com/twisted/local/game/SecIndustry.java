@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -54,7 +55,7 @@ public class SecIndustry extends Sector{
     }
 
     @Override
-    public Group init() {
+    Group init() {
         final int FOCUS_HEIGHT = 150;
         final int LOG_HEIGHT = 20;
 
@@ -136,7 +137,7 @@ public class SecIndustry extends Sector{
     }
 
     @Override
-    public void load() {
+    void load() {
         //loop through the grids
         for(Grid g : state.grids){
 
@@ -258,6 +259,8 @@ public class SecIndustry extends Sector{
                     @Override
                     public void clicked(InputEvent event, float x, float y){
                         industryJobRequest(g.station, job);
+
+                        event.handle();
                     }
                 });
             }
@@ -281,12 +284,16 @@ public class SecIndustry extends Sector{
                         stationGroup.addActorAfter(stationTitleBar, child);
                     }
                     down = !down;
+
+                    event.handle();
                 }
             });
             stationNameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
                 @Override
                 public void clicked(InputEvent event, float x, float y){
                     industryFocusStation(g.station);
+
+                    event.handle();
                 }
             });
 
@@ -301,7 +308,7 @@ public class SecIndustry extends Sector{
     }
 
     @Override
-    public void render() {
+    void render(float delta) {
         //update the times on the current jobs
         if(focusStationId != -1){
             ArrayList<CurrentJob> arr = state.grids[focusStationId].station.currentJobs;
@@ -330,7 +337,7 @@ public class SecIndustry extends Sector{
     }
 
     @Override
-    public void dispose() {
+    void dispose() {
 
     }
 
@@ -404,5 +411,10 @@ public class SecIndustry extends Sector{
                 new float[]{0.7f, 0.7f, 0.7f});
 
         game.client.send(new MJobRequest(station.grid, job));
+    }
+
+    @Override
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos,
+                            SecViewport.ClickType type, int typeId) {
     }
 }

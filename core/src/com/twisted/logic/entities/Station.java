@@ -3,7 +3,6 @@ package com.twisted.logic.entities;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.physics.box2d.Body;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.twisted.logic.descriptors.Gem;
@@ -17,7 +16,7 @@ import java.util.HashMap;
 /**
  * Representation of a station in game (both client and serverside).
  */
-public abstract class Station implements Serializable {
+public abstract class Station extends Entity implements Serializable {
 
     /* Graphics (clientside) */
 
@@ -29,14 +28,8 @@ public abstract class Station implements Serializable {
     public Label[] industryResourceLabels; //{calcite, kernite, pyrene, crystal}
 
     public Polygon polygon;
-    public Vector2 position;
-    public Vector2 velocity;
-    public float rotation;
 
-
-    /* Logic (serverside) */
-
-    public Body body;
+    /* Logic */
 
 
     /* Variables */
@@ -65,6 +58,9 @@ public abstract class Station implements Serializable {
 
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
+
+        this.position = new Vector2(0, 0);
+        this.rotation = 0;
     }
 
 

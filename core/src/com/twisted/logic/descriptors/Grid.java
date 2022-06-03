@@ -13,11 +13,6 @@ import java.util.HashMap;
  */
 public class Grid implements Serializable {
 
-    /* Serverside Logic */
-
-    public World world;
-
-
     /* Variables */
 
     public final int id; //this is also the index in the grid array

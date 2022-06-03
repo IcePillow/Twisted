@@ -2,6 +2,7 @@ package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -33,7 +34,7 @@ public class SecFleet extends Sector {
     }
 
     @Override
-    public Group init() {
+    Group init() {
         //initialize the top level group
         parent = new Group();
         parent.setBounds(0, 230, 300, 550);
@@ -51,17 +52,24 @@ public class SecFleet extends Sector {
     }
 
     @Override
-    public void load() {
+    void load() {
 
     }
 
     @Override
-    public void render() {
+    void render(float delta) {
 
     }
 
     @Override
-    public void dispose() {
+    void dispose() {
 
+    }
+
+
+    /* Event Methods */
+
+    @Override
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
     }
 }

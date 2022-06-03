@@ -8,17 +8,13 @@ public class Frigate extends Ship{
     /* Data */
 
     private static final Vector2 size = new Vector2(0.16f, 0.16f);
-    public final static float[] vertices = new float[]{-0.08f,-0.08f,  0.08f,-0.08f,  0,0.08f};
+    public static final float[] vertices = new float[]{-0.08f,-0.08f,  0.08f,-0.08f,  0,0.08f};
 
     /**
      * Constructor
      */
-    public Frigate(int shipId, int owner, boolean graphics){
-        super(shipId, owner);
-
-        if(graphics){
-            polygon = new Polygon(vertices);
-        }
+    public Frigate(int shipId, int owner, Vector2 position, Vector2 velocity, float rotation, boolean graphics){
+        super(shipId, owner, position, velocity, rotation, graphics);
     }
 
 
@@ -35,6 +31,14 @@ public class Frigate extends Ship{
     @Override
     public float[] getVertices(){
         return vertices;
+    }
+    @Override
+    public float getMaxSpeed() {
+        return 0.8f;
+    }
+    @Override
+    public float getMaxAccel() {
+        return 0.5f;
     }
 
 }

@@ -24,6 +24,7 @@ public class SecViewport extends Sector{
     //constants
     public static final float LTR = Game.LTR; //logical to rendered
     private static final Color GRAY = new Color(0x9d9d9dff);
+    private static final Color SPACE = new Color(0x020036ff);
 
 
     //reference variables
@@ -44,9 +45,6 @@ public class SecViewport extends Sector{
     //graphics state
     private Vector2 camPos;
 
-    //input state tracking
-    private ViewClickState viewClickState = ViewClickState.SELECT;
-
 
     /**
      * Constructor
@@ -58,54 +56,18 @@ public class SecViewport extends Sector{
     }
 
     @Override
-    public Group init() {
+    Group init() {
         camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
         camPos = new Vector2(0, 0);
+
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
+
         return null;
     }
 
     @Override
-    public void load() {
-
-        //listener
-        stage.addListener(new ClickListener(Input.Buttons.LEFT){
-            @Override
-            public void clicked(InputEvent event, float x, float y){
-
-                //get the current grid and convert coords
-                Grid g = state.grids[game.getGrid()];
-                float adjX = (x-stage.getWidth()/2f+camPos.x)/100f;
-                float adjY = (y-stage.getHeight()/2f+camPos.y)/100f;
-
-                //prep the variables that tell what is clicked on
-                String type = "none"; //none, station, ship
-                int shipId = 0;
-
-                //figure out what was clicked on
-                if(g.station.polygon.contains(adjX, adjY)){
-                    type = "station";
-                }
-                for(Ship s : g.ships.values()){
-                    if(s.polygon.contains(adjX, adjY)){
-                        type = "ship";
-                        shipId = s.shipId;
-                    }
-                }
-
-                //do the correct thing based on the state and what was clicked on
-                if(viewClickState == ViewClickState.SELECT){
-                    if(type.equals("ship")) {
-                        game.shipSelectedForDetails(game.getGrid(), shipId);
-                    }
-                }
-                else if(viewClickState == ViewClickState.CMD_MOVE_TO){
-                    //TODO
-                }
-
-            }
-        });
+    void load() {
 
         //load the background
         state.viewportBackground = new Texture(Gdx.files.internal("images/pixels/navy.png"));
@@ -131,10 +93,24 @@ public class SecViewport extends Sector{
             }
         }
 
+        //click listeners
+        stage.addListener(new ClickListener(Input.Buttons.LEFT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(!event.isHandled()) clickHandler(Input.Buttons.LEFT, event, x, y);
+            }
+        });
+        stage.addListener(new ClickListener(Input.Buttons.RIGHT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(!event.isHandled()) clickHandler(Input.Buttons.RIGHT, event, x, y);
+            }
+        });
+
     }
 
     @Override
-    public void render() {
+    void render(float delta) {
 
         //must be at the beginning
         camera.update();
@@ -143,15 +119,10 @@ public class SecViewport extends Sector{
 
         //access the grid and start drawing
         Grid g = state.grids[game.getGrid()];
-        sprite.begin();
-
-        //background
-        sprite.draw(state.viewportBackground, camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f,
-                stage.getWidth(), stage.getHeight());
-
-        //end drawing
-        sprite.end();
-
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(SPACE);
+        shape.rect(camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f, stage.getWidth(), stage.getHeight());
+        shape.end();
 
         shape.begin(ShapeRenderer.ShapeType.Line);
 
@@ -167,18 +138,20 @@ public class SecViewport extends Sector{
         shape.polygon(stationDrawable.getTransformedVertices());
 
         //draw the ships
-        for(Ship ship : g.ships.values()){
-            if(ship.owner == 0){
+        Polygon shipDrawable;
+        for(Ship s : g.ships.values()){
+            if(s.owner == 0){
                 shape.setColor(GRAY);
             }
             else {
-                shape.setColor(state.players.get(ship.owner).color.object);
+                shape.setColor(state.players.get(s.owner).color.object);
             }
 
-            Polygon shipDrawable = new Polygon(ship.polygon.getVertices());
+            //draw the ship
+            shipDrawable = new Polygon(s.getVertices());
             shipDrawable.scale(LTR);
-            shipDrawable.translate(ship.position.x*LTR, ship.position.y*LTR);
-            shipDrawable.rotate(ship.rotation);
+            shipDrawable.translate(s.position.x*LTR, s.position.y*LTR);
+            shipDrawable.rotate((float) (s.rotation * 180/Math.PI));
             shape.polygon(shipDrawable.getTransformedVertices());
         }
 
@@ -187,7 +160,7 @@ public class SecViewport extends Sector{
     }
 
     @Override
-    public void dispose() {
+    void dispose() {
         sprite.dispose();
     }
 
@@ -225,19 +198,72 @@ public class SecViewport extends Sector{
 
     }
 
+    /**
+     * Not used in this class.
+     */
+    @Override
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, ClickType type, int typeId) {}
+
+    /**
+     * Handles clicks on the stage. Necessary to be able to easily accept clicks from multiple
+     * buttons.
+     */
+    private void clickHandler(int button, InputEvent event, float x, float y){
+
+        //get the current grid and convert coords
+        Grid g = state.grids[game.getGrid()];
+        float adjX = (x-stage.getWidth()/2f+camPos.x)/100f;
+        float adjY = (y-stage.getHeight()/2f+camPos.y)/100f;
+
+        //prep the variables that tell what is clicked on
+        String type = "none"; //none, station, ship
+        int shipId = 0;
+
+        //figure out what was clicked on
+        if(g.station.polygon.contains(adjX, adjY)){
+            type = "station";
+        }
+        for(Ship s : g.ships.values()){
+            if(s.polygon.contains(adjX, adjY)){
+                type = "ship";
+                shipId = s.id;
+            }
+        }
+
+        //do the correct thing based on the state and what was clicked on
+        if(type.equals("ship")) {
+            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
+                    ClickType.SHIP, shipId);
+        }
+        else if(type.equals("station")){
+            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
+                    ClickType.STATION, game.getGrid());
+        }
+        else {
+            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), ClickType.SPACE, -1);
+        }
+
+    }
+
 
     /* Enums */
 
     /**
-     * What it means right now if the viewport is clicked on.
+     * Four directions.
      */
-    private enum ViewClickState {
-        SELECT,
-        CMD_MOVE_TO,
-    }
-
     enum Direction {
         UP, RIGHT, DOWN, LEFT
+    }
+
+    /**
+     *
+     */
+    enum ClickType {
+        //clicked on nothing but the background
+        SPACE,
+        //clicked on an entity
+        SHIP,
+        STATION
     }
 
 }

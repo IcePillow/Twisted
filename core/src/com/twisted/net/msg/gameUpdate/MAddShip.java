@@ -27,8 +27,8 @@ public class MAddShip implements MGameUpdate{
         this.shipId = shipId;
         this.ownerId = ownerId;
 
-        this.position = position;
-        this.velocity = velocity;
+        this.position = position.cpy();
+        this.velocity = velocity.cpy();
         this.rotation = rotation;
     }
 
@@ -36,8 +36,8 @@ public class MAddShip implements MGameUpdate{
      * Creates an MAddShip from a ship with a body.
      */
     public static MAddShip createFromShipBody(int grid, Ship s){
-        return new MAddShip(s.getType(), grid, s.shipId, s.owner, s.body.getPosition(),
-                s.body.getLinearVelocity(), s.body.getAngle());
+        return new MAddShip(s.getType(), grid, s.id, s.owner, s.position,
+                s.velocity, s.rotation);
     }
 
     /**
@@ -49,20 +49,10 @@ public class MAddShip implements MGameUpdate{
         Ship s = null;
         switch(type){
             case Frigate:
-                s = new Frigate(shipId, ownerId, true);
+                s = new Frigate(shipId, ownerId, position, velocity, rotation, true);
                 break;
             default:
                 System.out.println("Unexpected ship type in MAddShip.createDrawableShip()");
-        }
-
-        //copy the rest of the data over
-        if(s != null){
-            s.polygon.translate(position.x, position.y);
-            s.polygon.rotate(rotation);
-
-            s.position = position;
-            s.velocity = velocity;
-            s.rotation = rotation;
         }
 
         return s;

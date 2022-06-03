@@ -15,6 +15,8 @@ public class GameState {
 
     public boolean readyToRender;
 
+    public int serverTickDelay;
+
 
     /* Player Details */
 

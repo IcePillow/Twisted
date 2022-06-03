@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -44,7 +45,7 @@ public class SecMinimap extends Sector {
     /* Standard Methods */
 
     @Override
-    public Group init() {
+    Group init() {
         parent = new Group();
         parent.setBounds(Main.WIDTH-256, 0, 256, 256);
 
@@ -65,7 +66,7 @@ public class SecMinimap extends Sector {
     }
 
     @Override
-    public void load() {
+    void load() {
 
         //load the grids
         for(Grid g : state.grids){
@@ -118,6 +119,8 @@ public class SecMinimap extends Sector {
                 public void clicked(InputEvent event, float x, float y){
                     //update the active grid
                     game.switchGrid(g.id);
+
+                    event.handle();
                 }
             });
         }
@@ -129,12 +132,12 @@ public class SecMinimap extends Sector {
     }
 
     @Override
-    public void render() {
+    void render(float delta) {
 
     }
 
     @Override
-    public void dispose() {
+    void dispose() {
 
     }
 
@@ -147,5 +150,9 @@ public class SecMinimap extends Sector {
     void switchFocusedGrid(int newGrid){
         parent.getChild(2).setPosition(3 + state.grids[newGrid].position.x*250f/1000f - 10,
                 3 + state.grids[newGrid].position.y*250f/1000f - 10);
+    }
+
+    @Override
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
     }
 }

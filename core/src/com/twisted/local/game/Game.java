@@ -3,8 +3,8 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
@@ -15,11 +15,9 @@ import com.twisted.logic.entities.*;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
+import com.twisted.net.msg.gameRequest.MGameRequest;
 import com.twisted.net.msg.gameRequest.MJobRequest;
-import com.twisted.net.msg.gameUpdate.MAddShip;
-import com.twisted.net.msg.gameUpdate.MChangeJob;
-import com.twisted.net.msg.gameUpdate.MGameOverview;
-import com.twisted.net.msg.gameUpdate.MShipUpd;
+import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
 import com.twisted.local.game.state.GameState;
@@ -62,6 +60,9 @@ public class Game implements Screen, ClientContact {
     private SecViewport viewportSector;
     private SecDetails detailsSector;
 
+    //cross-sector tracking
+    private Sector viewportListener;
+
     //visual state tracking
     private int grid; //the id of the active grid
     public int getGrid(){
@@ -71,6 +72,7 @@ public class Game implements Screen, ClientContact {
     //graphics high level utilities
     private Stage stage;
     private Skin skin;
+
 
     /* Constructor */
 
@@ -104,8 +106,10 @@ public class Game implements Screen, ClientContact {
         if(state != null && state.readyToRender) {
             //render each sector
             for(Sector sector : sectors){
-                sector.render();
+                sector.render(delta);
             }
+
+            //
         }
 
         //scene2d updates
@@ -181,6 +185,7 @@ public class Game implements Screen, ClientContact {
                 state = new GameState(m.getPlayers(), m.getColors());
 
                 //copy data
+                state.serverTickDelay = m.tickDelay;
                 state.myId = m.yourPlayerId;
                 state.mapWidth = m.mapWidth;
                 state.mapHeight = m.mapHeight;
@@ -251,14 +256,24 @@ public class Game implements Screen, ClientContact {
             MAddShip add = (MAddShip) msg;
 
             if(add.type == Ship.Type.Frigate){
+                //create the ship, add the ship, then retrieve it
                 state.grids[add.grid].ships.put(add.shipId, add.createDrawableShip());
+                Ship ship = state.grids[add.grid].ships.get(add.shipId);
+
+                ship.polygon.setPosition(ship.position.x, ship.position.y);
+                ship.polygon.rotate(ship.rotation);
             }
             //TODO other types of ships
         }
         else if(msg instanceof MShipUpd){
             MShipUpd upd = (MShipUpd) msg;
 
-            upd.copyDataToShip(state.grids[upd.grid].ships.get(upd.shipId));
+            Ship ship = state.grids[upd.grid].ships.get(upd.shipId);
+
+            upd.copyDataToShip(ship);
+            ship.updatePolygon();
+
+            if(detailsSector.selectedShipId == ship.id) detailsSector.updateShipData(ship);
         }
     }
 
@@ -273,7 +288,7 @@ public class Game implements Screen, ClientContact {
     }
 
 
-    /* Handling Input Events */
+    /* High Level Input Handling */
 
     /**
      * Called each tick to handle user input.
@@ -297,6 +312,55 @@ public class Game implements Screen, ClientContact {
     }
 
     /**
+     * Called by a sector to start listening to input on the viewport. New requests overwrite
+     * old requests. To stop listening, set receiver as null.
+     * @param receiver The sector that should receive the event notifications. Usually the same as
+     *                 the sector that called this method.
+     */
+    void startViewportListen(Sector receiver){
+        if(viewportListener != null) {
+            viewportListener.viewportClickEvent(-1, null, null, null, -1);
+        }
+        viewportListener = receiver;
+    }
+
+    /**
+     * Called when a viewport click event occurs.
+     * @param typeId Different value based on type. For SPACE, ignored. For SHIP, shipId.
+     */
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos,
+                            SecViewport.ClickType type, int typeId){
+        //normal behavior
+        if(viewportListener == null){
+            //selecting a ship for details
+            if(type == SecViewport.ClickType.SHIP && button == Input.Buttons.LEFT){
+                shipSelectedForDetails(grid, typeId);
+            }
+        }
+        //responding to the details sector
+        else if(viewportListener == detailsSector){
+            detailsSector.viewportClickEvent(button, screenPos, gamePos, type, typeId);
+        }
+    }
+
+    /**
+     * Send a game request to the server.
+     */
+    void sendGameRequest(MGameRequest request){
+        client.send(request);
+    }
+
+
+    /* Input Handling Utility */
+
+    /**
+     * Called when the user selects a particular ship's details to be displayed.
+     */
+    private void shipSelectedForDetails(int gridId, int shipId){
+        detailsSector.shipSelected(gridId, shipId);
+    }
+
+    /**
      * Called when the current grid being looked at in the viewport needs to be switched.
      */
     void switchGrid(int newGrid){
@@ -307,10 +371,10 @@ public class Game implements Screen, ClientContact {
     }
 
     /**
-     * Called when the user selects a particular ship's details to be displayed.
+     * Stop listening to the viewport.
      */
-    void shipSelectedForDetails(int gridId, int shipId){
-        detailsSector.shipSelected(gridId, shipId);
+    private void releaseViewportListen(){
+        viewportListener = null;
     }
 
 
@@ -370,7 +434,6 @@ public class Game implements Screen, ClientContact {
         fleetSector.load();
         optionsSector.load();
     }
-
 
 
 

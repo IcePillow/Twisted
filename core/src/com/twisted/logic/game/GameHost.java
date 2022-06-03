@@ -1,12 +1,13 @@
 package com.twisted.logic.game;
 
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.physics.box2d.*;
 import com.twisted.logic.Player;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
 import com.twisted.net.msg.*;
+import com.twisted.net.msg.gameRequest.MShipAlignRequest;
+import com.twisted.net.msg.gameRequest.MShipMoveRequest;
 import com.twisted.net.msg.gameUpdate.MAddShip;
 import com.twisted.net.msg.gameUpdate.MShipUpd;
 import com.twisted.net.msg.remaining.MDenyRequest;
@@ -20,16 +21,18 @@ import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
 import com.twisted.local.game.state.PlayColor;
 
+import java.text.DecimalFormat;
 import java.util.*;
 
 
-//TODO set up the delayed request handling to avoid multithread issues
 public class GameHost implements ServerContact {
 
     /* Constants */
 
-    public static final int TICK_DELAY = 200; //millis between each tick
-    public static final float FLOAT_DELAY = ((float) TICK_DELAY) / 1000f;
+    public static final int TICK_DELAY = 50; //millis between each tick
+    public static final float TICKS = TICK_DELAY / 1000f; //ticks per second
+
+    private static final DecimalFormat df2 = new DecimalFormat("0.00");
 
 
     /* Exterior Reference Variables */
@@ -120,6 +123,9 @@ public class GameHost implements ServerContact {
             //tell the players the information about the game starting
             sendGameStart();
 
+            preLoopCalls();
+
+            //begin the game loop
             startGameLoop();
 
         }).start();
@@ -161,13 +167,6 @@ public class GameHost implements ServerContact {
         grids[0].station.resources[1] += 6;
         grids[3].station.resources[0] += 20;
         grids[3].station.resources[1] += 6;
-
-        //add worlds to each grid, then add station to world
-        for(Grid g : grids){
-            g.world = new World(new Vector2(0, 0), true);
-            createBodyForStation(g.station, new Vector2(0, 0), 0);
-        }
-
     }
 
     /**
@@ -193,6 +192,7 @@ public class GameHost implements ServerContact {
         MGameStart msg = new MGameStart(idToName, idToColor, grids.length);
 
         //fill in the message
+        msg.tickDelay = TICK_DELAY;
         msg.mapWidth = mapWidth;
         msg.mapHeight = mapHeight;
 
@@ -218,6 +218,21 @@ public class GameHost implements ServerContact {
 
     }
 
+    /**
+     * Any calls that should be made after the game state is initialized but before the game loop
+     * begins. Mostly for development.
+     */
+    private void preLoopCalls(){
+
+        //dev ship
+        Ship s = new Frigate(useNextShipId(), 1, new Vector2(1, 0), new Vector2(0,0), 0, false);
+        grids[0].ships.put(s.id, s);
+
+        //tell users
+        server.broadcastMessage(MAddShip.createFromShipBody(0, s));
+
+    }
+
 
     /* ServerContact Methods */
 
@@ -226,11 +241,9 @@ public class GameHost implements ServerContact {
      */
     @Override
     public void serverReceived(int clientId, Message message) {
-
         if(message instanceof MGameRequest){
             hotRequests.put((MGameRequest) message, clientId);
         }
-
     }
 
     /**
@@ -307,10 +320,13 @@ public class GameHost implements ServerContact {
             int userId = requests.get(request);
 
             if(request instanceof MJobRequest) handleJobRequest(userId, (MJobRequest) request);
+            else if(request instanceof MShipMoveRequest) handleShipMoveRequest(userId, (MShipMoveRequest) request);
+            else if(request instanceof MShipAlignRequest) handleShipAlignRequest(userId, (MShipAlignRequest) request);
         }
 
         //updating
         updateStationTimers();
+        calculateTrajectories();
         updatePhysics();
 
         //telling clients
@@ -371,7 +387,7 @@ public class GameHost implements ServerContact {
             if(grid.station.currentJobs.size() > 0) {
                 //otherwise, grab the first job
                 CurrentJob job = grid.station.currentJobs.get(0);
-                job.timeLeft -= FLOAT_DELAY;
+                job.timeLeft -= TICKS;
 
                 if(job.timeLeft <= 0){
                     //end the job and tell the user
@@ -384,9 +400,12 @@ public class GameHost implements ServerContact {
                     switch(job.jobType){
                         case Frigate:
                             //TODO place ship to not intersect with something else
-                            sh = new Frigate(useNextShipId(), job.owner, false);
+                            sh = new Frigate(useNextShipId(), job.owner,
+                                    new Vector2(1, 0), new Vector2(0, 0), 0,
+                                    false);
+
                             break;
-                        //TODO add the rest of the ships
+                        //TODO add the rest of the ship cases
                         default:
                             System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                             break;
@@ -394,8 +413,7 @@ public class GameHost implements ServerContact {
 
                     if(sh != null){
                         //create the body and add the ship to the grid
-                        createBodyForShip(grid.id, sh, new Vector2(1f, 0f), new Vector2(0, 0), 0);
-                        grid.ships.put(sh.shipId, sh);
+                        grid.ships.put(sh.id, sh);
 
                         //tell users
                         server.broadcastMessage(MAddShip.createFromShipBody(grid.id, sh));
@@ -406,13 +424,84 @@ public class GameHost implements ServerContact {
     }
 
     /**
+     * Calculates the trajectory the ship wants to take to reach its desired location or velocity.
+     */
+    private void calculateTrajectories(){
+
+        //variables being used each loop
+        float distanceToTarget;
+        Vector2 accel = new Vector2(0, 0);
+
+        for(Grid g : grids){
+            for(Ship s : g.ships.values()) {
+
+                //check there is a targetPos and that it is not already close enough
+                if(s.movement == Ship.Movement.STATIONARY){
+                    s.trajectoryVel.set(0, 0);
+                }
+                else if(s.movement == Ship.Movement.MOVE_TO_POS){
+                    //already close enough to target position
+                    if((distanceToTarget=s.position.dst(s.targetPos)) <= 0.01f){
+                        s.trajectoryVel.set(0, 0);
+                    }
+                    else {
+                        //set the targetVel to the correct direction and normalize
+                        s.trajectoryVel = new Vector2(s.targetPos.x - s.position.x,
+                                s.targetPos.y - s.position.y).nor();
+
+                        //find the effective max speed (compare speed can stop from to actual max speed)
+                        float speedCanStopFrom = (float) Math.sqrt( 2*s.getMaxAccel()*distanceToTarget );
+                        float effectiveMaxSpeed = Math.min(0.8f*speedCanStopFrom, s.getMaxSpeed());
+
+                        //update the target velocity
+                        s.trajectoryVel.x *= effectiveMaxSpeed;
+                        s.trajectoryVel.y *= effectiveMaxSpeed;
+                    }
+                }
+                else if(s.movement == Ship.Movement.ALIGN_TO_ANG){
+                    //placeholder, empty
+                }
+
+                //accelerate the ship
+                if(s.trajectoryVel != null){
+                    //find the desired, then clamp it
+
+                    accel.set(s.trajectoryVel.x-s.velocity.x, s.trajectoryVel.y-s.velocity.y);
+
+                    float length = accel.len();
+                    if(length > s.getMaxAccel() * TICKS){
+                        accel.x *= s.getMaxAccel() * TICKS /length;
+                        accel.y *= s.getMaxAccel() * TICKS /length;
+                    }
+
+                    //update the velocity
+                    s.velocity.x += accel.x;
+                    s.velocity.y += accel.y;
+                }
+
+            }
+        }
+
+    }
+
+    /**
      * Updates the world of each grid.
      */
     private void updatePhysics(){
 
         //take the time step
         for(Grid g : grids){
-            g.world.step(TICK_DELAY/1000f, 8, 3);
+            for(Ship s : g.ships.values()){
+
+                //move the ship
+                s.position.x += s.velocity.x* TICKS;
+                s.position.y += s.velocity.y* TICKS;
+
+                //set the rotation
+                if(s.velocity.len() != 0){
+                    s.rotation = (float) -Math.atan2(s.velocity.x, s.velocity.y);
+                }
+            }
         }
 
     }
@@ -466,62 +555,54 @@ public class GameHost implements ServerContact {
         }
     }
 
-
-    /* Utility Methods */
-
     /**
-     * Creates a body object for the passed in ship. Adds the body to the ship and to the world.
+     * Handles MShipMoveRequest
      */
-    private void createBodyForShip(int grid, Ship ship, Vector2 pos, Vector2 vel, float rot){
-        //make the body def
-        BodyDef bodyDef = new BodyDef();
-        bodyDef.type = BodyDef.BodyType.DynamicBody;
-        bodyDef.position.set(pos);
-        bodyDef.linearVelocity.set(vel);
-        bodyDef.angle = rot;
+    private void handleShipMoveRequest(int userId, MShipMoveRequest msg){
+        //get the ship
+        Ship ship = grids[msg.grid].ships.get(userId);
+        if(ship == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            return;
+        }
 
-        //create the body, then create the shape
-        ship.body = grids[grid].world.createBody(bodyDef);
-        PolygonShape shape = new PolygonShape();
-        shape.set(ship.getVertices());
+        //check permissions
+        if(ship.owner != userId) return;
 
-        //create the fixture and add it to the body
-        FixtureDef fixtureDef = new FixtureDef();
-        fixtureDef.shape = shape;
-        fixtureDef.density = 1f; //TODO set these physics values based on ship
-        fixtureDef.friction = 0.2f;
-        fixtureDef.restitution = 0.1f;
-        ship.body.createFixture(fixtureDef);
+        //otherwise, set the ship's movement
+        ship.movement = Ship.Movement.MOVE_TO_POS;
+        ship.targetPos = msg.location;
 
-        //clean
-        shape.dispose();
+        //set the description of the movement
+        ship.moveCommand = "Moving to (" + df2.format(ship.targetPos.x) + ", "
+                + df2.format(ship.targetPos.y) + ")";
     }
 
     /**
-     * Creates a body for the passed station and adds the body to the station.
+     * Handles MShipMoveRequest
      */
-    private void createBodyForStation(Station station, Vector2 pos, float rot){
-        //make the body def
-        BodyDef bodyDef = new BodyDef();
-        bodyDef.type = BodyDef.BodyType.StaticBody;
-        bodyDef.position.set(pos);
-        bodyDef.angle = rot;
+    private void handleShipAlignRequest(int userId, MShipAlignRequest msg){
+        //get the ship
+        Ship ship = grids[msg.grid].ships.get(userId);
+        if(ship == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            return;
+        }
 
-        //create the body and the shape
-        station.body = grids[station.grid].world.createBody(bodyDef);
-        PolygonShape shape = new PolygonShape();
-        shape.set(station.getVertices());
+        //check permissions
+        if(ship.owner != userId) return;
 
-        //create the fixture and add it to the body
-        FixtureDef fixtureDef = new FixtureDef();
-        fixtureDef.shape = shape;
-        fixtureDef.density = 2f; //TODO set these physics values based on ship
-        fixtureDef.friction = 0.2f;
-        fixtureDef.restitution = 0.1f;
-        station.body.createFixture(fixtureDef);
+        //otherwise, set the ship's movement
+        ship.movement = Ship.Movement.ALIGN_TO_ANG;
+        ship.trajectoryVel = ship.trajectoryVel.set(
+                (float) Math.cos(msg.angle) * ship.getMaxSpeed() * 0.75f,
+                (float) Math.sin(msg.angle) * ship.getMaxSpeed() * 0.75f);
 
-        //clean
-        shape.dispose();
+        //set the description of the movement
+        int degrees = -((int) (msg.angle*180/Math.PI - 90));
+        if(degrees < 0) degrees += 360;
+        ship.moveCommand = "Alinging to " + degrees + " N";
+
     }
 
 }

@@ -32,3 +32,11 @@ Game Launch Sequence
         > Creates Game
         > Transfers client contact to Game and GameHost to Game
         > Switches the graphics to Game scene
+Coordinates
+    It is unfortunate that I end up needing to use three different standards, but here we are.
+        > Normal math has 0 at East and goes CCW
+            > This is used in most situations
+        > libGDX has 0 at North and goes CCW
+            > This is used only in the final calc step before display
+        > Nautical is 0 at North and go CW
+            > This will be displayed to the player

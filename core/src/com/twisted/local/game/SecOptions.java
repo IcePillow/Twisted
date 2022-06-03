@@ -2,6 +2,7 @@ package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
@@ -41,7 +42,7 @@ public class SecOptions extends Sector{
     /* Standard Methods */
 
     @Override
-    public Group init() {
+    Group init() {
         //create the group
         parent = new Group();
         parent.setBounds(420, 150, 600, 500);
@@ -67,17 +68,24 @@ public class SecOptions extends Sector{
     }
 
     @Override
-    public void load() {
+    void load() {
 
     }
 
     @Override
-    public void render() {
+    void render(float delta) {
 
     }
 
     @Override
-    public void dispose() {
+    void dispose() {
 
+    }
+
+
+    /* Event Methods */
+
+    @Override
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
     }
 }
