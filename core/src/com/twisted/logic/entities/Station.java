@@ -36,7 +36,7 @@ public abstract class Station extends Entity implements Serializable {
 
     //final descriptive variables
     public final int grid;
-    public final String name;
+    public final String nickname;
 
     //high level state variables
     public int owner; //0 for none
@@ -50,8 +50,8 @@ public abstract class Station extends Entity implements Serializable {
     /**
      * Constructor
      */
-    public Station(int grid, String name, int owner, Stage stage){
-        this.name = name;
+    public Station(int grid, String nickname, int owner, Stage stage){
+        this.nickname = nickname;
         this.grid = grid;
         this.owner = owner;
         this.stage = stage;
@@ -59,8 +59,8 @@ public abstract class Station extends Entity implements Serializable {
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
 
-        this.position = new Vector2(0, 0);
-        this.rotation = 0;
+        this.pos = new Vector2(0, 0);
+        this.rot = 0;
     }
 
 
@@ -131,7 +131,7 @@ public abstract class Station extends Entity implements Serializable {
      */
     public enum Job {
 
-        Frigate(10, 2, 0, 0, 1),
+        Frigate(10, 2, 0, 0, 2),
         Cruiser(25, 5, 2, 0, 30),
         Battleship(100, 0, 10, 10, 90),
         Barge(150, 50, 0, 0, 120),

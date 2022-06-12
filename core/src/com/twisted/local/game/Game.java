@@ -59,9 +59,10 @@ public class Game implements Screen, ClientContact {
     private SecOptions optionsSector;
     private SecViewport viewportSector;
     private SecDetails detailsSector;
+    private SecOverlay overlaySector;
 
     //cross-sector tracking
-    private Sector viewportListener;
+    private Sector crossSectorListener;
 
     //visual state tracking
     private int grid; //the id of the active grid
@@ -193,7 +194,7 @@ public class Game implements Screen, ClientContact {
                 //copy grid data
                 state.grids = new Grid[m.gridPositions.length];
                 for(int i=0; i < state.grids.length; i++) {
-                    state.grids[i] = new Grid(i, m.gridPositions[i]);
+                    state.grids[i] = new Grid(i, m.gridPositions[i], m.gridNicknames[i]);
                     if(m.stationTypes[i] == Station.Type.Extractor){
                         state.grids[i].station = new Extractor(i, m.stationNames[i], m.stationOwners[i], m.stationStages[i], true);
                     }
@@ -260,20 +261,46 @@ public class Game implements Screen, ClientContact {
                 state.grids[add.grid].ships.put(add.shipId, add.createDrawableShip());
                 Ship ship = state.grids[add.grid].ships.get(add.shipId);
 
-                ship.polygon.setPosition(ship.position.x, ship.position.y);
-                ship.polygon.rotate(ship.rotation);
+                ship.polygon.setPosition(ship.pos.x, ship.pos.y);
+                ship.polygon.rotate(ship.rot);
             }
             //TODO other types of ships
         }
         else if(msg instanceof MShipUpd){
             MShipUpd upd = (MShipUpd) msg;
 
-            Ship ship = state.grids[upd.grid].ships.get(upd.shipId);
+            Ship ship;
+            if(upd.grid != -1){
+                ship = state.grids[upd.grid].ships.get(upd.shipId);
+            }
+            else {
+                ship = state.inWarp.get(upd.shipId);
+            }
 
             upd.copyDataToShip(ship);
-            ship.updatePolygon();
 
-            if(detailsSector.selectedShipId == ship.id) detailsSector.updateShipData(ship);
+            //update visuals if not in warp
+            if(upd.grid != -1) ship.updatePolygon();
+
+            //update the details sector
+            if(detailsSector.selectedShipId == ship.id){
+                detailsSector.updateShipData(ship, upd.grid);
+            }
+        }
+        else if(msg instanceof MShipEnterWarp){
+            MShipEnterWarp upd = (MShipEnterWarp) msg;
+
+            //move the ship to "in warp"
+            Ship ship = state.grids[upd.originGridId].ships.get(upd.shipId);
+            state.grids[upd.originGridId].ships.remove(ship.id);
+            state.inWarp.put(ship.id, ship);
+        }
+        else if(msg instanceof MShipExitWarp){
+            MShipExitWarp upd = (MShipExitWarp) msg;
+
+            Ship ship = state.inWarp.get(upd.shipId);
+            state.inWarp.remove(ship.id);
+            state.grids[upd.destGridId].ships.put(ship.id, ship);
         }
     }
 
@@ -316,12 +343,24 @@ public class Game implements Screen, ClientContact {
      * old requests. To stop listening, set receiver as null.
      * @param receiver The sector that should receive the event notifications. Usually the same as
      *                 the sector that called this method.
+     * @param listenStatus A user-readable string describing what is being listened for.
      */
-    void startViewportListen(Sector receiver){
-        if(viewportListener != null) {
-            viewportListener.viewportClickEvent(-1, null, null, null, -1);
+    void updateCrossSectorListening(Sector receiver, String listenStatus){
+        //cancel the current listener
+        if(crossSectorListener != null) {
+            crossSectorListener.crossSectorListeningCancelled();
         }
-        viewportListener = receiver;
+
+        //update to the new listener and receiver
+        crossSectorListener = receiver;
+
+        //change the cosmetic status
+        if(crossSectorListener == null || listenStatus == null){
+            overlaySector.updateActionLabel("");
+        }
+        else {
+            overlaySector.updateActionLabel(listenStatus);
+        }
     }
 
     /**
@@ -331,25 +370,39 @@ public class Game implements Screen, ClientContact {
     void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos,
                             SecViewport.ClickType type, int typeId){
         //normal behavior
-        if(viewportListener == null){
+        if(crossSectorListener == null){
             //selecting a ship for details
             if(type == SecViewport.ClickType.SHIP && button == Input.Buttons.LEFT){
                 shipSelectedForDetails(grid, typeId);
             }
         }
-        //responding to the details sector
-        else if(viewportListener == detailsSector){
-            detailsSector.viewportClickEvent(button, screenPos, gamePos, type, typeId);
+        //responding to external listeners
+        else if(button == Input.Buttons.LEFT) {
+            crossSectorListener.viewportClickEvent(screenPos, gamePos, type, typeId);
+        }
+        //cancelling external listeners
+        else {
+            crossSectorListener.crossSectorListeningCancelled();
+            overlaySector.updateActionLabel("");
         }
     }
 
     /**
-     * Send a game request to the server.
+     * Called when a minimap click event occurs.
      */
-    void sendGameRequest(MGameRequest request){
-        client.send(request);
-    }
+    void minimapClickEvent(int button, int grid){
+        //normal behavior
+        if(crossSectorListener == null){
+            if(button == Input.Buttons.LEFT){
+                switchGrid(grid);
+            }
+        }
+        //responding to external listeners
+        else if(button == Input.Buttons.LEFT) {
+            crossSectorListener.minimapClickEvent(grid);
+        }
 
+    }
 
     /* Input Handling Utility */
 
@@ -371,10 +424,10 @@ public class Game implements Screen, ClientContact {
     }
 
     /**
-     * Stop listening to the viewport.
+     * Send a game request to the server.
      */
-    private void releaseViewportListen(){
-        viewportListener = null;
+    void sendGameRequest(MGameRequest request){
+        client.send(request);
     }
 
 
@@ -404,6 +457,9 @@ public class Game implements Screen, ClientContact {
 
         industrySector = new SecIndustry(this, skin);
         stage.addActor(industrySector.init());
+
+        overlaySector = new SecOverlay(this, skin);
+        stage.addActor(overlaySector.init());
 
         optionsSector = new SecOptions(this, skin, stage);
         stage.addActor(optionsSector.init());

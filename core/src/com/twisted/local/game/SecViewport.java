@@ -17,7 +17,6 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
-import com.twisted.local.game.state.GameState;
 
 public class SecViewport extends Sector{
 
@@ -29,11 +28,6 @@ public class SecViewport extends Sector{
 
     //reference variables
     private Game game;
-    private GameState state;
-    @Override
-    public void setState(GameState state) {
-        this.state = state;
-    }
 
     //graphics utilities
     private Skin skin;
@@ -150,8 +144,8 @@ public class SecViewport extends Sector{
             //draw the ship
             shipDrawable = new Polygon(s.getVertices());
             shipDrawable.scale(LTR);
-            shipDrawable.translate(s.position.x*LTR, s.position.y*LTR);
-            shipDrawable.rotate((float) (s.rotation * 180/Math.PI));
+            shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
+            shipDrawable.rotate( (float) (s.rot*180/Math.PI)-90 );
             shape.polygon(shipDrawable.getTransformedVertices());
         }
 
@@ -197,12 +191,6 @@ public class SecViewport extends Sector{
         }
 
     }
-
-    /**
-     * Not used in this class.
-     */
-    @Override
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, ClickType type, int typeId) {}
 
     /**
      * Handles clicks on the stage. Necessary to be able to easily accept clicks from multiple

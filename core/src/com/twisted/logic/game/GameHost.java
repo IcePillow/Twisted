@@ -6,15 +6,9 @@ import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
 import com.twisted.net.msg.*;
-import com.twisted.net.msg.gameRequest.MShipAlignRequest;
-import com.twisted.net.msg.gameRequest.MShipMoveRequest;
-import com.twisted.net.msg.gameUpdate.MAddShip;
-import com.twisted.net.msg.gameUpdate.MShipUpd;
+import com.twisted.net.msg.gameRequest.*;
+import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
-import com.twisted.net.msg.gameRequest.MGameRequest;
-import com.twisted.net.msg.gameRequest.MJobRequest;
-import com.twisted.net.msg.gameUpdate.MChangeJob;
-import com.twisted.net.msg.gameUpdate.MGameOverview;
 import com.twisted.net.msg.remaining.MGameStart;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.server.Server;
@@ -24,13 +18,15 @@ import com.twisted.local.game.state.PlayColor;
 import java.text.DecimalFormat;
 import java.util.*;
 
-
+/**
+ * TODO safety checks on all inputs from the users in the client request handling methods.
+ */
 public class GameHost implements ServerContact {
 
     /* Constants */
 
     public static final int TICK_DELAY = 50; //millis between each tick
-    public static final float TICKS = TICK_DELAY / 1000f; //ticks per second
+    public static final float FRAC = TICK_DELAY / 1000f; //fraction of a second per tick
 
     private static final DecimalFormat df2 = new DecimalFormat("0.00");
 
@@ -58,6 +54,7 @@ public class GameHost implements ServerContact {
 
     //state variables
     private Grid[] grids;
+    private HashMap<Integer, Ship> shipsInWarp;
 
     //tracking variables, should only be accessed through their respective sync'd methods
     private int nextJobId = 1;
@@ -144,29 +141,32 @@ public class GameHost implements ServerContact {
 
         //grids and stations
         grids = new Grid[]{
-                new Grid(0, new Vector2(50, 320)),
-                new Grid(1, new Vector2(200, 100)),
-                new Grid(2, new Vector2(80, 920)),
-                new Grid(3, new Vector2(950, 680)),
-                new Grid(4, new Vector2(800, 900)),
-                new Grid(5, new Vector2(920, 80)),
-                new Grid(6, new Vector2(400, 500)),
-                new Grid(7, new Vector2(500, 400)),
+                new Grid(0, new Vector2(50, 320), "A"),
+                new Grid(1, new Vector2(200, 100), "B"),
+                new Grid(2, new Vector2(80, 920), "C"),
+                new Grid(3, new Vector2(950, 680), "D"),
+                new Grid(4, new Vector2(800, 900), "E"),
+                new Grid(5, new Vector2(920, 80), "F"),
+                new Grid(6, new Vector2(400, 500), "G"),
+                new Grid(7, new Vector2(500, 400), "H"),
         };
-        grids[0].station = new Extractor(0, "Extractor A", players[0].getId(), Station.Stage.ARMORED, false);
-        grids[1].station = new Extractor(1, "Extractor B", players[0].getId(), Station.Stage.ARMORED, false);
-        grids[2].station = new Harvester(2, "Harvester A", players[0].getId(), Station.Stage.ARMORED, false);
-        grids[3].station = new Extractor(3, "Extractor C", players[1].getId(), Station.Stage.ARMORED, false);
-        grids[4].station = new Extractor(4, "Extractor D", players[1].getId(), Station.Stage.ARMORED, false);
-        grids[5].station = new Harvester(5, "Harvester B", players[1].getId(), Station.Stage.ARMORED, false);
-        grids[6].station = new Liquidator(6, "Liquidator A", 0, Station.Stage.NONE, false);
-        grids[7].station = new Liquidator(7, "Liquidator B", 0, Station.Stage.NONE, false);
+        grids[0].station = new Extractor(0, "Extractor " + grids[0].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[1].station = new Extractor(1, "Extractor " + grids[1].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[2].station = new Harvester(2, "Harvester " + grids[2].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[3].station = new Extractor(3, "Extractor " + grids[3].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[4].station = new Extractor(4, "Extractor " + grids[4].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[5].station = new Harvester(5, "Harvester " + grids[5].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[6].station = new Liquidator(6, "Liquidator " + grids[6].nickname, 0, Station.Stage.NONE, false);
+        grids[7].station = new Liquidator(7, "Liquidator " + grids[7].nickname, 0, Station.Stage.NONE, false);
 
         //add initial resources
         grids[0].station.resources[0] += 20;
         grids[0].station.resources[1] += 6;
         grids[3].station.resources[0] += 20;
         grids[3].station.resources[1] += 6;
+
+        //warp
+        shipsInWarp = new HashMap<>();
     }
 
     /**
@@ -200,9 +200,10 @@ public class GameHost implements ServerContact {
         for(int j=0; j<grids.length; j++){
             Grid g = grids[j];
 
-            msg.gridPositions[j] = g.position;
+            msg.gridPositions[j] = g.pos;
+            msg.gridNicknames[j] = g.nickname;
             msg.stationTypes[j] = g.station.getType();
-            msg.stationNames[j] = g.station.name;
+            msg.stationNames[j] = g.station.nickname;
             msg.stationOwners[j] = g.station.owner;
             msg.stationStages[j] = g.station.stage;
             msg.stationResources[j] = g.station.resources;
@@ -225,12 +226,15 @@ public class GameHost implements ServerContact {
     private void preLoopCalls(){
 
         //dev ship
-        Ship s = new Frigate(useNextShipId(), 1, new Vector2(1, 0), new Vector2(0,0), 0, false);
-        grids[0].ships.put(s.id, s);
+        Ship s1 = new Frigate(useNextShipId(), 2, new Vector2(1, 1),
+                new Vector2(0,0), (float) Math.PI/2, 0);
+        grids[0].ships.put(s1.id, s1);
+        server.broadcastMessage(MAddShip.createFromShipBody(0, s1));
 
-        //tell users
-        server.broadcastMessage(MAddShip.createFromShipBody(0, s));
-
+        Ship s2 = new Frigate(useNextShipId(), 1, new Vector2(-1, 1),
+                new Vector2(0,0), (float) -Math.PI/2, 0);
+        grids[0].ships.put(s2.id, s2);
+        server.broadcastMessage(MAddShip.createFromShipBody(0, s2));
     }
 
 
@@ -322,6 +326,7 @@ public class GameHost implements ServerContact {
             if(request instanceof MJobRequest) handleJobRequest(userId, (MJobRequest) request);
             else if(request instanceof MShipMoveRequest) handleShipMoveRequest(userId, (MShipMoveRequest) request);
             else if(request instanceof MShipAlignRequest) handleShipAlignRequest(userId, (MShipAlignRequest) request);
+            else if(request instanceof MShipWarpRequest) handleShipWarpRequest(userId, (MShipWarpRequest) request);
         }
 
         //updating
@@ -387,7 +392,7 @@ public class GameHost implements ServerContact {
             if(grid.station.currentJobs.size() > 0) {
                 //otherwise, grab the first job
                 CurrentJob job = grid.station.currentJobs.get(0);
-                job.timeLeft -= TICKS;
+                job.timeLeft -= FRAC;
 
                 if(job.timeLeft <= 0){
                     //end the job and tell the user
@@ -400,9 +405,9 @@ public class GameHost implements ServerContact {
                     switch(job.jobType){
                         case Frigate:
                             //TODO place ship to not intersect with something else
-                            sh = new Frigate(useNextShipId(), job.owner,
-                                    new Vector2(1, 0), new Vector2(0, 0), 0,
-                                    false);
+                            //TODO set the ship names
+                            sh = new Frigate(useNextShipId(), job.owner, new Vector2(1, 0),
+                                    new Vector2(0, 0), (float) Math.PI/2, 0);
 
                             break;
                         //TODO add the rest of the ship cases
@@ -436,18 +441,18 @@ public class GameHost implements ServerContact {
             for(Ship s : g.ships.values()) {
 
                 //check there is a targetPos and that it is not already close enough
-                if(s.movement == Ship.Movement.STATIONARY){
+                if(s.movement == Ship.Movement.STOPPING){
                     s.trajectoryVel.set(0, 0);
                 }
                 else if(s.movement == Ship.Movement.MOVE_TO_POS){
                     //already close enough to target position
-                    if((distanceToTarget=s.position.dst(s.targetPos)) <= 0.01f){
+                    if((distanceToTarget=s.pos.dst(s.targetPos)) <= 0.01f){
                         s.trajectoryVel.set(0, 0);
                     }
                     else {
                         //set the targetVel to the correct direction and normalize
-                        s.trajectoryVel = new Vector2(s.targetPos.x - s.position.x,
-                                s.targetPos.y - s.position.y).nor();
+                        s.trajectoryVel = new Vector2(s.targetPos.x - s.pos.x,
+                                s.targetPos.y - s.pos.y).nor();
 
                         //find the effective max speed (compare speed can stop from to actual max speed)
                         float speedCanStopFrom = (float) Math.sqrt( 2*s.getMaxAccel()*distanceToTarget );
@@ -466,17 +471,17 @@ public class GameHost implements ServerContact {
                 if(s.trajectoryVel != null){
                     //find the desired, then clamp it
 
-                    accel.set(s.trajectoryVel.x-s.velocity.x, s.trajectoryVel.y-s.velocity.y);
+                    accel.set(s.trajectoryVel.x-s.vel.x, s.trajectoryVel.y-s.vel.y);
 
                     float length = accel.len();
-                    if(length > s.getMaxAccel() * TICKS){
-                        accel.x *= s.getMaxAccel() * TICKS /length;
-                        accel.y *= s.getMaxAccel() * TICKS /length;
+                    if(length > s.getMaxAccel() * FRAC){
+                        accel.x *= s.getMaxAccel() * FRAC /length;
+                        accel.y *= s.getMaxAccel() * FRAC /length;
                     }
 
                     //update the velocity
-                    s.velocity.x += accel.x;
-                    s.velocity.y += accel.y;
+                    s.vel.x += accel.x;
+                    s.vel.y += accel.y;
                 }
 
             }
@@ -489,19 +494,84 @@ public class GameHost implements ServerContact {
      */
     private void updatePhysics(){
 
-        //take the time step
+        //ships that will be removed after a loop
+        ArrayList<Ship> toBeRemoved = new ArrayList<>();
+
+        //time step for ships not in warp
         for(Grid g : grids){
+            //loop through ships on the grid
             for(Ship s : g.ships.values()){
 
+                //check if it should enter warp
+                if(s.movement == Ship.Movement.ALIGN_FOR_WARP
+                        && s.alignedForWarp(g, grids[s.warpTargetGridId])){
+                    //remove the ship at the end of the loop
+                    toBeRemoved.add(s);
+
+                    //put in warp space
+                    shipsInWarp.put(s.id, s);
+                    s.warpTimeToLand = 3; //TODO set this based on dist/speed/etc
+
+                    //update the movement description
+                    s.movement = Ship.Movement.WARPING;
+                    s.moveCommand = "Warping to #" + s.warpTargetGridId;
+
+                    //update physics
+                    s.pos.set(0, 0);
+
+                    //tell the users
+                    server.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
+                }
+
                 //move the ship
-                s.position.x += s.velocity.x* TICKS;
-                s.position.y += s.velocity.y* TICKS;
+                s.pos.x += s.vel.x * FRAC;
+                s.pos.y += s.vel.y * FRAC;
 
                 //set the rotation
-                if(s.velocity.len() != 0){
-                    s.rotation = (float) -Math.atan2(s.velocity.x, s.velocity.y);
+                if(s.vel.len() != 0){
+                    s.rot = (float) Math.atan2(s.vel.y, s.vel.x);
                 }
             }
+
+            //remove ships that left the grid
+            for(Ship s : toBeRemoved){
+                g.ships.remove(s.id);
+            }
+            toBeRemoved.clear();
+        }
+
+        //time step for ships in warp
+        for(Ship s : shipsInWarp.values()){
+            //move the ship along
+            s.warpTimeToLand -= FRAC;
+
+            if(s.warpTimeToLand <= 0){
+                s.warpTimeToLand = 0;
+
+                toBeRemoved.add(s);
+
+                //tell the users
+                server.broadcastMessage(new MShipExitWarp(s.id, s.warpTargetGridId));
+
+                //add it to the correct grid
+                grids[s.warpTargetGridId].ships.put(s.id, s);
+
+                //exiting warp
+                s.warpTargetGridId = -1;
+                s.moveCommand = "Stopping";
+                s.movement = Ship.Movement.STOPPING;
+
+                //placing with correct physics
+                Vector2 warpVel = s.vel.cpy().nor().scl(2f);
+                s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
+
+                warpVel.nor().scl(s.getMaxSpeed()*0.75f);
+                s.vel.set(warpVel.x, warpVel.y);
+            }
+        }
+        //remove ships that exited warp
+        for(Ship s : toBeRemoved){
+            shipsInWarp.remove(s.id);
         }
 
     }
@@ -511,11 +581,14 @@ public class GameHost implements ServerContact {
      */
     private void sendEntityData(){
 
-        //ship data
+        //ship data, not in warp then in warp
         for(Grid g : grids){
             for(Ship s : g.ships.values()){
                 server.broadcastMessage(MShipUpd.createFromShip(s, g.id));
             }
+        }
+        for(Ship s : shipsInWarp.values()){
+            server.broadcastMessage(MShipUpd.createFromShip(s, -1));
         }
 
     }
@@ -560,7 +633,7 @@ public class GameHost implements ServerContact {
      */
     private void handleShipMoveRequest(int userId, MShipMoveRequest msg){
         //get the ship
-        Ship ship = grids[msg.grid].ships.get(userId);
+        Ship ship = grids[msg.grid].ships.get(msg.shipId);
         if(ship == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -568,6 +641,7 @@ public class GameHost implements ServerContact {
 
         //check permissions
         if(ship.owner != userId) return;
+        if(ship.warpTimeToLand != 0) return;
 
         //otherwise, set the ship's movement
         ship.movement = Ship.Movement.MOVE_TO_POS;
@@ -583,7 +657,7 @@ public class GameHost implements ServerContact {
      */
     private void handleShipAlignRequest(int userId, MShipAlignRequest msg){
         //get the ship
-        Ship ship = grids[msg.grid].ships.get(userId);
+        Ship ship = grids[msg.grid].ships.get(msg.shipId);
         if(ship == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -591,18 +665,51 @@ public class GameHost implements ServerContact {
 
         //check permissions
         if(ship.owner != userId) return;
+        if(ship.warpTimeToLand != 0) return;
 
         //otherwise, set the ship's movement
         ship.movement = Ship.Movement.ALIGN_TO_ANG;
         ship.trajectoryVel = ship.trajectoryVel.set(
-                (float) Math.cos(msg.angle) * ship.getMaxSpeed() * 0.75f,
-                (float) Math.sin(msg.angle) * ship.getMaxSpeed() * 0.75f);
+                (float) Math.cos(msg.angle) * ship.getMaxSpeed() * 0.8f,
+                (float) Math.sin(msg.angle) * ship.getMaxSpeed() * 0.8f);
+
+        System.out.println(ship.movement);
+        System.out.println(ship.trajectoryVel);
 
         //set the description of the movement
         int degrees = -((int) (msg.angle*180/Math.PI - 90));
         if(degrees < 0) degrees += 360;
         ship.moveCommand = "Alinging to " + degrees + " N";
 
+        System.out.println(ship.moveCommand);
+    }
+
+    /**
+     * Handles MShipWarpRequest
+     */
+    private void handleShipWarpRequest(int userId, MShipWarpRequest msg){
+        //get the ship
+        Ship ship = grids[msg.grid].ships.get(msg.shipId);
+        if(ship == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipWarpRequest()");
+            return;
+        }
+
+        //check permissions and basics
+        if(ship.owner != userId) return;
+        if(msg.targetGridId == msg.grid || ship.warpTimeToLand != 0) return;
+
+        //set the target grid id
+        ship.movement = Ship.Movement.ALIGN_FOR_WARP;
+        ship.warpTargetGridId = msg.targetGridId;
+        ship.moveCommand = "Aligning to grid " + msg.targetGridId;
+
+        //get the angle to the target grid
+        float angle = (float) Math.atan2(grids[msg.targetGridId].pos.y-grids[msg.grid].pos.y,
+                grids[msg.targetGridId].pos.x-grids[msg.grid].pos.x);
+        ship.trajectoryVel = ship.trajectoryVel.set(
+                (float) Math.cos(angle) * ship.getMaxSpeed() * 0.8f,
+                (float) Math.sin(angle) * ship.getMaxSpeed() * 0.8f);
     }
 
 }

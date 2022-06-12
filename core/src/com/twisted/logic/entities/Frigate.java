@@ -1,6 +1,5 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 
 public class Frigate extends Ship{
@@ -13,8 +12,9 @@ public class Frigate extends Ship{
     /**
      * Constructor
      */
-    public Frigate(int shipId, int owner, Vector2 position, Vector2 velocity, float rotation, boolean graphics){
-        super(shipId, owner, position, velocity, rotation, graphics);
+    public Frigate(int shipId, int owner, Vector2 position, Vector2 velocity, float rotation,
+                   float warpTimeToLand){
+        super(shipId, owner, position, velocity, rotation, warpTimeToLand);
     }
 
 
@@ -38,7 +38,11 @@ public class Frigate extends Ship{
     }
     @Override
     public float getMaxAccel() {
-        return 0.5f;
+        return 0.4f;
+    }
+    @Override
+    public int getMaxHealth(){
+        return 100;
     }
 
 }

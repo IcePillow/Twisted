@@ -15,11 +15,6 @@ public class SecOptions extends Sector{
 
     //reference variables
     private Game game;
-    private GameState state;
-    @Override
-    public void setState(GameState state) {
-        this.state = state;
-    }
 
     //graphics utilities
     private Stage stage;
@@ -80,12 +75,5 @@ public class SecOptions extends Sector{
     @Override
     void dispose() {
 
-    }
-
-
-    /* Event Methods */
-
-    @Override
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
     }
 }

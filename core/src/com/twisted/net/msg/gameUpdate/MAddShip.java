@@ -14,13 +14,14 @@ public class MAddShip implements MGameUpdate{
     public Vector2 position;
     public Vector2 velocity;
     public float rotation;
+    public float warpTimeToLand;
 
 
     /**
      * Constructor
      */
     public MAddShip(Ship.Type type, int grid, int shipId, int ownerId, Vector2 position,
-                    Vector2 velocity, float rotation) {
+                    Vector2 velocity, float rotation, float warpTimeToLand) {
         this.type = type;
 
         this.grid = grid;
@@ -30,14 +31,15 @@ public class MAddShip implements MGameUpdate{
         this.position = position.cpy();
         this.velocity = velocity.cpy();
         this.rotation = rotation;
+        this.warpTimeToLand = warpTimeToLand;
     }
 
     /**
      * Creates an MAddShip from a ship with a body.
      */
     public static MAddShip createFromShipBody(int grid, Ship s){
-        return new MAddShip(s.getType(), grid, s.id, s.owner, s.position,
-                s.velocity, s.rotation);
+        return new MAddShip(s.getType(), grid, s.id, s.owner, s.pos,
+                s.vel, s.rot, s.warpTimeToLand);
     }
 
     /**
@@ -49,7 +51,7 @@ public class MAddShip implements MGameUpdate{
         Ship s = null;
         switch(type){
             case Frigate:
-                s = new Frigate(shipId, ownerId, position, velocity, rotation, true);
+                s = new Frigate(shipId, ownerId, position, velocity, rotation, warpTimeToLand);
                 break;
             default:
                 System.out.println("Unexpected ship type in MAddShip.createDrawableShip()");

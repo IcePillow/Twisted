@@ -36,6 +36,7 @@ public class MGameStart implements Message {
 
     //grid details, the id of the grid is the position in the array
     public Vector2[] gridPositions;
+    public String[] gridNicknames;
     public Station.Type[] stationTypes;
     public String[] stationNames;
     public int[] stationOwners;
@@ -46,12 +47,14 @@ public class MGameStart implements Message {
     /**
      * Constructor.
      */
-    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, PlayColor> idToColor, int numGrids){
+    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, PlayColor> idToColor,
+                      int numGrids){
         this.idToName = idToName;
         this.idToColor = idToColor;
 
         //grid stuff
         gridPositions = new Vector2[numGrids];
+        gridNicknames = new String[numGrids];
         stationTypes = new Station.Type[numGrids];
         stationNames = new String[numGrids];
         stationOwners = new int[numGrids];

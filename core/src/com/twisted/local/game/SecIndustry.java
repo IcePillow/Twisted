@@ -27,11 +27,6 @@ public class SecIndustry extends Sector{
 
     //reference variables
     private Game game;
-    private GameState state;
-    @Override
-    public void setState(GameState state) {
-        this.state = state;
-    }
 
     //graphics utilities
     private Skin skin;
@@ -155,7 +150,7 @@ public class SecIndustry extends Sector{
             stationTitleBar.addActor(dropdown);
 
             //create and add the name label
-            Label stationNameLabel = new Label(g.station.name, skin, "small");
+            Label stationNameLabel = new Label(g.station.nickname, skin, "small");
             stationNameLabel.setAlignment(Align.left);
             stationTitleBar.addActor(stationNameLabel);
 
@@ -350,7 +345,7 @@ public class SecIndustry extends Sector{
     void industryFocusStation(Station station){
 
         focusStationId = station.grid;
-        focusStation.setText(station.name);
+        focusStation.setText(station.nickname);
 
         //add to have enough children
         for(int i=jobQueue.getChildren().size; i<station.currentJobs.size(); i++){
@@ -407,14 +402,9 @@ public class SecIndustry extends Sector{
      * Called when the user attempts to start a job at a station.
      */
     void industryJobRequest(Station station, Station.Job job){
-        updateIndustryLog("Build " + job.name() + " @ " + station.name,
+        updateIndustryLog("Build " + job.name() + " @ " + station.nickname,
                 new float[]{0.7f, 0.7f, 0.7f});
 
         game.client.send(new MJobRequest(station.grid, job));
-    }
-
-    @Override
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos,
-                            SecViewport.ClickType type, int typeId) {
     }
 }

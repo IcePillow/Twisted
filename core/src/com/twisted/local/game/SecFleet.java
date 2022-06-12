@@ -12,11 +12,6 @@ public class SecFleet extends Sector {
 
     //reference variables
     private Game game;
-    private GameState state;
-    @Override
-    public void setState(GameState state) {
-        this.state = state;
-    }
 
     //graphics utilities
     private Skin skin;
@@ -66,10 +61,4 @@ public class SecFleet extends Sector {
 
     }
 
-
-    /* Event Methods */
-
-    @Override
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
-    }
 }

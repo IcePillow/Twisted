@@ -4,7 +4,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -13,17 +12,11 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Main;
 import com.twisted.logic.descriptors.Grid;
-import com.twisted.local.game.state.GameState;
 
 public class SecMinimap extends Sector {
 
     //reference variables
     private Game game;
-    private GameState state;
-    @Override
-    public void setState(GameState state){
-        this.state = state;
-    }
 
     //graphics utilities
     private Skin skin;
@@ -80,21 +73,21 @@ public class SecMinimap extends Sector {
             }
 
             //position is (indent + scaled positioning - half the width)
-            g.station.minimapSprite.setPosition(3 + g.position.x*250f/1000f - 5, 3 + g.position.y*250f/1000f - 5);
+            g.station.minimapSprite.setPosition(3 + g.pos.x*250f/1000f - 5, 3 + g.pos.y*250f/1000f - 5);
             g.station.minimapSprite.setSize(10, 10);
 
             //load the minimap label
-            Label label = new Label(g.station.name, skin, "small", Color.GRAY);
+            Label label = new Label(g.station.nickname, skin, "small", Color.GRAY);
             g.station.minimapLabel = label;
             label.setVisible(false);
             if(g.station.minimapSprite.getX() < 3+label.getWidth()/2f){
-                label.setPosition((g.position.x*250f/1000f-label.getWidth()/2f) + (3+label.getWidth()/2f) - (g.station.minimapSprite.getX()), g.position.y*250f/1000f + 6);
+                label.setPosition((g.pos.x*250f/1000f-label.getWidth()/2f) + (3+label.getWidth()/2f) - (g.station.minimapSprite.getX()), g.pos.y*250f/1000f + 6);
             }
             else if(g.station.minimapSprite.getX() + label.getWidth()/2f > 248){
-                label.setPosition((g.position.x*250f/1000f-label.getWidth()/2f) - (g.station.minimapSprite.getX()+label.getWidth()/2f) + (248), g.position.y*250f/1000f + 6);
+                label.setPosition((g.pos.x*250f/1000f-label.getWidth()/2f) - (g.station.minimapSprite.getX()+label.getWidth()/2f) + (248), g.pos.y*250f/1000f + 6);
             }
             else {
-                label.setPosition((g.position.x*250f/1000f-label.getWidth()/2f), g.position.y*250f/1000f + 6);
+                label.setPosition((g.pos.x*250f/1000f-label.getWidth()/2f), g.pos.y*250f/1000f + 6);
             }
 
             //add to the minimap group
@@ -117,8 +110,7 @@ public class SecMinimap extends Sector {
             g.station.minimapSprite.addListener(new ClickListener(Input.Buttons.LEFT){
                 @Override
                 public void clicked(InputEvent event, float x, float y){
-                    //update the active grid
-                    game.switchGrid(g.id);
+                    game.minimapClickEvent(Input.Buttons.LEFT, g.id);
 
                     event.handle();
                 }
@@ -127,7 +119,7 @@ public class SecMinimap extends Sector {
 
         //move the active square
         Grid g = state.grids[game.getGrid()];
-        parent.getChild(2).setPosition(3 + g.position.x*250f/1000f - 10, 3 + g.position.y*250f/1000f - 10);
+        parent.getChild(2).setPosition(3 + g.pos.x*250f/1000f - 10, 3 + g.pos.y*250f/1000f - 10);
 
     }
 
@@ -148,11 +140,7 @@ public class SecMinimap extends Sector {
      * This method changes where the focus square on the minimap is.
      */
     void switchFocusedGrid(int newGrid){
-        parent.getChild(2).setPosition(3 + state.grids[newGrid].position.x*250f/1000f - 10,
-                3 + state.grids[newGrid].position.y*250f/1000f - 10);
-    }
-
-    @Override
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, SecViewport.ClickType type, int typeId) {
+        parent.getChild(2).setPosition(3 + state.grids[newGrid].pos.x*250f/1000f - 10,
+                3 + state.grids[newGrid].pos.y*250f/1000f - 10);
     }
 }

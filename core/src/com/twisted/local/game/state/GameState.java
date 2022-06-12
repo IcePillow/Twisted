@@ -3,6 +3,7 @@ package com.twisted.local.game.state;
 import com.badlogic.gdx.graphics.Texture;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.Ship;
 
 import java.util.HashMap;
 
@@ -34,6 +35,7 @@ public class GameState {
 
     //main state storage
     public Grid[] grids;
+    public HashMap<Integer, Ship> inWarp;
     public HashMap<Integer, CurrentJob> jobs;
 
 
@@ -64,8 +66,8 @@ public class GameState {
         }
 
         //prepare state storage
+        inWarp = new HashMap<>();
         jobs = new HashMap<>();
-
     }
 
 }
