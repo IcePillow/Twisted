@@ -1,7 +1,10 @@
 package com.twisted.local.game;
 
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.state.GameState;
 
 public abstract class Sector {
@@ -30,8 +33,28 @@ public abstract class Sector {
 
     /**
      * Called upon construction of the Game class.
+     *
+     * The default method (here) creates a group that should be used as the parent group. This
+     * group will automatically handle all click events used on it.
      */
-    abstract Group init();
+    Group init(){
+        Group group = new Group();
+
+        group.addListener(new ClickListener(Input.Buttons.LEFT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                event.handle();
+            }
+        });
+        group.addListener(new ClickListener(Input.Buttons.RIGHT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                event.handle();
+            }
+        });
+
+        return group;
+    }
 
     /**
      * Called when the game start message is received.
@@ -47,16 +70,5 @@ public abstract class Sector {
      * Called to clean up.
      */
     abstract void dispose();
-
-
-    enum Type {
-        VIEWPORT,
-        MINIMAP,
-        INDUSTRY,
-        FLEET,
-        DETAILS,
-        OVERLAY,
-        OPTIONS,
-    }
 
 }

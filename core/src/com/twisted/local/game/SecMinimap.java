@@ -39,7 +39,7 @@ public class SecMinimap extends Sector {
 
     @Override
     Group init() {
-        parent = new Group();
+        parent = super.init();
         parent.setBounds(Main.WIDTH-256, 0, 256, 256);
 
         Image main = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
@@ -54,7 +54,7 @@ public class SecMinimap extends Sector {
         activeSquare.setPosition(parent.getWidth()/2, parent.getHeight()/2);
         activeSquare.setSize(20, 20);
         parent.addActor(activeSquare);
-
+        
         return parent;
     }
 
@@ -104,14 +104,15 @@ public class SecMinimap extends Sector {
                     g.station.minimapLabel.setVisible(false);
                 }
 
-                return false;
+                return true;
             });
 
             g.station.minimapSprite.addListener(new ClickListener(Input.Buttons.LEFT){
                 @Override
                 public void clicked(InputEvent event, float x, float y){
-                    game.minimapClickEvent(Input.Buttons.LEFT, g.id);
+                    if(event.isHandled()) return;
 
+                    game.minimapClickEvent(Input.Buttons.LEFT, g.id);
                     event.handle();
                 }
             });

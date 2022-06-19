@@ -9,7 +9,6 @@ public class Liquidator extends Station {
             Job.Frigate, Job.Cruiser,
             Job.Extractor
     };
-    private static final Vector2 size = new Vector2(1.28f, 1.28f);
     public final static float[] vertices = new float[]{
             -0.64f, 0,  -0.32f, 0.64f,   0.32f, 0.64f,
             0.64f, 0,  0.32f, -0.64f, -0.32f, -0.64f
@@ -30,14 +29,6 @@ public class Liquidator extends Station {
 
     /* Data Methods */
 
-    @Override
-    public String getFilename() {
-        return "liquidator";
-    }
-    @Override
-    public Vector2 getSize(){
-        return size;
-    }
     @Override
     public Job[] getPossibleJobs() {
         return possibleJobs;

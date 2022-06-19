@@ -18,6 +18,14 @@ public abstract class Entity {
      */
     public float rot;
 
+    //data methods
+    public abstract float[] getVertices();
+    /**
+     * Returns the logical radius (i.e. not in visual coords) padded a little. Currently used
+     * to display the selection circle on the viewport.
+     */
+    public abstract float getPaddedLogicalRadius();
+
     public enum Type {
         STATION,
         SHIP

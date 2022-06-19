@@ -325,7 +325,8 @@ public class Lobby implements Screen, ClientContact {
         new Thread(() -> {
             try {
                 Thread.sleep(20);
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 e.printStackTrace();
             }
             terminalPane.setScrollPercentY(1);

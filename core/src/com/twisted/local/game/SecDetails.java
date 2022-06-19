@@ -63,7 +63,7 @@ public class SecDetails extends Sector{
      */
     @Override
     Group init() {
-        parent = new Group();
+        parent = super.init();
         parent.setBounds(0, 100, 300, 125);
 
         //decoration group
@@ -90,7 +90,6 @@ public class SecDetails extends Sector{
      * Init the base level of the subgroup.
      */
     private Group initEmptySubgroup(){
-
         emptyParent = new Group();
 
         Label label = new Label("[Selection]", skin, "medium", Color.WHITE);
@@ -166,28 +165,34 @@ public class SecDetails extends Sector{
 
         //listeners for the buttons
         moveButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+
             if(event instanceof ChangeListener.ChangeEvent){
                 game.updateCrossSectorListening(this, "Move command...");
                 this.externalWait = ExternalWait.MOVE;
                 return true;
             }
-            return false;
+            return true;
         });
         alignButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+
             if(event instanceof ChangeListener.ChangeEvent){
                 game.updateCrossSectorListening(this, "Align command...");
                 this.externalWait = ExternalWait.ALIGN;
                 return true;
             }
-            return false;
+            return true;
         });
         warpButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+
             if(event instanceof ChangeListener.ChangeEvent){
                 game.updateCrossSectorListening(this, "Warp command...");
                 this.externalWait = ExternalWait.WARP;
                 return true;
             }
-            return false;
+            return true;
         });
     }
 
@@ -280,7 +285,7 @@ public class SecDetails extends Sector{
             if(req != null) game.sendGameRequest(req);
         }
         else {
-            //TODO add user visible error (can't give viewport commands while in wrong grid)
+            game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.YELLOW);
         }
 
         game.updateCrossSectorListening(null, null);
@@ -308,7 +313,7 @@ public class SecDetails extends Sector{
             if(req != null) game.sendGameRequest(req);
         }
         else {
-            //TODO add user visible error (can't command a ship that's already in warp)
+            game.addToLog("Cannot command a ship that is currently in warp", SecLog.LogColor.YELLOW);
         }
 
         //release the cross sector listening

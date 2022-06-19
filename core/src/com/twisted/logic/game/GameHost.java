@@ -609,9 +609,15 @@ public class GameHost implements ServerContact {
                 s.stage == Station.Stage.DEPLOYMENT){
 
             MDenyRequest deny = new MDenyRequest(msg);
-            if(!s.enoughForJob(j)) deny.reason = "Not enough resources for job";
-            else if(s.owner == userId) deny.reason = "Station cannot build right now";
-            else deny.reason = "Unknown reason for denial";
+            if(!s.enoughForJob(j)){
+                deny.reason = "Not enough resources for job: " + j.name();
+            }
+            else if(s.stage == Station.Stage.NONE || s.stage == Station.Stage.DEPLOYMENT) {
+                deny.reason = s.nickname + " cannot build right now";
+            }
+            else {
+                deny.reason = "Job denied for unexpected reason";
+            }
 
             server.sendMessage(userId, deny);
         }
@@ -633,23 +639,35 @@ public class GameHost implements ServerContact {
      */
     private void handleShipMoveRequest(int userId, MShipMoveRequest msg){
         //get the ship
-        Ship ship = grids[msg.grid].ships.get(msg.shipId);
-        if(ship == null){
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
         }
 
         //check permissions
-        if(ship.owner != userId) return;
-        if(ship.warpTimeToLand != 0) return;
+        if(s.owner != userId || s.warpTimeToLand != 0){
+            MDenyRequest deny = new MDenyRequest(msg);
 
-        //otherwise, set the ship's movement
-        ship.movement = Ship.Movement.MOVE_TO_POS;
-        ship.targetPos = msg.location;
+            if(s.warpTimeToLand != 0){
+                deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
 
-        //set the description of the movement
-        ship.moveCommand = "Moving to (" + df2.format(ship.targetPos.x) + ", "
-                + df2.format(ship.targetPos.y) + ")";
+            server.sendMessage(userId, deny);
+        }
+        else {
+            //set the ship's movement
+            s.movement = Ship.Movement.MOVE_TO_POS;
+            s.targetPos = msg.location;
+
+            //set the description of the movement
+            s.moveCommand = "Moving to (" + df2.format(s.targetPos.x) + ", "
+                    + df2.format(s.targetPos.y) + ")";
+        }
+
     }
 
     /**
@@ -657,31 +675,40 @@ public class GameHost implements ServerContact {
      */
     private void handleShipAlignRequest(int userId, MShipAlignRequest msg){
         //get the ship
-        Ship ship = grids[msg.grid].ships.get(msg.shipId);
-        if(ship == null){
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
         }
 
         //check permissions
-        if(ship.owner != userId) return;
-        if(ship.warpTimeToLand != 0) return;
+        if(s.owner != userId || s.warpTimeToLand != 0){
+            MDenyRequest deny = new MDenyRequest(msg);
 
-        //otherwise, set the ship's movement
-        ship.movement = Ship.Movement.ALIGN_TO_ANG;
-        ship.trajectoryVel = ship.trajectoryVel.set(
-                (float) Math.cos(msg.angle) * ship.getMaxSpeed() * 0.8f,
-                (float) Math.sin(msg.angle) * ship.getMaxSpeed() * 0.8f);
+            if(s.warpTimeToLand != 0){
+                deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
 
-        System.out.println(ship.movement);
-        System.out.println(ship.trajectoryVel);
+            server.sendMessage(userId, deny);
+        }
+        else {
+            //set the ship's movement
+            s.movement = Ship.Movement.ALIGN_TO_ANG;
+            s.trajectoryVel = s.trajectoryVel.set(
+                    (float) Math.cos(msg.angle) * s.getMaxSpeed() * 0.8f,
+                    (float) Math.sin(msg.angle) * s.getMaxSpeed() * 0.8f);
 
-        //set the description of the movement
-        int degrees = -((int) (msg.angle*180/Math.PI - 90));
-        if(degrees < 0) degrees += 360;
-        ship.moveCommand = "Alinging to " + degrees + " N";
+            System.out.println(s.movement);
+            System.out.println(s.trajectoryVel);
 
-        System.out.println(ship.moveCommand);
+            //set the description of the movement
+            int degrees = -((int) (msg.angle*180/Math.PI - 90));
+            if(degrees < 0) degrees += 360;
+            s.moveCommand = "Alinging to " + degrees + " N";
+        }
     }
 
     /**
@@ -689,27 +716,38 @@ public class GameHost implements ServerContact {
      */
     private void handleShipWarpRequest(int userId, MShipWarpRequest msg){
         //get the ship
-        Ship ship = grids[msg.grid].ships.get(msg.shipId);
-        if(ship == null){
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipWarpRequest()");
             return;
         }
 
         //check permissions and basics
-        if(ship.owner != userId) return;
-        if(msg.targetGridId == msg.grid || ship.warpTimeToLand != 0) return;
+        if(s.owner != userId || s.warpTimeToLand != 0){
+            MDenyRequest deny = new MDenyRequest(msg);
 
-        //set the target grid id
-        ship.movement = Ship.Movement.ALIGN_FOR_WARP;
-        ship.warpTargetGridId = msg.targetGridId;
-        ship.moveCommand = "Aligning to grid " + msg.targetGridId;
+            if(s.warpTimeToLand != 0){
+                deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
 
-        //get the angle to the target grid
-        float angle = (float) Math.atan2(grids[msg.targetGridId].pos.y-grids[msg.grid].pos.y,
-                grids[msg.targetGridId].pos.x-grids[msg.grid].pos.x);
-        ship.trajectoryVel = ship.trajectoryVel.set(
-                (float) Math.cos(angle) * ship.getMaxSpeed() * 0.8f,
-                (float) Math.sin(angle) * ship.getMaxSpeed() * 0.8f);
+            server.sendMessage(userId, deny);
+        }
+        else{
+            //set the target grid id
+            s.movement = Ship.Movement.ALIGN_FOR_WARP;
+            s.warpTargetGridId = msg.targetGridId;
+            s.moveCommand = "Aligning to grid " + msg.targetGridId;
+
+            //get the angle to the target grid
+            float angle = (float) Math.atan2(grids[msg.targetGridId].pos.y-grids[msg.grid].pos.y,
+                    grids[msg.targetGridId].pos.x-grids[msg.grid].pos.x);
+            s.trajectoryVel = s.trajectoryVel.set(
+                    (float) Math.cos(angle) * s.getMaxSpeed() * 0.8f,
+                    (float) Math.sin(angle) * s.getMaxSpeed() * 0.8f);
+        }
     }
 
 }

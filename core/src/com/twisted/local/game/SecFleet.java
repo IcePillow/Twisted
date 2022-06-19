@@ -31,17 +31,20 @@ public class SecFleet extends Sector {
     @Override
     Group init() {
         //initialize the top level group
-        parent = new Group();
-        parent.setBounds(0, 230, 300, 550);
+        parent = super.init();
+        parent.setBounds(0, 230, 300, 450);
 
-        //create the subgroups
-        Group windowGroup = new Group();
-        windowGroup.setSize(300, 420);
-        parent.addActor(windowGroup);
+        //create the decoration
+        Group decoration = new Group();
+        decoration.setSize(parent.getWidth(), parent.getHeight());
+        parent.addActor(decoration);
 
-        Image windowMain = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
-        windowMain.setSize(windowGroup.getWidth(), windowGroup.getHeight());
-        windowGroup.addActor(windowMain);
+        Image ribbon = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
+        ribbon.setSize(decoration.getWidth(), decoration.getHeight());
+        decoration.addActor(ribbon);
+        Image embedded = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
+        decoration.addActor(embedded);
 
         return parent;
     }
@@ -58,7 +61,6 @@ public class SecFleet extends Sector {
 
     @Override
     void dispose() {
-
     }
 
 }

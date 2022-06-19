@@ -15,6 +15,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 
@@ -24,7 +25,6 @@ public class SecViewport extends Sector{
     public static final float LTR = Game.LTR; //logical to rendered
     private static final Color GRAY = new Color(0x9d9d9dff);
     private static final Color SPACE = new Color(0x020036ff);
-
 
     //reference variables
     private Game game;
@@ -38,6 +38,11 @@ public class SecViewport extends Sector{
 
     //graphics state
     private Vector2 camPos;
+
+    //selected entity
+    Entity.Type selEntType;
+    private int selEntGrid;
+    int selEntId;
 
 
     /**
@@ -57,6 +62,8 @@ public class SecViewport extends Sector{
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
 
+        selEntType = null;
+
         return null;
     }
 
@@ -66,41 +73,14 @@ public class SecViewport extends Sector{
         //load the background
         state.viewportBackground = new Texture(Gdx.files.internal("images/pixels/navy.png"));
 
-        //load in the station graphics
-        for(Station.Type type : Station.Type.values()){
-            String s1 = type.name().toLowerCase();
-
-            //loop through the possible colors
-            for(String s2 : Game.COLOR_FILENAMES){
-                Station.viewportSprites.put(s1 + "-" + s2,
-                        new Texture(Gdx.files.internal("images/stations/" + s1 + "-" + s2 + ".png")));
-            }
-        }
-
-        //load in the ship graphics
-        for(Ship.Type type : Ship.Type.values()){
-            String s1 = type.name().toLowerCase();
-
-            for(String s2 : Game.COLOR_FILENAMES){
-                Ship.viewportSprites.put(s1 + "-" + s2,
-                        new Texture(Gdx.files.internal("images/ships/" + s1 + "-" + s2 + ".png")));
-            }
-        }
-
-        //click listeners
-        stage.addListener(new ClickListener(Input.Buttons.LEFT){
+        //click listener
+        stage.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y){
-                if(!event.isHandled()) clickHandler(Input.Buttons.LEFT, event, x, y);
+                if(event.isHandled()) return;
+                clickHandler(event.getButton(), event, x, y);
             }
         });
-        stage.addListener(new ClickListener(Input.Buttons.RIGHT){
-            @Override
-            public void clicked(InputEvent event, float x, float y){
-                if(!event.isHandled()) clickHandler(Input.Buttons.RIGHT, event, x, y);
-            }
-        });
-
     }
 
     @Override
@@ -147,6 +127,17 @@ public class SecViewport extends Sector{
             shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
             shipDrawable.rotate( (float) (s.rot*180/Math.PI)-90 );
             shape.polygon(shipDrawable.getTransformedVertices());
+        }
+
+        //draw the selection circle
+        if(selEntType == Entity.Type.SHIP && selEntGrid != -1){
+            Ship s = state.grids[selEntGrid].ships.get(selEntId);
+
+            shape.setColor(Color.LIGHT_GRAY);
+            shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
+        }
+        else{
+            // TODO add the other cases
         }
 
         shape.end();
@@ -230,7 +221,22 @@ public class SecViewport extends Sector{
         else {
             game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), ClickType.SPACE, -1);
         }
+    }
 
+    /**
+     * Select a given entity.
+     */
+    void selectedEntity(Entity.Type type, int grid, int id){
+        this.selEntType = type;
+        this.selEntGrid = grid;
+        this.selEntId = id;
+    }
+
+
+    /* Updating Methods */
+
+    void updateSelectedEntity(int grid){
+        this.selEntGrid = grid;
     }
 
 

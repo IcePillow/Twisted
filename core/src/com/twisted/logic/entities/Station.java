@@ -1,6 +1,5 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -10,7 +9,6 @@ import com.twisted.logic.descriptors.CurrentJob;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 
 
 /**
@@ -19,8 +17,6 @@ import java.util.HashMap;
 public abstract class Station extends Entity implements Serializable {
 
     /* Graphics (clientside) */
-
-    public static HashMap<String, Texture> viewportSprites = new HashMap<>();
 
     public Image minimapSprite;
     public Label minimapLabel;
@@ -66,10 +62,13 @@ public abstract class Station extends Entity implements Serializable {
 
     /* Data Methods */
 
-    public abstract String getFilename();
-    public abstract Vector2 getSize();
     public abstract Job[] getPossibleJobs();
     public abstract float[] getVertices();
+
+    @Override
+    public float getPaddedLogicalRadius(){
+        return (1.28f * 1.1f);
+    }
 
 
     /* Utility Methods */
@@ -95,6 +94,9 @@ public abstract class Station extends Entity implements Serializable {
         }
     }
 
+    /**
+     * Returns what kind of station this is.
+     */
     public Type getType(){
         if(this instanceof Extractor) return Type.Extractor;
         else if(this instanceof Harvester) return Type.Harvester;

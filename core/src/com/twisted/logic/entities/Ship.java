@@ -12,7 +12,6 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* Graphics (clientside) */
 
-    public static HashMap<String, Texture> viewportSprites = new HashMap<>();
     public Polygon polygon; //used for click detection
 
     /* Logic (serverside) */
@@ -71,9 +70,6 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* Data Methods */
 
-    public abstract String getFilename();
-    public abstract Vector2 getSize();
-    public abstract float[] getVertices();
     public abstract float getMaxSpeed();
     public abstract float getMaxAccel();
     public abstract int getMaxHealth();

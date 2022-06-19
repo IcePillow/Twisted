@@ -17,6 +17,7 @@ import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameRequest.MGameRequest;
 import com.twisted.net.msg.gameRequest.MJobRequest;
+import com.twisted.net.msg.gameRequest.MShipMoveRequest;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
@@ -27,14 +28,10 @@ import java.util.Map;
 
 /**
  * The Game Screen
- *
- * Size Comparison
-     > To go from logical units to rendered units, multiply by 100
  */
 public class Game implements Screen, ClientContact {
 
     //static references
-    static final String[] COLOR_FILENAMES = {"blue", "orange", "gray"};
     public static final float LTR = 100; //logical to rendered
 
     //exterior references
@@ -60,6 +57,7 @@ public class Game implements Screen, ClientContact {
     private SecViewport viewportSector;
     private SecDetails detailsSector;
     private SecOverlay overlaySector;
+    private SecLog logSector;
 
     //cross-sector tracking
     private Sector crossSectorListener;
@@ -71,7 +69,7 @@ public class Game implements Screen, ClientContact {
     }
 
     //graphics high level utilities
-    private Stage stage;
+    private final Stage stage;
     private Skin skin;
 
 
@@ -145,11 +143,6 @@ public class Game implements Screen, ClientContact {
 
         //high level sprites
         state.viewportBackground.dispose();
-
-        //station sprites
-        for(String key : Station.viewportSprites.keySet().toArray(new String[0])){
-            Station.viewportSprites.remove(key).dispose();
-        }
     }
 
 
@@ -173,6 +166,8 @@ public class Game implements Screen, ClientContact {
 
     /**
      * Receiving messages from the server.
+     *
+     * TODO break this apart into multiple utility methods or another class
      */
     @Override
     public void clientReceived(Message msg) {
@@ -250,7 +245,10 @@ public class Game implements Screen, ClientContact {
             MDenyRequest deny = (MDenyRequest) msg;
 
             if(deny.request instanceof MJobRequest){
-                industrySector.updateIndustryLog(deny.reason, new float[]{1,0,0});
+                logSector.addToLog(deny.reason, SecLog.LogColor.RED);
+            }
+            else if(deny.request instanceof MShipMoveRequest){
+                logSector.addToLog(deny.reason, SecLog.LogColor.GRAY);
             }
         }
         else if(msg instanceof MAddShip){
@@ -282,9 +280,12 @@ public class Game implements Screen, ClientContact {
             //update visuals if not in warp
             if(upd.grid != -1) ship.updatePolygon();
 
-            //update the details sector
+            //update the sectors if needed
             if(detailsSector.selectedShipId == ship.id){
                 detailsSector.updateShipData(ship, upd.grid);
+            }
+            if(viewportSector.selEntType == Entity.Type.SHIP && viewportSector.selEntId == ship.id){
+                viewportSector.updateSelectedEntity(upd.grid);
             }
         }
         else if(msg instanceof MShipEnterWarp){
@@ -404,6 +405,14 @@ public class Game implements Screen, ClientContact {
 
     }
 
+    /**
+     * Modularization method for adding to the log.
+     */
+    void addToLog(String text, SecLog.LogColor logColor){
+        logSector.addToLog(text, logColor);
+    }
+
+
     /* Input Handling Utility */
 
     /**
@@ -411,6 +420,9 @@ public class Game implements Screen, ClientContact {
      */
     private void shipSelectedForDetails(int gridId, int shipId){
         detailsSector.shipSelected(gridId, shipId);
+
+        //TODO separate this out from selecting for details (maybe?)
+        viewportSector.selectedEntity(Entity.Type.SHIP, gridId, shipId);
     }
 
     /**
@@ -428,6 +440,13 @@ public class Game implements Screen, ClientContact {
      */
     void sendGameRequest(MGameRequest request){
         client.send(request);
+    }
+
+    /**
+     * Sets the scroll focus to the passed in actor. Null is allowed.
+     */
+    void scrollFocus(Actor actor){
+        stage.setScrollFocus(actor);
     }
 
 
@@ -458,6 +477,9 @@ public class Game implements Screen, ClientContact {
         industrySector = new SecIndustry(this, skin);
         stage.addActor(industrySector.init());
 
+        logSector = new SecLog(this, skin);
+        stage.addActor(logSector.init());
+
         overlaySector = new SecOverlay(this, skin);
         stage.addActor(overlaySector.init());
 
@@ -465,7 +487,8 @@ public class Game implements Screen, ClientContact {
         stage.addActor(optionsSector.init());
 
         this.sectors = new Sector[]{
-                viewportSector, minimapSector, fleetSector, detailsSector, industrySector, optionsSector
+                viewportSector, minimapSector, fleetSector, detailsSector, industrySector,
+                logSector, overlaySector, optionsSector
         };
 
         //logic
@@ -484,11 +507,10 @@ public class Game implements Screen, ClientContact {
             }
         }
 
-        viewportSector.load();
-        minimapSector.load();
-        industrySector.load();
-        fleetSector.load();
-        optionsSector.load();
+
+        for(Sector s : sectors){
+            s.load();
+        }
     }
 
 

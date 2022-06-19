@@ -39,7 +39,7 @@ public class SecOptions extends Sector{
     @Override
     Group init() {
         //create the group
-        parent = new Group();
+        parent = super.init();
         parent.setBounds(420, 150, 600, 500);
 
         //set the background
@@ -51,7 +51,7 @@ public class SecOptions extends Sector{
         stage.addListener(new InputListener() {
             public boolean keyDown(InputEvent event, int keycode) {
                 if(keycode == 111){
-                    parent.setVisible(! parent.isVisible());
+                    parent.setVisible(!parent.isVisible());
                 }
                 return true;
             }

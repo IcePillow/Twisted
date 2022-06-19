@@ -35,7 +35,7 @@ public class SecIndustry extends Sector{
     //tree
     private Group parent;
     private VerticalGroup vertical, jobQueue;
-    private Label focusStation, logLabel;
+    private Label focusStation;
 
     //graphics state
     private int focusStationId = -1;
@@ -52,10 +52,9 @@ public class SecIndustry extends Sector{
     @Override
     Group init() {
         final int FOCUS_HEIGHT = 150;
-        final int LOG_HEIGHT = 20;
 
         //initialize the top level group
-        parent = new Group();
+        parent = super.init();
         parent.setBounds(Main.WIDTH-275, 260, 275, 410); //original height=395
 
         //main background
@@ -72,7 +71,7 @@ public class SecIndustry extends Sector{
 
         ScrollPane pane = new ScrollPane(vertical, skin);
         pane.setBounds(3, 3 + FOCUS_HEIGHT+3, parent.getWidth()-6,
-                parent.getHeight()-6 - (3+FOCUS_HEIGHT) - (3+LOG_HEIGHT));
+                parent.getHeight()-6 - (3+FOCUS_HEIGHT));
         pane.setScrollingDisabled(true, false);
         pane.setupFadeScrollBars(0.2f, 0.2f);
         pane.setSmoothScrolling(false);
@@ -110,23 +109,18 @@ public class SecIndustry extends Sector{
         queuePane.setColor(Color.GRAY);
         focusGroup.addActor(queuePane);
 
+        //add listeners
+        pane.addListener(event -> {
+            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                game.scrollFocus(pane);
+            }
+            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
+                game.scrollFocus(null);
+            }
+            return true;
+        });
+
         //TODO add a flag/color for the current state (i.e. armored, reinforced)
-
-        /* Log Group */
-        Group logGroup = new Group();
-        logGroup.setBounds(3, parent.getHeight()-3-LOG_HEIGHT, parent.getWidth()-6, LOG_HEIGHT);
-        parent.addActor(logGroup);
-
-        //make the image
-        Image logBackground = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
-        logBackground.setSize(logGroup.getWidth(), logGroup.getHeight());
-        logGroup.addActor(logBackground);
-
-        //make the label
-        logLabel = new Label("Log label", skin, "small", Color.GRAY);
-        logLabel.setPosition(3, -1);
-        logGroup.addActor(logLabel);
-
 
         return parent;
     }
@@ -365,46 +359,9 @@ public class SecIndustry extends Sector{
     }
 
     /**
-     * Called when the industry log window needs to have a new message displayed.
-     * @param color Array of length 3 with the initial color in rgb form.
-     */
-    void updateIndustryLog(String string, float[] color){
-
-        //deal with current thread if it exists
-        if(logFadeThread != null) logFadeThread.interrupt();
-
-        //set up the new string and initial color
-        logLabel.setText(string);
-        logLabel.setColor(color[0], color[1], color[2], 1);
-
-        //create and start the new thread
-        logFadeThread = new Thread(() -> {
-            try {
-                Thread.sleep(500);
-
-                for(float i=1; i>0; i-=0.1f){
-                    //check a new string hasn't overwritten
-                    if(!(logLabel.getText().toString().equals(string))) break;
-
-                    //update color then wait
-                    logLabel.setColor(color[0], color[1], color[2], i);
-                    Thread.sleep(80);
-                }
-            } catch (InterruptedException e) {
-                //exit
-            }
-
-        });
-        logFadeThread.start();
-    }
-
-    /**
      * Called when the user attempts to start a job at a station.
      */
     void industryJobRequest(Station station, Station.Job job){
-        updateIndustryLog("Build " + job.name() + " @ " + station.nickname,
-                new float[]{0.7f, 0.7f, 0.7f});
-
         game.client.send(new MJobRequest(station.grid, job));
     }
 }

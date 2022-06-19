@@ -4,8 +4,6 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.Main;
-import com.twisted.local.game.state.GameState;
 
 public class SecOverlay extends Sector {
 
@@ -30,9 +28,12 @@ public class SecOverlay extends Sector {
     @Override
     Group init() {
 
+        //don't use the super method because this shouldn't handle input events
         Group parent = new Group();
 
+        //make the action label
         bottomActionLabel = new Label("", skin, "small", Color.DARK_GRAY);
+        bottomActionLabel.setPosition(4, 8);
         parent.addActor(bottomActionLabel);
 
         return parent;
@@ -58,7 +59,6 @@ public class SecOverlay extends Sector {
 
     void updateActionLabel(String text){
         bottomActionLabel.setText(text);
-        bottomActionLabel.setPosition(4, 8);
     }
 
 

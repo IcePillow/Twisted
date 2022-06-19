@@ -8,7 +8,6 @@ public class Harvester extends Station {
     private static final Job[] possibleJobs = new Job[]{
             Job.Frigate, Job.Cruiser, Job.Battleship, Job.Titan,
             Job.Extractor};
-    private static final Vector2 size = new Vector2(1.28f, 1.28f);
     public final static float[] vertices = new float[]{
             -0.64f, 0,  -0.32f, 0.64f,   0.32f, 0.64f,
             0.64f, 0,  0.32f, -0.64f, -0.32f, -0.64f
@@ -28,14 +27,6 @@ public class Harvester extends Station {
 
     /* Data Methods */
 
-    @Override
-    public String getFilename() {
-        return "harvester";
-    }
-    @Override
-    public Vector2 getSize(){
-        return size;
-    }
     @Override
     public Job[] getPossibleJobs() {
         return possibleJobs;
