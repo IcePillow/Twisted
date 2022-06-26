@@ -37,7 +37,7 @@ public class Frigate extends Ship {
     }
     @Override
     public float getPaddedLogicalRadius() {
-        return 0.17f;
+        return 0.165f;
     }
 
 }

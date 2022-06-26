@@ -35,7 +35,6 @@ public abstract class Station extends Entity implements Serializable {
     public final String nickname;
 
     //high level state variables
-    public int owner; //0 for none
     public Stage stage;
 
     //lower level state variables

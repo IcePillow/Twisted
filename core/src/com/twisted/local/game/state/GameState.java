@@ -44,8 +44,6 @@ public class GameState {
     public Texture viewportBackground;
 
 
-    /* Changing Details */
-
     /**
      * Basic constructor.
      */
@@ -68,6 +66,25 @@ public class GameState {
         //prepare state storage
         inWarp = new HashMap<>();
         jobs = new HashMap<>();
+    }
+
+
+    /* Utility */
+
+    /**
+     * Finds the grid id of a given ship. Not efficient to use this a lot.
+     * @return Returns -1 if in warp. Returns -99 if not found.
+     */
+    public int findShipGridId(int shipId){
+        if(inWarp.containsKey(shipId)){
+            return -1;
+        }
+
+        for(Grid g : grids){
+            if(g.ships.containsKey(shipId)) return g.id;
+        }
+
+        return -99;
     }
 
 }

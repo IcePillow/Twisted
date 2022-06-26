@@ -1,7 +1,6 @@
 package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -14,16 +13,15 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.local.game.state.PlayColor;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
 
 public class SecViewport extends Sector{
 
     //constants
     public static final float LTR = Game.LTR; //logical to rendered
-    private static final Color GRAY = new Color(0x9d9d9dff);
     private static final Color SPACE = new Color(0x020036ff);
 
     //reference variables
@@ -48,10 +46,10 @@ public class SecViewport extends Sector{
     /**
      * Constructor
      */
-    public SecViewport(Game game, Skin skin, Stage stage){
+    public SecViewport(Game game, Stage stage){
         this.game = game;
-        this.skin = skin;
         this.stage = stage;
+        this.skin = game.skin;
     }
 
     @Override
@@ -102,7 +100,7 @@ public class SecViewport extends Sector{
 
         //draw the station
         if(g.station.owner == 0){
-            shape.setColor(GRAY);
+            shape.setColor(PlayColor.GRAY.object);
         }
         else {
             shape.setColor(state.players.get(g.station.owner).color.object);
@@ -115,7 +113,7 @@ public class SecViewport extends Sector{
         Polygon shipDrawable;
         for(Ship s : g.ships.values()){
             if(s.owner == 0){
-                shape.setColor(GRAY);
+                shape.setColor(PlayColor.GRAY.object);
             }
             else {
                 shape.setColor(state.players.get(s.owner).color.object);
@@ -130,7 +128,7 @@ public class SecViewport extends Sector{
         }
 
         //draw the selection circle
-        if(selEntType == Entity.Type.SHIP && selEntGrid != -1){
+        if(selEntType == Entity.Type.SHIP && selEntGrid == game.getGrid()){
             Ship s = state.grids[selEntGrid].ships.get(selEntId);
 
             shape.setColor(Color.LIGHT_GRAY);

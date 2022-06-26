@@ -20,9 +20,9 @@ public class SecOverlay extends Sector {
     /**
      * Constructor
      */
-    public SecOverlay(Game game, Skin skin){
+    public SecOverlay(Game game){
         this.game = game;
-        this.skin = skin;
+        this.skin = game.skin;
     }
 
     @Override

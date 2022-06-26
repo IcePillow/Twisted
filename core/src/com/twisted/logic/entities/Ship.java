@@ -26,7 +26,6 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* State */
 
-    public int owner;
     public int id;
 
     public float warpTimeToLand; //0 if not in warp

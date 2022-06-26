@@ -4,7 +4,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -19,7 +18,6 @@ import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Station;
 import com.twisted.net.msg.gameRequest.MJobRequest;
-import com.twisted.local.game.state.GameState;
 
 import java.util.ArrayList;
 
@@ -44,9 +42,9 @@ public class SecIndustry extends Sector{
     /**
      * Constructor
      */
-    public SecIndustry(Game game, Skin skin){
+    public SecIndustry(Game game){
         this.game = game;
-        this.skin = skin;
+        this.skin = game.skin;
     }
 
     @Override
@@ -296,6 +294,7 @@ public class SecIndustry extends Sector{
         }
     }
 
+    //TODO change this to be event-based when data comes in from the server
     @Override
     void render(float delta) {
         //update the times on the current jobs

@@ -3,7 +3,6 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -40,7 +39,6 @@ public class SecDetails extends Sector{
 
     //graphics state
     int selectedGridId, selectedShipId; //note gridId can be -1 for in warp
-    private final GlyphLayout glyphLayout;
 
     //input state
     private ExternalWait externalWait;
@@ -49,11 +47,9 @@ public class SecDetails extends Sector{
     /**
      * Constructor
      */
-    public SecDetails(Game game, Skin skin){
+    public SecDetails(Game game){
         this.game = game;
-        this.skin = skin;
-
-        glyphLayout = new GlyphLayout();
+        this.skin = game.skin;
 
         externalWait = ExternalWait.NONE;
     }
@@ -120,8 +116,8 @@ public class SecDetails extends Sector{
         //ship movement command
         shipMoveCommand = new Label("[movement cmd]", skin, "small", Color.LIGHT_GRAY);
         shipMoveCommand.setFontScale(0.9f);
-        glyphLayout.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setPosition(295 - glyphLayout.width*shipMoveCommand.getFontScaleX(), 100);
+        game.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
+        shipMoveCommand.setPosition(295 - game.glyph.width*shipMoveCommand.getFontScaleX(), 100);
         shipParent.addActor(shipMoveCommand);
 
         //ship position & velocity
@@ -237,8 +233,8 @@ public class SecDetails extends Sector{
 
         //update the movement
         shipMoveCommand.setText(s.moveCommand);
-        glyphLayout.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setX(295 - glyphLayout.width*shipMoveCommand.getFontScaleX());
+        game.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
+        shipMoveCommand.setX(295 - game.glyph.width*shipMoveCommand.getFontScaleX());
 
         //update the grid and position
         if(gridId != -1){
@@ -336,8 +332,8 @@ public class SecDetails extends Sector{
 
         //update movement and calculate new layout data
         shipMoveCommand.setText(s.moveCommand);
-        glyphLayout.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setX(295 - glyphLayout.width*shipMoveCommand.getFontScaleX());
+        game.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
+        shipMoveCommand.setX(295 - game.glyph.width*shipMoveCommand.getFontScaleX());
 
         //update the health
         healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(s.getMaxHealth())+1)) + "s",

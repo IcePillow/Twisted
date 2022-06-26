@@ -25,9 +25,9 @@ public class SecLog extends Sector{
     /**
      * Constructor
      */
-    public SecLog(Game game, Skin skin) {
+    public SecLog(Game game) {
         this.game = game;
-        this.skin = skin;
+        this.skin = game.skin;
     }
 
 

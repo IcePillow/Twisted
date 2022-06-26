@@ -28,10 +28,9 @@ public class SecMinimap extends Sector {
     /**
      * Constructor
      */
-    public SecMinimap(Game game, Skin skin){
+    public SecMinimap(Game game){
         this.game = game;
-        this.state = state;
-        this.skin = skin;
+        this.skin = game.skin;
     }
 
 
@@ -111,7 +110,6 @@ public class SecMinimap extends Sector {
                 @Override
                 public void clicked(InputEvent event, float x, float y){
                     if(event.isHandled()) return;
-
                     game.minimapClickEvent(Input.Buttons.LEFT, g.id);
                     event.handle();
                 }

@@ -2,14 +2,12 @@ package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.local.game.state.GameState;
 
 public class SecOptions extends Sector{
 
@@ -27,10 +25,10 @@ public class SecOptions extends Sector{
     /**
      * Constructor
      */
-    public SecOptions(Game game, Skin skin, Stage stage){
+    public SecOptions(Game game, Stage stage){
         this.game = game;
-        this.skin = skin;
         this.stage = stage;
+        this.skin = game.skin;
     }
 
 

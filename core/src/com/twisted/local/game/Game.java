@@ -4,11 +4,13 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
+import com.twisted.local.game.state.GameState;
 import com.twisted.logic.game.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
@@ -21,7 +23,6 @@ import com.twisted.net.msg.gameRequest.MShipMoveRequest;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
-import com.twisted.local.game.state.GameState;
 
 import java.util.Map;
 
@@ -70,7 +71,8 @@ public class Game implements Screen, ClientContact {
 
     //graphics high level utilities
     private final Stage stage;
-    private Skin skin;
+    public Skin skin;
+    public GlyphLayout glyph;
 
 
     /* Constructor */
@@ -81,7 +83,7 @@ public class Game implements Screen, ClientContact {
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
         Gdx.input.setInputProcessor(stage);
 
-        initGraphics();
+        initSectors();
     }
 
 
@@ -107,8 +109,6 @@ public class Game implements Screen, ClientContact {
             for(Sector sector : sectors){
                 sector.render(delta);
             }
-
-            //
         }
 
         //scene2d updates
@@ -143,6 +143,11 @@ public class Game implements Screen, ClientContact {
 
         //high level sprites
         state.viewportBackground.dispose();
+
+        //sectors
+        for(Sector s : sectors){
+            s.dispose();
+        }
     }
 
 
@@ -178,7 +183,7 @@ public class Game implements Screen, ClientContact {
             else {
                 //get the message and create the state
                 MGameStart m = (MGameStart) msg;
-                state = new GameState(m.getPlayers(), m.getColors());
+                state = new com.twisted.local.game.state.GameState(m.getPlayers(), m.getColors());
 
                 //copy data
                 state.serverTickDelay = m.tickDelay;
@@ -209,7 +214,12 @@ public class Game implements Screen, ClientContact {
                 //load the graphics on the gdx thread
                 Gdx.app.postRunnable(() -> {
 
-                    loadGraphics();
+                    for(Grid g : state.grids){
+                        //create the graphics
+                        g.station.createFleetRow(skin, state, fleetSector);
+                    }
+
+                    loadSectors();
                     state.readyToRender = true;
                 });
             }
@@ -254,13 +264,22 @@ public class Game implements Screen, ClientContact {
         else if(msg instanceof MAddShip){
             MAddShip add = (MAddShip) msg;
 
+            //create the ship
+            Ship ship = null;
             if(add.type == Ship.Type.Frigate){
                 //create the ship, add the ship, then retrieve it
                 state.grids[add.grid].ships.put(add.shipId, add.createDrawableShip());
-                Ship ship = state.grids[add.grid].ships.get(add.shipId);
+                ship = state.grids[add.grid].ships.get(add.shipId);
+            }
 
+            //set things in the ship
+            if(ship != null) {
+                //physics
                 ship.polygon.setPosition(ship.pos.x, ship.pos.y);
                 ship.polygon.rotate(ship.rot);
+
+                //graphics
+                ship.createFleetRow(skin, state, fleetSector);
             }
             //TODO other types of ships
         }
@@ -287,6 +306,7 @@ public class Game implements Screen, ClientContact {
             if(viewportSector.selEntType == Entity.Type.SHIP && viewportSector.selEntId == ship.id){
                 viewportSector.updateSelectedEntity(upd.grid);
             }
+            fleetSector.updateEntity(ship, upd.grid);
         }
         else if(msg instanceof MShipEnterWarp){
             MShipEnterWarp upd = (MShipEnterWarp) msg;
@@ -412,6 +432,20 @@ public class Game implements Screen, ClientContact {
         logSector.addToLog(text, logColor);
     }
 
+    /**
+     * Called when a ship is selected from the fleet window.
+     */
+    void fleetShipSelected(Ship ship){
+        int gridId = state.findShipGridId(ship.id);
+
+        if(gridId >= -1){
+            shipSelectedForDetails(gridId, ship.id);
+        }
+        else {
+            System.out.println("Unexpected grid id in Game.fleetShipSelected()");
+        }
+    }
+
 
     /* Input Handling Utility */
 
@@ -433,6 +467,7 @@ public class Game implements Screen, ClientContact {
 
         viewportSector.switchFocusedGrid();
         minimapSector.switchFocusedGrid(newGrid);
+        fleetSector.reloadTabEntities();
     }
 
     /**
@@ -455,35 +490,38 @@ public class Game implements Screen, ClientContact {
     /**
      * Called during construction.
      */
-    private void initGraphics(){
+    private void initSectors(){
 
-        //load the skin
+        //load the skin and glyph
         skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
+        glyph = new GlyphLayout();
+
+        //TODO remove passing in skin from all of these
 
         //prepare the viewport
-        viewportSector = new SecViewport(this, skin, stage);
+        viewportSector = new SecViewport(this, stage);
         viewportSector.init();
 
         //prepare the other sectors
-        minimapSector = new SecMinimap(this, skin);
+        minimapSector = new SecMinimap(this);
         stage.addActor(minimapSector.init());
 
-        fleetSector = new SecFleet(this, skin);
+        fleetSector = new SecFleet(this);
         stage.addActor(fleetSector.init());
 
-        detailsSector = new SecDetails(this, skin);
+        detailsSector = new SecDetails(this);
         stage.addActor(detailsSector.init());
 
-        industrySector = new SecIndustry(this, skin);
+        industrySector = new SecIndustry(this);
         stage.addActor(industrySector.init());
 
-        logSector = new SecLog(this, skin);
+        logSector = new SecLog(this);
         stage.addActor(logSector.init());
 
-        overlaySector = new SecOverlay(this, skin);
+        overlaySector = new SecOverlay(this);
         stage.addActor(overlaySector.init());
 
-        optionsSector = new SecOptions(this, skin, stage);
+        optionsSector = new SecOptions(this, stage);
         stage.addActor(optionsSector.init());
 
         this.sectors = new Sector[]{
@@ -498,15 +536,13 @@ public class Game implements Screen, ClientContact {
     /**
      * Called when the server sends the start message.
      */
-    private void loadGraphics(){
-
+    private void loadSectors(){
         for(Grid g : state.grids){
             if(g.station.owner == state.myId){
                 switchGrid(g.id);
                 break;
             }
         }
-
 
         for(Sector s : sectors){
             s.load();
