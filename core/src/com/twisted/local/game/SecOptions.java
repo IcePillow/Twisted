@@ -9,7 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
-public class SecOptions extends Sector{
+class SecOptions extends Sector{
 
     //reference variables
     private Game game;
@@ -25,7 +25,7 @@ public class SecOptions extends Sector{
     /**
      * Constructor
      */
-    public SecOptions(Game game, Stage stage){
+    SecOptions(Game game, Stage stage){
         this.game = game;
         this.stage = stage;
         this.skin = game.skin;

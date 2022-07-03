@@ -16,8 +16,8 @@ public class Harvester extends Station {
     /**
      * Constructor
      */
-    public Harvester(int grid, String name, int owner, Stage stage, boolean graphics) {
-        super(grid, name, owner, stage);
+    public Harvester(int grid, String gridNick, int owner, Stage stage, boolean graphics) {
+        super(grid, gridNick, owner, stage);
 
         if(graphics){
             this.polygon = new Polygon(vertices);

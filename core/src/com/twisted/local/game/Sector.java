@@ -6,8 +6,9 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.state.GameState;
+import com.twisted.logic.entities.Entity;
 
-public abstract class Sector {
+abstract class Sector {
 
     protected GameState state;
     void setState(GameState state){
@@ -18,7 +19,7 @@ public abstract class Sector {
      * Result from listening on the viewport.
      */
     void viewportClickEvent(Vector2 screenPos, Vector2 gamePos,
-                                   SecViewport.ClickType type, int typeId){}
+                            Entity.Type type, int typeId){}
 
     /**
      * Result from listening on the minimap.

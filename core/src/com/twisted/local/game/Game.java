@@ -11,9 +11,11 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
 import com.twisted.local.game.state.GameState;
-import com.twisted.logic.game.GameHost;
+import com.twisted.logic.host.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
+import com.twisted.logic.mobs.BlasterBolt;
+import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
@@ -60,7 +62,7 @@ public class Game implements Screen, ClientContact {
     private SecOverlay overlaySector;
     private SecLog logSector;
 
-    //cross-sector tracking
+    //cross sector
     private Sector crossSectorListener;
 
     //visual state tracking
@@ -175,154 +177,16 @@ public class Game implements Screen, ClientContact {
      * TODO break this apart into multiple utility methods or another class
      */
     @Override
-    public void clientReceived(Message msg) {
-        if(msg instanceof MGameStart){
-            if(state != null){
-                System.out.println("[Warning] Unexpected MGameStart received with an active GameState");
-            }
-            else {
-                //get the message and create the state
-                MGameStart m = (MGameStart) msg;
-                state = new com.twisted.local.game.state.GameState(m.getPlayers(), m.getColors());
-
-                //copy data
-                state.serverTickDelay = m.tickDelay;
-                state.myId = m.yourPlayerId;
-                state.mapWidth = m.mapWidth;
-                state.mapHeight = m.mapHeight;
-
-                //copy grid data
-                state.grids = new Grid[m.gridPositions.length];
-                for(int i=0; i < state.grids.length; i++) {
-                    state.grids[i] = new Grid(i, m.gridPositions[i], m.gridNicknames[i]);
-                    if(m.stationTypes[i] == Station.Type.Extractor){
-                        state.grids[i].station = new Extractor(i, m.stationNames[i], m.stationOwners[i], m.stationStages[i], true);
-                    }
-                    else if(m.stationTypes[i] == Station.Type.Harvester){
-                        state.grids[i].station = new Harvester(i, m.stationNames[i], m.stationOwners[i], m.stationStages[i], true);
-                    }
-                    else if(m.stationTypes[i] == Station.Type.Liquidator){
-                        state.grids[i].station = new Liquidator(i, m.stationNames[i], m.stationOwners[i], m.stationStages[i], true);
-                    }
-                }
-
-                //pass the state reference
-                for(Sector sector : sectors){
-                    sector.setState(state);
-                }
-
-                //load the graphics on the gdx thread
-                Gdx.app.postRunnable(() -> {
-
-                    for(Grid g : state.grids){
-                        //create the graphics
-                        g.station.createFleetRow(skin, state, fleetSector);
-                    }
-
-                    loadSectors();
-                    state.readyToRender = true;
-                });
-            }
-        }
-        else if(msg instanceof MGameOverview){
-            MGameOverview m = (MGameOverview) msg;
-
-            //update each timer
-            for(Map.Entry<Integer, Float> e : m.jobToTimeLeft.entrySet()){
-                state.jobs.get(e.getKey()).timeLeft = e.getValue();
-            }
-            //update station resources
-            for(Map.Entry<Integer, int[]> e : m.stationToResources.entrySet()){
-                System.arraycopy(e.getValue(), 0, state.grids[e.getKey()].station.resources, 0, e.getValue().length);
-            }
-        }
-        else if(msg instanceof MChangeJob){
-            MChangeJob m = (MChangeJob) msg;
-
-            if(m.action == MChangeJob.Action.ADDING){
-                state.jobs.put(m.job.jobId, m.job);
-                state.grids[m.job.grid].station.currentJobs.add(m.job);
-            }
-            else if(m.action == MChangeJob.Action.FINISHED){
-                state.jobs.remove(m.jobId);
-                state.grids[m.gridId].station.currentJobs.remove(0);
-            }
-            else if(m.action == MChangeJob.Action.CANCELING){
-                //TODO
-            }
-        }
-        else if(msg instanceof MDenyRequest){
-            MDenyRequest deny = (MDenyRequest) msg;
-
-            if(deny.request instanceof MJobRequest){
-                logSector.addToLog(deny.reason, SecLog.LogColor.RED);
-            }
-            else if(deny.request instanceof MShipMoveRequest){
-                logSector.addToLog(deny.reason, SecLog.LogColor.GRAY);
-            }
-        }
-        else if(msg instanceof MAddShip){
-            MAddShip add = (MAddShip) msg;
-
-            //create the ship
-            Ship ship = null;
-            if(add.type == Ship.Type.Frigate){
-                //create the ship, add the ship, then retrieve it
-                state.grids[add.grid].ships.put(add.shipId, add.createDrawableShip());
-                ship = state.grids[add.grid].ships.get(add.shipId);
-            }
-
-            //set things in the ship
-            if(ship != null) {
-                //physics
-                ship.polygon.setPosition(ship.pos.x, ship.pos.y);
-                ship.polygon.rotate(ship.rot);
-
-                //graphics
-                ship.createFleetRow(skin, state, fleetSector);
-            }
-            //TODO other types of ships
-        }
-        else if(msg instanceof MShipUpd){
-            MShipUpd upd = (MShipUpd) msg;
-
-            Ship ship;
-            if(upd.grid != -1){
-                ship = state.grids[upd.grid].ships.get(upd.shipId);
-            }
-            else {
-                ship = state.inWarp.get(upd.shipId);
-            }
-
-            upd.copyDataToShip(ship);
-
-            //update visuals if not in warp
-            if(upd.grid != -1) ship.updatePolygon();
-
-            //update the sectors if needed
-            if(detailsSector.selectedShipId == ship.id){
-                detailsSector.updateShipData(ship, upd.grid);
-            }
-            if(viewportSector.selEntType == Entity.Type.SHIP && viewportSector.selEntId == ship.id){
-                viewportSector.updateSelectedEntity(upd.grid);
-            }
-            fleetSector.updateEntity(ship, upd.grid);
-        }
-        else if(msg instanceof MShipEnterWarp){
-            MShipEnterWarp upd = (MShipEnterWarp) msg;
-
-            //move the ship to "in warp"
-            Ship ship = state.grids[upd.originGridId].ships.get(upd.shipId);
-            state.grids[upd.originGridId].ships.remove(ship.id);
-            state.inWarp.put(ship.id, ship);
-        }
-        else if(msg instanceof MShipExitWarp){
-            MShipExitWarp upd = (MShipExitWarp) msg;
-
-            Ship ship = state.inWarp.get(upd.shipId);
-            state.inWarp.remove(ship.id);
-            state.grids[upd.destGridId].ships.put(ship.id, ship);
-        }
+    public void clientReceived(Message m) {
+        if(m instanceof MGameStart) receiveGameStart((MGameStart) m);
+        else if(m instanceof MGameOverview) receiveGameOverview((MGameOverview) m);
+        else if(m instanceof MChangeJob) receiveChangeJob((MChangeJob) m);
+        else if(m instanceof MDenyRequest) receiveDenyRequest((MDenyRequest) m);
+        else if(m instanceof MAddShip) receiveAddShip((MAddShip) m);
+        else if(m instanceof MShipUpd) receiveShipUpd((MShipUpd) m);
+        else if(m instanceof MShipEnterWarp) receiveShipEnterWarp((MShipEnterWarp) m);
+        else if(m instanceof MShipExitWarp) receiveShipExitWarp((MShipExitWarp) m);
+        else if(m instanceof MMobileUps) receiveMobileUps((MMobileUps) m);
     }
 
     @Override
@@ -333,6 +197,181 @@ public class Game implements Screen, ClientContact {
     @Override
     public void lostConnection() {
         //TODO this function
+    }
+
+
+    /* Client Message Receiving */
+
+    private void receiveGameStart(MGameStart m){
+        if(state != null){
+            System.out.println("[Warning] Unexpected MGameStart received with an active GameState");
+        }
+        else {
+            //get the message and create the state
+            state = new com.twisted.local.game.state.GameState(m.getPlayers(), m.getColors());
+
+            //copy data
+            state.serverTickDelay = m.tickDelay;
+            state.myId = m.yourPlayerId;
+            state.mapWidth = m.mapWidth;
+            state.mapHeight = m.mapHeight;
+
+            //copy grid data
+            state.grids = new Grid[m.gridPositions.length];
+            for(int i=0; i < state.grids.length; i++) {
+                state.grids[i] = new Grid(i, m.gridPositions[i], m.gridNicknames[i]);
+                if(m.stationTypes[i] == Station.Type.Extractor){
+                    state.grids[i].station = new Extractor(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                }
+                else if(m.stationTypes[i] == Station.Type.Harvester){
+                    state.grids[i].station = new Harvester(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                }
+                else if(m.stationTypes[i] == Station.Type.Liquidator){
+                    state.grids[i].station = new Liquidator(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                }
+            }
+
+            //pass the state reference
+            for(Sector sector : sectors){
+                sector.setState(state);
+            }
+
+            //load the graphics on the gdx thread
+            Gdx.app.postRunnable(() -> {
+
+                for(Grid g : state.grids){
+                    //create the graphics
+                    g.station.createFleetRow(skin, state, fleetSector);
+                }
+
+                loadSectors();
+                state.readyToRender = true;
+            });
+        }
+    }
+
+    private void receiveGameOverview(MGameOverview m){
+        //update each timer
+        for(Map.Entry<Integer, Float> e : m.jobToTimeLeft.entrySet()){
+            state.jobs.get(e.getKey()).timeLeft = e.getValue();
+        }
+        //update station resources
+        for(Map.Entry<Integer, int[]> e : m.stationToResources.entrySet()){
+            System.arraycopy(e.getValue(), 0, state.grids[e.getKey()].station.resources, 0, e.getValue().length);
+        }
+    }
+
+    private void receiveChangeJob(MChangeJob m){
+        if(m.action == MChangeJob.Action.ADDING){
+            state.jobs.put(m.job.jobId, m.job);
+            state.grids[m.job.grid].station.currentJobs.add(m.job);
+        }
+        else if(m.action == MChangeJob.Action.FINISHED){
+            state.jobs.remove(m.jobId);
+            state.grids[m.gridId].station.currentJobs.remove(0);
+        }
+        else if(m.action == MChangeJob.Action.CANCELING){
+            //TODO
+        }
+    }
+
+    private void receiveDenyRequest(MDenyRequest m){
+        if(m.request instanceof MJobRequest){
+            logSector.addToLog(m.reason, SecLog.LogColor.RED);
+        }
+        else if(m.request instanceof MShipMoveRequest){
+            logSector.addToLog(m.reason, SecLog.LogColor.GRAY);
+        }
+    }
+
+    private void receiveAddShip(MAddShip m){
+        //create the ship
+        Ship ship = null;
+        if(m.type == Ship.Type.Frigate){
+            //create the ship, add the ship, then retrieve it
+            state.grids[m.grid].ships.put(m.shipId, m.createDrawableShip());
+            ship = state.grids[m.grid].ships.get(m.shipId);
+        }
+
+        //set things in the ship
+        if(ship != null) {
+            //physics
+            ship.polygon.setPosition(ship.pos.x, ship.pos.y);
+            ship.polygon.rotate(ship.rot);
+
+            //graphics
+            ship.createFleetRow(skin, state, fleetSector);
+        }
+        //TODO other types of ships
+    }
+
+    private void receiveShipUpd(MShipUpd m){
+        Ship ship;
+        if(m.grid != -1){
+            ship = state.grids[m.grid].ships.get(m.shipId);
+        }
+        else {
+            ship = state.inWarp.get(m.shipId);
+        }
+
+        m.copyDataToShip(ship);
+
+        //update visuals if not in warp
+        if(m.grid != -1) ship.updatePolygon();
+
+        //update the sectors if needed
+        if(detailsSector.selectShipId == ship.id){
+            detailsSector.updateShipData(ship, m.grid);
+        }
+        if(viewportSector.selEntType == Entity.Type.Ship && viewportSector.selEntId == ship.id){
+            viewportSector.updateSelectedEntity(m.grid);
+        }
+        fleetSector.updateEntity(ship, m.grid);
+    }
+
+    private void receiveShipEnterWarp(MShipEnterWarp m){
+        //move the ship to "in warp"
+        Ship ship = state.grids[m.originGridId].ships.get(m.shipId);
+        state.grids[m.originGridId].ships.remove(ship.id);
+        state.inWarp.put(ship.id, ship);
+    }
+
+    private void receiveShipExitWarp(MShipExitWarp m){
+        Ship ship = state.inWarp.get(m.shipId);
+        state.inWarp.remove(ship.id);
+        state.grids[m.destGridId].ships.put(ship.id, ship);
+    }
+
+    private void receiveMobileUps(MMobileUps m){
+        //if the mobile already exists
+        if(state.grids[m.gridId].mobiles.containsKey(m.mobileId)){
+            if(m.fizzle){
+                state.grids[m.gridId].mobiles.remove(m.mobileId);
+            }
+            else {
+                Mobile mob = state.grids[m.gridId].mobiles.get(m.mobileId);
+                mob.pos = m.pos;
+                mob.vel = m.vel;
+                mob.rot = m.rot;
+            }
+        }
+        //if it does not
+        else if(!m.fizzle) {
+            Mobile mob = null;
+
+            switch(m.type){
+                case BlasterBolt:
+                    mob = new BlasterBolt(m.mobileId, m.pos, null, null,
+                            -1);
+                    break;
+            }
+
+            if(mob != null){
+                mob.vel = m.vel;
+                mob.rot = m.rot;
+                state.grids[m.gridId].mobiles.put(m.mobileId, mob);
+            }
+        }
     }
 
 
@@ -389,11 +428,11 @@ public class Game implements Screen, ClientContact {
      * @param typeId Different value based on type. For SPACE, ignored. For SHIP, shipId.
      */
     void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos,
-                            SecViewport.ClickType type, int typeId){
+                            Entity.Type type, int typeId){
         //normal behavior
         if(crossSectorListener == null){
             //selecting a ship for details
-            if(type == SecViewport.ClickType.SHIP && button == Input.Buttons.LEFT){
+            if(type == Entity.Type.Ship && button == Input.Buttons.LEFT){
                 shipSelectedForDetails(grid, typeId);
             }
         }
@@ -456,7 +495,7 @@ public class Game implements Screen, ClientContact {
         detailsSector.shipSelected(gridId, shipId);
 
         //TODO separate this out from selecting for details (maybe?)
-        viewportSector.selectedEntity(Entity.Type.SHIP, gridId, shipId);
+        viewportSector.selectedEntity(Entity.Type.Ship, gridId, shipId);
     }
 
     /**
@@ -548,7 +587,5 @@ public class Game implements Screen, ClientContact {
             s.load();
         }
     }
-
-
 
 }

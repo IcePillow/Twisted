@@ -17,8 +17,9 @@ import com.twisted.local.game.state.PlayColor;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.mobs.Mobile;
 
-public class SecViewport extends Sector{
+class SecViewport extends Sector{
 
     //constants
     public static final float LTR = Game.LTR; //logical to rendered
@@ -46,7 +47,7 @@ public class SecViewport extends Sector{
     /**
      * Constructor
      */
-    public SecViewport(Game game, Stage stage){
+    SecViewport(Game game, Stage stage){
         this.game = game;
         this.stage = stage;
         this.skin = game.skin;
@@ -109,6 +110,17 @@ public class SecViewport extends Sector{
         stationDrawable.scale(LTR);
         shape.polygon(stationDrawable.getTransformedVertices());
 
+        //draw the mobiles
+        Polygon mobDrawable;
+        shape.setColor(Color.LIGHT_GRAY); //TODO color based on the particular mobile
+        for(Mobile m : g.mobiles.values()){
+            mobDrawable = new Polygon(m.getVertices());
+            mobDrawable.scale(LTR);
+            mobDrawable.translate(m.pos.x*LTR, m.pos.y*LTR);
+            mobDrawable.rotate((float) (m.rot*180/Math.PI)-90);
+            shape.polygon(mobDrawable.getTransformedVertices());
+        }
+
         //draw the ships
         Polygon shipDrawable;
         for(Ship s : g.ships.values()){
@@ -123,19 +135,19 @@ public class SecViewport extends Sector{
             shipDrawable = new Polygon(s.getVertices());
             shipDrawable.scale(LTR);
             shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
-            shipDrawable.rotate( (float) (s.rot*180/Math.PI)-90 );
+            shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
             shape.polygon(shipDrawable.getTransformedVertices());
         }
 
         //draw the selection circle
-        if(selEntType == Entity.Type.SHIP && selEntGrid == game.getGrid()){
+        if(selEntType == Entity.Type.Ship && selEntGrid == game.getGrid()){
             Ship s = state.grids[selEntGrid].ships.get(selEntId);
 
             shape.setColor(Color.LIGHT_GRAY);
             shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
         }
         else{
-            // TODO add the other cases
+            // TODO add the other cases for other entities
         }
 
         shape.end();
@@ -196,7 +208,7 @@ public class SecViewport extends Sector{
         String type = "none"; //none, station, ship
         int shipId = 0;
 
-        //figure out what was clicked on
+        //figure out what was clicked on (mobiles ignored)
         if(g.station.polygon.contains(adjX, adjY)){
             type = "station";
         }
@@ -210,14 +222,14 @@ public class SecViewport extends Sector{
         //do the correct thing based on the state and what was clicked on
         if(type.equals("ship")) {
             game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
-                    ClickType.SHIP, shipId);
+                    Entity.Type.Ship, shipId);
         }
         else if(type.equals("station")){
             game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
-                    ClickType.STATION, game.getGrid());
+                    Entity.Type.Station, game.getGrid());
         }
         else {
-            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), ClickType.SPACE, -1);
+            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), null, -1);
         }
     }
 

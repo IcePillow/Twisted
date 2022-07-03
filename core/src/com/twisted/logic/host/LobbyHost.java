@@ -1,7 +1,7 @@
-package com.twisted.logic.lobby;
+package com.twisted.logic.host;
 
 import com.twisted.logic.Player;
-import com.twisted.logic.game.GameHost;
+import com.twisted.logic.host.GameHost;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.remaining.MChat;
 import com.twisted.net.msg.remaining.MCommand;

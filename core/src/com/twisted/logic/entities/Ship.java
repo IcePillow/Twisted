@@ -1,12 +1,11 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.attach.Weapon;
 
 import java.io.Serializable;
-import java.util.HashMap;
 
 public abstract class Ship extends Entity implements Serializable {
 
@@ -27,19 +26,34 @@ public abstract class Ship extends Entity implements Serializable {
     /* State */
 
     public int id;
+    @Override
+    public int getId(){
+        return id;
+    }
 
     public float warpTimeToLand; //0 if not in warp
 
     public float health;
 
+    //ui and movement
     public String moveCommand;
+    public boolean aggro;
+
+    //targeting
+    public float targetTimeToLock; //only valid if targetingState != null
+    public Targeting targetingState;
+    public Entity.Type targetingType;
+    public int targetingId; //only valid if targetingState != null
+
+    //attachments
+    public Weapon[] weapons;
 
 
     /**
      * Constructor
      */
     protected Ship(int id, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand){
+                   float warpTimeToLand, int ctWeapon){
         //meta data
         this.id = id;
         this.owner = owner;
@@ -51,12 +65,19 @@ public abstract class Ship extends Entity implements Serializable {
 
         //command data
         this.moveCommand = "Stationary";
+        this.aggro = false;
+        this.targetingState = null;
+        this.targetingType = null;
+        this.targetingId = 0;
 
         //warping
         this.warpTimeToLand = warpTimeToLand;
 
         //battle
         this.health = getMaxHealth();
+
+        //weapons
+        this.weapons = new Weapon[ctWeapon];
 
         //graphics stuff
         polygon = new Polygon(this.getVertices());
@@ -73,6 +94,19 @@ public abstract class Ship extends Entity implements Serializable {
     public abstract float getMaxAccel();
     public abstract int getMaxHealth();
 
+
+    /* Action Methods */
+
+    @Override
+    public void takeDamage(Grid grid, float amount){
+        health -= amount;
+
+        if(health <= 0){
+            //TODO ship explosion
+
+            health = 0;
+        }
+    }
 
 
     /* Utility Methods */
@@ -159,6 +193,15 @@ public abstract class Ship extends Entity implements Serializable {
 
         ORBIT_STATION,
         ORBIT_SHIP
+    }
+
+    /**
+     * The targeting state.
+     */
+    public enum Targeting {
+        Locking,
+        Locked,
+        Firing,
     }
 
 }

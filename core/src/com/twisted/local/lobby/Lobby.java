@@ -14,7 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
-import com.twisted.logic.lobby.LobbyHost;
+import com.twisted.logic.host.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;

@@ -7,6 +7,7 @@ import com.twisted.local.game.SecFleet;
 import com.twisted.local.game.state.GameState;
 import com.twisted.local.game.state.PlayColor;
 import com.twisted.local.game.util.FleetRow;
+import com.twisted.logic.descriptors.Grid;
 
 public abstract class Entity {
 
@@ -32,6 +33,19 @@ public abstract class Entity {
 
     //graphics
     public FleetRow fleetRow;
+    public boolean fleetRowDisplayAtTop = false;
+
+    //typing methods
+    public Type getEntityType(){
+        if(this instanceof Ship) return Type.Ship;
+        else if(this instanceof Station) return Type.Station;
+        else return null;
+    }
+    /**
+     * These ids are not unique across entities, but they should be unique across each subclass
+     * of entities.
+     */
+    public abstract int getId();
 
     //graphics loading methods
     public void createFleetRow(Skin skin, GameState state, SecFleet sector){
@@ -47,6 +61,11 @@ public abstract class Entity {
     }
 
     //data methods
+
+    /**
+     * These vertices are used for drawing.
+     * TODO see if these can be combined with the Polygon in the subclasses and used on serverside
+     */
     public abstract float[] getVertices();
     /**
      * Returns the logical radius (i.e. not in visual coords) padded a little. Currently used
@@ -54,10 +73,13 @@ public abstract class Entity {
      */
     public abstract float getPaddedLogicalRadius();
 
+    //action items
+    public abstract void takeDamage(Grid grid, float amount);
+
     //enums
     public enum Type {
-        STATION,
-        SHIP
+        Station,
+        Ship,
     }
 
 }

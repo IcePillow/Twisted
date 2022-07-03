@@ -21,14 +21,13 @@ import com.twisted.net.msg.gameRequest.MJobRequest;
 
 import java.util.ArrayList;
 
-public class SecIndustry extends Sector{
+class SecIndustry extends Sector{
 
     //reference variables
     private Game game;
 
     //graphics utilities
     private Skin skin;
-    private Thread logFadeThread;
 
     //tree
     private Group parent;
@@ -42,7 +41,7 @@ public class SecIndustry extends Sector{
     /**
      * Constructor
      */
-    public SecIndustry(Game game){
+    SecIndustry(Game game){
         this.game = game;
         this.skin = game.skin;
     }

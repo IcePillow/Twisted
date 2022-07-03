@@ -19,8 +19,8 @@ public class Extractor extends Station {
     /**
      * Constructor
      */
-    public Extractor(int grid, String name, int owner, Stage stage, boolean graphics) {
-        super(grid, name, owner, stage);
+    public Extractor(int grid, String gridNick, int owner, Stage stage, boolean graphics) {
+        super(grid, gridNick, owner, stage);
 
         if(graphics){
             polygon = new Polygon(vertices);

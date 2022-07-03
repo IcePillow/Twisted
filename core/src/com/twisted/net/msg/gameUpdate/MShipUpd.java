@@ -1,6 +1,7 @@
 package com.twisted.net.msg.gameUpdate;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 
 public class MShipUpd implements MGameUpdate {
@@ -19,25 +20,27 @@ public class MShipUpd implements MGameUpdate {
 
     //command data
     public String moveCommand;
+    public boolean aggro;
+
+    //targeting
+    public float targetTimeToLock;
+    public Ship.Targeting targetingState;
+    public Entity.Type targetingType;
+    public int targetingId;
 
     //warping
     public float warpTimeToLand;
 
+    //combat
+    public float health;
+
 
     /**
      * Constructor
-     * @param rotation in degrees
      */
-    public MShipUpd(int shipId, int grid, Vector2 position, Vector2 velocity, float rotation,
-                    String moveCommand, float warpTimeToLand){
+    private MShipUpd(int shipId, int grid){
         this.shipId = shipId;
         this.grid = grid;
-
-        this.position = position.cpy();
-        this.velocity = velocity.cpy();
-        this.rotation = rotation;
-        this.moveCommand = moveCommand;
-        this.warpTimeToLand = warpTimeToLand;
     }
 
 
@@ -46,20 +49,47 @@ public class MShipUpd implements MGameUpdate {
     /**
      * Copies non-meta data to the passed in ship.
      */
-    public void copyDataToShip(Ship ship){
-        ship.pos = position;
-        ship.vel = velocity;
-        ship.rot = rotation;
-        ship.moveCommand = moveCommand;
-        ship.warpTimeToLand = warpTimeToLand;
+    public void copyDataToShip(Ship s){
+        s.pos = position;
+        s.vel = velocity;
+        s.rot = rotation;
+
+        s.moveCommand = moveCommand;
+        s.aggro = aggro;
+
+        s.warpTimeToLand = warpTimeToLand;
+
+        s.targetTimeToLock = targetTimeToLock;
+        s.targetingState = targetingState;
+        s.targetingType = targetingType;
+        s.targetingId = targetingId;
+
+        s.health = health;
     }
 
     /**
      * Creates a filled out MShipUpd from the passed in ship.
      */
     public static MShipUpd createFromShip(Ship s, int grid){
-        return new MShipUpd(s.id, grid, s.pos, s.vel, s.rot, s.moveCommand,
-                s.warpTimeToLand);
+        MShipUpd upd = new MShipUpd(s.id, grid);
+
+        upd.position = s.pos.cpy();
+        upd.velocity = s.vel.cpy();
+        upd.rotation = s.rot;
+
+        upd.moveCommand = s.moveCommand;
+        upd.aggro = s.aggro;
+
+        upd.warpTimeToLand = s.warpTimeToLand;
+
+        upd.targetTimeToLock = s.targetTimeToLock;
+        upd.targetingState = s.targetingState;
+        upd.targetingType = s.targetingType;
+        upd.targetingId = s.targetingId;
+
+        upd.health = s.health;
+
+        return upd;
     }
 
 }

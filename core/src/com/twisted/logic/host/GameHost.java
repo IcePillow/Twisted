@@ -1,10 +1,12 @@
-package com.twisted.logic.game;
+package com.twisted.logic.host;
 
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.Player;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
+import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameRequest.*;
 import com.twisted.net.msg.gameUpdate.*;
@@ -66,6 +68,11 @@ public class GameHost implements ServerContact {
     public synchronized int useNextShipId(){
         nextShipId++;
         return nextShipId-1;
+    }
+    private int nextMobileId = 1;
+    public synchronized int useNextMobileId(){
+        nextMobileId++;
+        return nextMobileId-1;
     }
 
 
@@ -150,14 +157,14 @@ public class GameHost implements ServerContact {
                 new Grid(6, new Vector2(400, 500), "G"),
                 new Grid(7, new Vector2(500, 400), "H"),
         };
-        grids[0].station = new Extractor(0, "Extractor " + grids[0].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[1].station = new Extractor(1, "Extractor " + grids[1].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[2].station = new Harvester(2, "Harvester " + grids[2].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[3].station = new Extractor(3, "Extractor " + grids[3].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[4].station = new Extractor(4, "Extractor " + grids[4].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[5].station = new Harvester(5, "Harvester " + grids[5].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[6].station = new Liquidator(6, "Liquidator " + grids[6].nickname, 0, Station.Stage.NONE, false);
-        grids[7].station = new Liquidator(7, "Liquidator " + grids[7].nickname, 0, Station.Stage.NONE, false);
+        grids[0].station = new Extractor(0, grids[0].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[1].station = new Extractor(1, grids[1].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[2].station = new Harvester(2, grids[2].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[3].station = new Extractor(3, grids[3].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[4].station = new Extractor(4, grids[4].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[5].station = new Harvester(5, grids[5].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.NONE, false);
+        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.NONE, false);
 
         //add initial resources
         grids[0].station.resources[0] += 20;
@@ -318,7 +325,6 @@ public class GameHost implements ServerContact {
      * The function where the game logic is performed.
      */
     private void loop(){
-
         //handle requests
         for(MGameRequest request : requests.keySet()){
             int userId = requests.get(request);
@@ -327,15 +333,18 @@ public class GameHost implements ServerContact {
             else if(request instanceof MShipMoveRequest) handleShipMoveRequest(userId, (MShipMoveRequest) request);
             else if(request instanceof MShipAlignRequest) handleShipAlignRequest(userId, (MShipAlignRequest) request);
             else if(request instanceof MShipWarpRequest) handleShipWarpRequest(userId, (MShipWarpRequest) request);
+            else if(request instanceof MShipAggro) handleShipAggroRequest(userId, (MShipAggro) request);
+            else if(request instanceof MTargetRequest) handleShipTargetRequest(userId, (MTargetRequest) request);
         }
 
         //updating
         updateStationTimers();
         calculateTrajectories();
         updatePhysics();
+        updateCombat();
 
         //telling clients
-        sendEntityData();
+        sendEntMobData();
 
         //major update
         millisSinceMajor += TICK_DELAY;
@@ -490,12 +499,13 @@ public class GameHost implements ServerContact {
     }
 
     /**
-     * Updates the world of each grid.
+     * Updates the physics of each grid.
      */
     private void updatePhysics(){
 
-        //ships that will be removed after a loop
-        ArrayList<Ship> toBeRemoved = new ArrayList<>();
+        //utility objects
+        ArrayList<Ship> shipsToRemove = new ArrayList<>();
+        ArrayList<Integer> mobilesToRemove = new ArrayList<>(); //mobile id
 
         //time step for ships not in warp
         for(Grid g : grids){
@@ -506,7 +516,7 @@ public class GameHost implements ServerContact {
                 if(s.movement == Ship.Movement.ALIGN_FOR_WARP
                         && s.alignedForWarp(g, grids[s.warpTargetGridId])){
                     //remove the ship at the end of the loop
-                    toBeRemoved.add(s);
+                    shipsToRemove.add(s);
 
                     //put in warp space
                     shipsInWarp.put(s.id, s);
@@ -514,10 +524,15 @@ public class GameHost implements ServerContact {
 
                     //update the movement description
                     s.movement = Ship.Movement.WARPING;
-                    s.moveCommand = "Warping to #" + s.warpTargetGridId;
+                    s.moveCommand = "Warping to " + grids[s.warpTargetGridId].nickname;
 
                     //update physics
                     s.pos.set(0, 0);
+
+                    //update targeting
+                    s.targetingState = null;
+                    s.targetingType = null;
+                    s.targetingId = -1;
 
                     //tell the users
                     server.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
@@ -534,10 +549,10 @@ public class GameHost implements ServerContact {
             }
 
             //remove ships that left the grid
-            for(Ship s : toBeRemoved){
+            for(Ship s : shipsToRemove){
                 g.ships.remove(s.id);
             }
-            toBeRemoved.clear();
+            shipsToRemove.clear();
         }
 
         //time step for ships in warp
@@ -548,7 +563,7 @@ public class GameHost implements ServerContact {
             if(s.warpTimeToLand <= 0){
                 s.warpTimeToLand = 0;
 
-                toBeRemoved.add(s);
+                shipsToRemove.add(s);
 
                 //tell the users
                 server.broadcastMessage(new MShipExitWarp(s.id, s.warpTargetGridId));
@@ -570,17 +585,80 @@ public class GameHost implements ServerContact {
             }
         }
         //remove ships that exited warp
-        for(Ship s : toBeRemoved){
+        for(Ship s : shipsToRemove){
             shipsInWarp.remove(s.id);
         }
 
+        //time step for mobiles
+        for(Grid g : grids) {
+            //loop through mobiles on the grid
+            for (Mobile m : g.mobiles.values()) {
+                //take the time step and check for fizzle
+                if(m.update(FRAC, g)) {
+                    mobilesToRemove.add(m.id);
+
+                    //tell clients
+                    server.broadcastMessage(MMobileUps.createFromMobile(m, g.id, true));
+                }
+            }
+            //remove mobiles that fizzle
+            for(Integer i : mobilesToRemove){
+                g.mobiles.remove(i);
+            }
+            mobilesToRemove.clear();
+        }
+    }
+
+    /**
+     * Updates combat mechanics.
+     */
+    private void updateCombat(){
+        for(Grid g : grids){
+            //targeting
+            for(Ship s : g.ships.values()){
+                if(s.targetingState == Ship.Targeting.Locking){
+                    s.targetTimeToLock -= FRAC;
+
+                    if(s.targetTimeToLock <= 0){
+                        s.targetingState = Ship.Targeting.Locked;
+                    }
+                }
+
+                //check the entity is still on grid
+                Entity target = null;
+                if(s.targetingState != null && s.targetingType != null){
+                    switch(s.targetingType){
+                        case Ship:
+                            target = g.ships.get(s.targetingId);
+                            break;
+                        case Station:
+                            target = g.station;
+                            break;
+                    }
+                }
+
+                //stop targeting if not valid to target
+                if(target == null){
+                    s.targetingState = null;
+                    s.targetingType = null;
+                    s.targetingId = -1;
+                }
+                //update weapon if targeting is valid
+                else {
+                    if(s.targetingState == Ship.Targeting.Locked && s.aggro){
+                        for(Weapon w : s.weapons){
+                            w.fire(this, g, s, target, FRAC);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     /**
      * Send entity data to the users.
      */
-    private void sendEntityData(){
-
+    private void sendEntMobData(){
         //ship data, not in warp then in warp
         for(Grid g : grids){
             for(Ship s : g.ships.values()){
@@ -591,6 +669,12 @@ public class GameHost implements ServerContact {
             server.broadcastMessage(MShipUpd.createFromShip(s, -1));
         }
 
+        //mobile data
+        for(Grid g : grids){
+            for(Mobile m : g.mobiles.values()){
+                server.broadcastMessage(MMobileUps.createFromMobile(m, g.id, false));
+            }
+        }
     }
 
 
@@ -747,6 +831,80 @@ public class GameHost implements ServerContact {
             s.trajectoryVel = s.trajectoryVel.set(
                     (float) Math.cos(angle) * s.getMaxSpeed() * 0.8f,
                     (float) Math.sin(angle) * s.getMaxSpeed() * 0.8f);
+        }
+    }
+
+    /**
+     * Handles MShipAggro
+     */
+    private void handleShipAggroRequest(int userId, MShipAggro msg){
+        //get the ship
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipAggroRequest()");
+            return;
+        }
+
+        //check permissions and basics
+        if(s.owner != userId){
+            MDenyRequest deny = new MDenyRequest(msg);
+            deny.reason = "Cannot command ship for unexpected reason";
+
+            server.sendMessage(userId, deny);
+        }
+        else{
+            //set the target grid id
+            s.aggro = msg.aggro;
+        }
+    }
+
+    /**
+     * Handle MShipTargetRequest
+     */
+    private void handleShipTargetRequest(int userId, MTargetRequest msg){
+        //get the ship
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipTargetRequest()");
+            return;
+        }
+
+        //check permissions and basics
+        if(s.owner != userId || s.warpTimeToLand != 0){
+            MDenyRequest deny = new MDenyRequest(msg);
+
+            if(s.warpTimeToLand != 0){
+                deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
+
+            server.sendMessage(userId, deny);
+        }
+        else {
+            //get the target entity
+            Entity target = null;
+            if(msg.targetType == Entity.Type.Station){
+                if(msg.grid == msg.targetId){
+                    target = grids[msg.grid].station;
+                }
+            }
+            else if(msg.targetType == Entity.Type.Ship){
+                if(grids[msg.grid].ships.containsKey(msg.targetId)){
+                    target = grids[msg.grid].ships.get(msg.targetId);
+                }
+            }
+
+            //start locking on to the target
+            if(target != null){
+                s.targetingState = Ship.Targeting.Locking;
+                s.targetingType = msg.targetType;
+                s.targetingId = msg.targetId;
+
+                //TODO calculate locking time based on entity types
+                s.targetTimeToLock = 1;
+            }
         }
     }
 

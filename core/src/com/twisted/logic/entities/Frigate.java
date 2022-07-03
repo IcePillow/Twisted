@@ -1,6 +1,7 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.entities.attach.Blaster;
 
 public class Frigate extends Ship {
 
@@ -13,7 +14,9 @@ public class Frigate extends Ship {
      */
     public Frigate(int shipId, int owner, Vector2 position, Vector2 velocity, float rotation,
                    float warpTimeToLand){
-        super(shipId, owner, position, velocity, rotation, warpTimeToLand);
+        super(shipId, owner, position, velocity, rotation, warpTimeToLand, 1);
+
+        weapons[0] = new Blaster(1, 2, 1.4f, 2);
     }
 
 

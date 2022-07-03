@@ -5,7 +5,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
-public class SecOverlay extends Sector {
+class SecOverlay extends Sector {
 
     //reference variables
     private Game game;
@@ -20,7 +20,7 @@ public class SecOverlay extends Sector {
     /**
      * Constructor
      */
-    public SecOverlay(Game game){
+    SecOverlay(Game game){
         this.game = game;
         this.skin = game.skin;
     }

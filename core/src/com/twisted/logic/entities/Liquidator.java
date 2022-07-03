@@ -18,8 +18,8 @@ public class Liquidator extends Station {
     /**
      * Constructor
      */
-    public Liquidator(int grid, String name, int owner, Stage stage, boolean graphics) {
-        super(grid, name, owner, stage);
+    public Liquidator(int grid, String gridNick, int owner, Stage stage, boolean graphics) {
+        super(grid, gridNick, owner, stage);
 
         if(graphics){
             this.polygon = new Polygon(vertices);

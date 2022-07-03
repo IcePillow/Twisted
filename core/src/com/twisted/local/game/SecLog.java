@@ -8,7 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Align;
 
-public class SecLog extends Sector{
+class SecLog extends Sector {
 
     //exterior references
     private Game game;
@@ -25,7 +25,7 @@ public class SecLog extends Sector{
     /**
      * Constructor
      */
-    public SecLog(Game game) {
+    SecLog(Game game) {
         this.game = game;
         this.skin = game.skin;
     }

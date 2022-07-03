@@ -34,7 +34,7 @@ public class SecFleet extends Sector {
     /**
      * Constructor
      */
-    public SecFleet(Game game){
+    SecFleet(Game game){
         this.game = game;
         this.selected = TabType.Fleet;
     }
@@ -80,7 +80,7 @@ public class SecFleet extends Sector {
                     new Vector2(3+66*i, 2), new Vector2(64, 22)));
 
             //get the group, add it to the overall header group, add listener
-            Group tabGroup = tabs.get(types[i]).getGroup();
+            Group tabGroup = tabs.get(types[i]).getHeader();
             group.addActor(tabGroup);
 
             //add listener
@@ -138,7 +138,7 @@ public class SecFleet extends Sector {
     /**
      * Switches which tab is currently selected and displaying.
      */
-    private void switchSelectedTabs(TabType switchTo){
+    void switchSelectedTabs(TabType switchTo){
         //unselect the current one
         tabs.get(selected).selectTopTab(false);
         tabs.get(selected).clearEntities();
@@ -156,7 +156,7 @@ public class SecFleet extends Sector {
     /**
      * Reloads all entities on the given tab.
      */
-    public void reloadTabEntities(){
+    void reloadTabEntities(){
         tabs.get(selected).clearEntities();
         loadEntitiesForSelectedTab();
     }
@@ -165,7 +165,7 @@ public class SecFleet extends Sector {
      * Tells this sector to update the entity with the new information.
      * @param entityGrid The grid the entity is now on.
      */
-    public void updateEntity(Entity entity, int entityGrid){
+    void updateEntity(Entity entity, int entityGrid){
         //updates the graphics
         entity.fleetRow.updateDisplay(state, entityGrid);
 
@@ -181,7 +181,22 @@ public class SecFleet extends Sector {
                 (selected==TabType.Ally && entity.owner == state.myId) ||
                 (selected==TabType.Enemy && entity.owner != state.myId))){
 
-            tabs.get(selected).addEntity(entity, selected);
+            tabs.get(selected).addEntityRow(entity, selected);
+        }
+        //warping reordering
+        if(entityGrid == -1 && !entity.fleetRowDisplayAtTop){
+            entity.fleetRowDisplayAtTop = true;
+
+            if(selected==TabType.Fleet){
+                tabs.get(selected).displayEntityRowAtTop(entity.fleetRow, selected, true);
+            }
+        }
+        else if(entityGrid != -1 && entity.fleetRowDisplayAtTop){
+            entity.fleetRowDisplayAtTop = false;
+
+            if(selected==TabType.Fleet){
+                tabs.get(selected).displayEntityRowAtTop(entity.fleetRow, selected, false);
+            }
         }
     }
 
@@ -205,15 +220,21 @@ public class SecFleet extends Sector {
 
         switch (selected){
             case Fleet: {
+                //in warp
+                for (Ship s : state.inWarp.values()){
+                    if(s.owner == state.myId){
+                        t.addEntityRow(s, selected);
+                    }
+                }
                 for (Grid g : state.grids) {
                     //stations
                     if (g.station.owner == state.myId){
-                        t.addEntity(g.station, selected);
+                        t.addEntityRow(g.station, selected);
                     }
                     //ships
                     for(Ship s : g.ships.values()){
                         if(s.owner == state.myId){
-                            t.addEntity(s, selected);
+                            t.addEntityRow(s, selected);
                         }
                     }
                 }
@@ -222,9 +243,9 @@ public class SecFleet extends Sector {
             case Grid: {
                 Grid g = state.grids[game.getGrid()];
                 //station
-                t.addEntity(g.station, selected);
+                t.addEntityRow(g.station, selected);
                 for(Ship s : g.ships.values()){
-                    t.addEntity(s, selected);
+                    t.addEntityRow(s, selected);
                 }
                 break;
             }
@@ -232,12 +253,12 @@ public class SecFleet extends Sector {
                 Grid g = state.grids[game.getGrid()];
                 //station
                 if (g.station.owner == state.myId) {
-                    t.addEntity(g.station, selected);
+                    t.addEntityRow(g.station, selected);
                 }
                 //ships
                 for(Ship s : g.ships.values()){
                     if(s.owner == state.myId){
-                        t.addEntity(s, selected);
+                        t.addEntityRow(s, selected);
                     }
                 }
                 break;
@@ -246,12 +267,12 @@ public class SecFleet extends Sector {
                 Grid g = state.grids[game.getGrid()];
                 //station
                 if (g.station.owner != state.myId) {
-                    t.addEntity(g.station, selected);
+                    t.addEntityRow(g.station, selected);
                 }
                 //ships
                 for(Ship s : g.ships.values()){
                     if(s.owner != state.myId){
-                        t.addEntity(s, selected);
+                        t.addEntityRow(s, selected);
                     }
                 }
                 break;

@@ -6,6 +6,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
+import com.twisted.logic.descriptors.Grid;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -25,14 +26,17 @@ public abstract class Station extends Entity implements Serializable {
 
     public Polygon polygon;
 
-    /* Logic */
-
 
     /* Variables */
 
     //final descriptive variables
     public final int grid;
+    @Override
+    public int getId(){
+        return grid;
+    }
     public final String nickname;
+    public final String shortNickname;
 
     //high level state variables
     public Stage stage;
@@ -45,11 +49,27 @@ public abstract class Station extends Entity implements Serializable {
     /**
      * Constructor
      */
-    public Station(int grid, String nickname, int owner, Stage stage){
-        this.nickname = nickname;
+    public Station(int grid, String gridNick, int owner, Stage stage){
         this.grid = grid;
         this.owner = owner;
         this.stage = stage;
+
+        //set nicknames
+        this.nickname = this.getType().toString() + " " + gridNick;
+        switch(this.getType()){
+            case Extractor:
+                this.shortNickname = "Extrac " + gridNick;
+                break;
+            case Harvester:
+                this.shortNickname = "Harves " + gridNick;
+                break;
+            case Liquidator:
+                this.shortNickname = "Liquid " + gridNick;
+                break;
+            default:
+                System.out.println("Unexpected Station type in Station()");
+                this.shortNickname = "[???]";
+        }
 
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
@@ -67,6 +87,14 @@ public abstract class Station extends Entity implements Serializable {
     @Override
     public float getPaddedLogicalRadius(){
         return (1.28f * 1.1f);
+    }
+
+
+    /* Action Methods */
+
+    @Override
+    public void takeDamage(Grid grid, float amount){
+        //TODO
     }
 
 

@@ -3,8 +3,10 @@ package com.twisted.logic.descriptors;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
+import com.twisted.logic.mobs.Mobile;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.HashMap;
 
 /**
@@ -22,8 +24,8 @@ public class Grid implements Serializable {
     /* State */
 
     public Station station;
-
     public final HashMap<Integer, Ship> ships;
+    public final HashMap<Integer, Mobile> mobiles;
 
 
     /* Methods */
@@ -37,6 +39,7 @@ public class Grid implements Serializable {
         this.nickname = nickname;
 
         this.ships = new HashMap<>();
+        this.mobiles = new HashMap<>();
     }
 
 }

@@ -1,5 +1,10 @@
-Currently
-    -
+Work
+    Current
+    Future
+        TODO change details sector buttons (and add hints)
+        TODO add orbit command
+        TODO add target indicator
+        TODO add range indicator for weapons
 Colors
     Light blue - 0x42a5f5ff
     Orange - 0xfb8c00ff
@@ -42,3 +47,8 @@ Coordinates
             > This is used to calculate how to display on the screen
         > Nautical is 0 at North and go CW
             > This will be displayed to the player
+Gameplay
+    Weapons
+        Blasters -- always hit unless warp, have travel time, shoot discretely
+        Lasers -- continuously hit, no travel time, shoot continuously
+        Missiles -- have travel time, can time out, deals aoe, shoot discretely

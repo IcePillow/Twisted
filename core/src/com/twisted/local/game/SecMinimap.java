@@ -13,7 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Main;
 import com.twisted.logic.descriptors.Grid;
 
-public class SecMinimap extends Sector {
+class SecMinimap extends Sector {
 
     //reference variables
     private Game game;
@@ -28,7 +28,7 @@ public class SecMinimap extends Sector {
     /**
      * Constructor
      */
-    public SecMinimap(Game game){
+    SecMinimap(Game game){
         this.game = game;
         this.skin = game.skin;
     }
