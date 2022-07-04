@@ -8,12 +8,11 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.state.PlayColor;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
@@ -24,6 +23,9 @@ class SecViewport extends Sector{
     //constants
     public static final float LTR = Game.LTR; //logical to rendered
     private static final Color SPACE = new Color(0x020036ff);
+
+    //high level input
+    private Vector2 cursor;
 
     //reference variables
     private Game game;
@@ -38,10 +40,9 @@ class SecViewport extends Sector{
     //graphics state
     private Vector2 camPos;
 
-    //selected entity
-    Entity.Type selEntType;
-    private int selEntGrid;
-    int selEntId;
+    //selected entities
+    EntPtr selectBasic;
+    EntPtr selectOrbit;
 
 
     /**
@@ -61,7 +62,8 @@ class SecViewport extends Sector{
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
 
-        selEntType = null;
+        selectBasic = null;
+        selectOrbit = null;
 
         return null;
     }
@@ -71,6 +73,17 @@ class SecViewport extends Sector{
 
         //load the background
         state.viewportBackground = new Texture(Gdx.files.internal("images/pixels/navy.png"));
+
+        //position listener
+        cursor = new Vector2(0, 0);
+        stage.addListener(event -> {
+            if(event instanceof InputEvent){
+                InputEvent inp = (InputEvent) event;
+
+                cursor.set(inp.getStageX(), inp.getStageY());
+            }
+            return false;
+        });
 
         //click listener
         stage.addListener(new ClickListener(){
@@ -139,16 +152,38 @@ class SecViewport extends Sector{
             shape.polygon(shipDrawable.getTransformedVertices());
         }
 
-        //draw the selection circle
-        if(selEntType == Entity.Type.Ship && selEntGrid == game.getGrid()){
-            Ship s = state.grids[selEntGrid].ships.get(selEntId);
+        //draw the basic selection circle
+        if(selectBasic != null){
+            if(selectBasic.type == Entity.Type.Ship && selectBasic.grid == game.getGrid()){
+                Ship s = state.grids[selectBasic.grid].ships.get(selectBasic.id);
 
-            shape.setColor(Color.LIGHT_GRAY);
-            shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
+                shape.setColor(Color.LIGHT_GRAY);
+                shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
+            }
+            else{
+                // TODO add case for station
+            }
         }
-        else{
-            // TODO add the other cases for other entities
+
+        //draw the orbit selection circle
+        if(selectOrbit != null){
+            Entity ent = selectOrbit.retrieveFromGrid(g);
+
+            if(ent != null){
+                float orbCircleRad = new Vector2(
+                        (cursor.x-stage.getWidth()/2f+camPos.x)/100f,
+                        (cursor.y-stage.getHeight()/2f+camPos.y)/100f)
+                        .dst(ent.pos);
+
+                shape.setColor(Color.LIGHT_GRAY);
+                for(float i=0; i<360; i+= 360f/(orbCircleRad*80)){
+                    shape.circle(ent.pos.x*LTR + orbCircleRad*LTR*(float)Math.cos(i*Math.PI/180),
+                            ent.pos.y*LTR + orbCircleRad*LTR*(float)Math.sin(i*Math.PI/180),
+                            1);
+                }
+            }
         }
+
 
         shape.end();
 
@@ -201,30 +236,30 @@ class SecViewport extends Sector{
 
         //get the current grid and convert coords
         Grid g = state.grids[game.getGrid()];
-        float adjX = (x-stage.getWidth()/2f+camPos.x)/100f;
-        float adjY = (y-stage.getHeight()/2f+camPos.y)/100f;
+        float adjX = (x-stage.getWidth()/2f+camPos.x)/LTR;
+        float adjY = (y-stage.getHeight()/2f+camPos.y)/LTR;
 
         //prep the variables that tell what is clicked on
-        String type = "none"; //none, station, ship
+        Entity.Type type = null;
         int shipId = 0;
 
         //figure out what was clicked on (mobiles ignored)
         if(g.station.polygon.contains(adjX, adjY)){
-            type = "station";
+            type = Entity.Type.Station;
         }
         for(Ship s : g.ships.values()){
             if(s.polygon.contains(adjX, adjY)){
-                type = "ship";
+                type = Entity.Type.Ship;
                 shipId = s.id;
             }
         }
 
         //do the correct thing based on the state and what was clicked on
-        if(type.equals("ship")) {
+        if(type == Entity.Type.Ship) {
             game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
                     Entity.Type.Ship, shipId);
         }
-        else if(type.equals("station")){
+        else if(type == Entity.Type.Station){
             game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
                     Entity.Type.Station, game.getGrid());
         }
@@ -237,16 +272,32 @@ class SecViewport extends Sector{
      * Select a given entity.
      */
     void selectedEntity(Entity.Type type, int grid, int id){
-        this.selEntType = type;
-        this.selEntGrid = grid;
-        this.selEntId = id;
+        selectBasic = new EntPtr(type, id, grid);
+    }
+
+    /**
+     * Select or deselect an entity for orbit circle entity. Calling this while another entity
+     * is already orbit selected will replace the previous one.
+     * @param toggle If this is false, all other parameters are ignored.
+     */
+    void orbitCircleEntity(boolean toggle, Entity.Type type, int grid, int id){
+        if(toggle){
+            selectOrbit = new EntPtr(type, id, grid);
+        }
+        else {
+            selectOrbit = null;
+        }
     }
 
 
     /* Updating Methods */
 
-    void updateSelectedEntity(int grid){
-        this.selEntGrid = grid;
+    void updateSelectedBasicEntity(int grid){
+        selectBasic.grid = grid;
+    }
+
+    void updateOrbitCircleEntity(int grid){
+        selectOrbit.grid = grid;
     }
 
 
@@ -257,17 +308,6 @@ class SecViewport extends Sector{
      */
     enum Direction {
         UP, RIGHT, DOWN, LEFT
-    }
-
-    /**
-     *
-     */
-    enum ClickType {
-        //clicked on nothing but the background
-        SPACE,
-        //clicked on an entity
-        SHIP,
-        STATION
     }
 
 }

@@ -20,7 +20,10 @@ public abstract class Ship extends Entity implements Serializable {
 
     //command movement description
     public Movement movement;
-    public Vector2 targetPos;
+    public Vector2 moveTargetPos;
+    public Entity.Type moveTargetEntType; //used for orbiting
+    public int moveTargetEntId; //used for orbiting
+    public float moveRelativeDist; //used for orbit radius
     public int warpTargetGridId; //used if movement = ALIGN_FOR_WARP
 
     /* State */
@@ -85,7 +88,7 @@ public abstract class Ship extends Entity implements Serializable {
         //logic stuff
         this.trajectoryVel = new Vector2(0, 0);
         this.movement = Movement.STOPPING;
-        this.targetPos = null;
+        this.moveTargetPos = null;
     }
 
     /* Data Methods */
@@ -175,6 +178,9 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* Enums */
 
+    /**
+     * Type of ship.
+     */
     public enum Type {
         Frigate
     }
@@ -191,8 +197,7 @@ public abstract class Ship extends Entity implements Serializable {
         ALIGN_FOR_WARP,
         WARPING,
 
-        ORBIT_STATION,
-        ORBIT_SHIP
+        ORBIT_ENT,
     }
 
     /**

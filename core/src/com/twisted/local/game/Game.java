@@ -19,9 +19,9 @@ import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
-import com.twisted.net.msg.gameRequest.MGameRequest;
-import com.twisted.net.msg.gameRequest.MJobRequest;
-import com.twisted.net.msg.gameRequest.MShipMoveRequest;
+import com.twisted.net.msg.gameReq.MGameReq;
+import com.twisted.net.msg.gameReq.MJobReq;
+import com.twisted.net.msg.gameReq.MShipMoveReq;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
@@ -53,14 +53,14 @@ public class Game implements Screen, ClientContact {
 
     //sectors
     private Sector[] sectors;
-    private SecMinimap minimapSector;
-    private SecFleet fleetSector;
-    private SecIndustry industrySector;
-    private SecOptions optionsSector;
-    private SecViewport viewportSector;
-    private SecDetails detailsSector;
-    private SecOverlay overlaySector;
-    private SecLog logSector;
+    private SecMinimap minimapSec;
+    private SecFleet fleetSec;
+    private SecIndustry industrySec;
+    private SecOptions optionsSec;
+    private SecViewport viewportSec;
+    private SecDetails detailsSec;
+    private SecOverlay overlaySec;
+    private SecLog logSec;
 
     //cross sector
     private Sector crossSectorListener;
@@ -241,7 +241,7 @@ public class Game implements Screen, ClientContact {
 
                 for(Grid g : state.grids){
                     //create the graphics
-                    g.station.createFleetRow(skin, state, fleetSector);
+                    g.station.createFleetRow(skin, state, fleetSec);
                 }
 
                 loadSectors();
@@ -276,11 +276,11 @@ public class Game implements Screen, ClientContact {
     }
 
     private void receiveDenyRequest(MDenyRequest m){
-        if(m.request instanceof MJobRequest){
-            logSector.addToLog(m.reason, SecLog.LogColor.RED);
+        if(m.request instanceof MJobReq){
+            logSec.addToLog(m.reason, SecLog.LogColor.RED);
         }
-        else if(m.request instanceof MShipMoveRequest){
-            logSector.addToLog(m.reason, SecLog.LogColor.GRAY);
+        else if(m.request instanceof MShipMoveReq){
+            logSec.addToLog(m.reason, SecLog.LogColor.GRAY);
         }
     }
 
@@ -300,7 +300,7 @@ public class Game implements Screen, ClientContact {
             ship.polygon.rotate(ship.rot);
 
             //graphics
-            ship.createFleetRow(skin, state, fleetSector);
+            ship.createFleetRow(skin, state, fleetSec);
         }
         //TODO other types of ships
     }
@@ -320,13 +320,16 @@ public class Game implements Screen, ClientContact {
         if(m.grid != -1) ship.updatePolygon();
 
         //update the sectors if needed
-        if(detailsSector.selectShipId == ship.id){
-            detailsSector.updateShipData(ship, m.grid);
+        if(detailsSec.selectShipId == ship.id){
+            detailsSec.updateShipData(ship, m.grid);
         }
-        if(viewportSector.selEntType == Entity.Type.Ship && viewportSector.selEntId == ship.id){
-            viewportSector.updateSelectedEntity(m.grid);
+        if(viewportSec.selectBasic != null && viewportSec.selectBasic.matches(ship)){
+            viewportSec.updateSelectedBasicEntity(m.grid);
         }
-        fleetSector.updateEntity(ship, m.grid);
+        if(viewportSec.selectOrbit != null && viewportSec.selectOrbit.matches(ship)){
+            viewportSec.updateOrbitCircleEntity(m.grid);
+        }
+        fleetSec.updateEntity(ship, m.grid);
     }
 
     private void receiveShipEnterWarp(MShipEnterWarp m){
@@ -384,16 +387,16 @@ public class Game implements Screen, ClientContact {
 
         //move the camera around
         if(Gdx.input.isKeyPressed(Input.Keys.D)) {
-            viewportSector.moveCamera(SecViewport.Direction.RIGHT);
+            viewportSec.moveCamera(SecViewport.Direction.RIGHT);
         }
         if(Gdx.input.isKeyPressed(Input.Keys.A)) {
-            viewportSector.moveCamera(SecViewport.Direction.LEFT);
+            viewportSec.moveCamera(SecViewport.Direction.LEFT);
         }
         if(Gdx.input.isKeyPressed(Input.Keys.W)) {
-            viewportSector.moveCamera(SecViewport.Direction.UP);
+            viewportSec.moveCamera(SecViewport.Direction.UP);
         }
         if(Gdx.input.isKeyPressed(Input.Keys.S)) {
-            viewportSector.moveCamera(SecViewport.Direction.DOWN);
+            viewportSec.moveCamera(SecViewport.Direction.DOWN);
         }
 
     }
@@ -416,10 +419,10 @@ public class Game implements Screen, ClientContact {
 
         //change the cosmetic status
         if(crossSectorListener == null || listenStatus == null){
-            overlaySector.updateActionLabel("");
+            overlaySec.updateActionLabel("");
         }
         else {
-            overlaySector.updateActionLabel(listenStatus);
+            overlaySec.updateActionLabel(listenStatus);
         }
     }
 
@@ -443,7 +446,7 @@ public class Game implements Screen, ClientContact {
         //cancelling external listeners
         else {
             crossSectorListener.crossSectorListeningCancelled();
-            overlaySector.updateActionLabel("");
+            overlaySec.updateActionLabel("");
         }
     }
 
@@ -468,7 +471,7 @@ public class Game implements Screen, ClientContact {
      * Modularization method for adding to the log.
      */
     void addToLog(String text, SecLog.LogColor logColor){
-        logSector.addToLog(text, logColor);
+        logSec.addToLog(text, logColor);
     }
 
     /**
@@ -492,10 +495,17 @@ public class Game implements Screen, ClientContact {
      * Called when the user selects a particular ship's details to be displayed.
      */
     private void shipSelectedForDetails(int gridId, int shipId){
-        detailsSector.shipSelected(gridId, shipId);
+        detailsSec.shipSelected(gridId, shipId);
 
         //TODO separate this out from selecting for details (maybe?)
-        viewportSector.selectedEntity(Entity.Type.Ship, gridId, shipId);
+        viewportSec.selectedEntity(Entity.Type.Ship, gridId, shipId);
+    }
+
+    /**
+     * Called by a non-viewport sector to tell the viewport to display this graphic.
+     */
+    void viewportOrbitSelectionGraphic(boolean toggle, Entity.Type type, int grid, int id){
+        viewportSec.orbitCircleEntity(toggle, type, grid, id);
     }
 
     /**
@@ -504,15 +514,15 @@ public class Game implements Screen, ClientContact {
     void switchGrid(int newGrid){
         grid = newGrid;
 
-        viewportSector.switchFocusedGrid();
-        minimapSector.switchFocusedGrid(newGrid);
-        fleetSector.reloadTabEntities();
+        viewportSec.switchFocusedGrid();
+        minimapSec.switchFocusedGrid(newGrid);
+        fleetSec.reloadTabEntities();
     }
 
     /**
      * Send a game request to the server.
      */
-    void sendGameRequest(MGameRequest request){
+    void sendGameRequest(MGameReq request){
         client.send(request);
     }
 
@@ -538,34 +548,34 @@ public class Game implements Screen, ClientContact {
         //TODO remove passing in skin from all of these
 
         //prepare the viewport
-        viewportSector = new SecViewport(this, stage);
-        viewportSector.init();
+        viewportSec = new SecViewport(this, stage);
+        viewportSec.init();
 
         //prepare the other sectors
-        minimapSector = new SecMinimap(this);
-        stage.addActor(minimapSector.init());
+        minimapSec = new SecMinimap(this);
+        stage.addActor(minimapSec.init());
 
-        fleetSector = new SecFleet(this);
-        stage.addActor(fleetSector.init());
+        fleetSec = new SecFleet(this);
+        stage.addActor(fleetSec.init());
 
-        detailsSector = new SecDetails(this);
-        stage.addActor(detailsSector.init());
+        detailsSec = new SecDetails(this);
+        stage.addActor(detailsSec.init());
 
-        industrySector = new SecIndustry(this);
-        stage.addActor(industrySector.init());
+        industrySec = new SecIndustry(this);
+        stage.addActor(industrySec.init());
 
-        logSector = new SecLog(this);
-        stage.addActor(logSector.init());
+        logSec = new SecLog(this);
+        stage.addActor(logSec.init());
 
-        overlaySector = new SecOverlay(this);
-        stage.addActor(overlaySector.init());
+        overlaySec = new SecOverlay(this);
+        stage.addActor(overlaySec.init());
 
-        optionsSector = new SecOptions(this, stage);
-        stage.addActor(optionsSector.init());
+        optionsSec = new SecOptions(this, stage);
+        stage.addActor(optionsSec.init());
 
         this.sectors = new Sector[]{
-                viewportSector, minimapSector, fleetSector, detailsSector, industrySector,
-                logSector, overlaySector, optionsSector
+                viewportSec, minimapSec, fleetSec, detailsSec, industrySec,
+                logSec, overlaySec, optionsSec
         };
 
         //logic

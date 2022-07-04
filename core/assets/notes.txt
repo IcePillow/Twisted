@@ -1,8 +1,8 @@
 Work
     Current
     Future
-        TODO change details sector buttons (and add hints)
-        TODO add orbit command
+        TODO figure out the launch bug in FleetTab
+        TODO go through other todos
         TODO add target indicator
         TODO add range indicator for weapons
 Colors

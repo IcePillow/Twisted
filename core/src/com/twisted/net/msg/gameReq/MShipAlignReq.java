@@ -1,6 +1,6 @@
-package com.twisted.net.msg.gameRequest;
+package com.twisted.net.msg.gameReq;
 
-public class MShipAlignRequest implements MGameRequest {
+public class MShipAlignReq implements MGameReq {
 
     public int grid;
     public int shipId;
@@ -9,7 +9,7 @@ public class MShipAlignRequest implements MGameRequest {
      */
     public float angle;
 
-    public MShipAlignRequest(int grid, int shipId, float angle){
+    public MShipAlignReq(int grid, int shipId, float angle){
         this.grid = grid;
         this.shipId = shipId;
         this.angle = angle;

@@ -1,12 +1,12 @@
-package com.twisted.net.msg.gameRequest;
+package com.twisted.net.msg.gameReq;
 
-public class MShipAggro implements MGameRequest{
+public class MShipAggroReq implements MGameReq {
 
     public int grid;
     public int shipId;
     public boolean aggro;
 
-    public MShipAggro(int grid, int shipId, boolean aggro){
+    public MShipAggroReq(int grid, int shipId, boolean aggro){
         this.grid = grid;
         this.shipId = shipId;
         this.aggro = aggro;

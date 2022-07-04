@@ -17,7 +17,7 @@ import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Station;
-import com.twisted.net.msg.gameRequest.MJobRequest;
+import com.twisted.net.msg.gameReq.MJobReq;
 
 import java.util.ArrayList;
 
@@ -360,6 +360,6 @@ class SecIndustry extends Sector{
      * Called when the user attempts to start a job at a station.
      */
     void industryJobRequest(Station station, Station.Job job){
-        game.client.send(new MJobRequest(station.grid, job));
+        game.client.send(new MJobReq(station.grid, job));
     }
 }

@@ -1,12 +1,12 @@
 package com.twisted.net.msg.remaining;
 
 import com.twisted.net.msg.Message;
-import com.twisted.net.msg.gameRequest.MGameRequest;
+import com.twisted.net.msg.gameReq.MGameReq;
 
 public class MDenyRequest implements Message {
 
     //request being denied
-    public final MGameRequest request;
+    public final MGameReq request;
 
     /**
      * Use depends on the request being denied.
@@ -18,7 +18,7 @@ public class MDenyRequest implements Message {
     public String reason;
 
 
-    public MDenyRequest(MGameRequest request){
+    public MDenyRequest(MGameReq request){
         this.request = request;
         this.reason = "";
     }

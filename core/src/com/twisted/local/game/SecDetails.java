@@ -8,9 +8,10 @@ import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.twisted.local.game.util.ActorHint;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.net.msg.gameRequest.*;
+import com.twisted.net.msg.gameReq.*;
 
 /**
  * The details sector that shows the details of a particular entity when clicked on. Currently
@@ -41,6 +42,10 @@ class SecDetails extends Sector{
 
     //input state
     private ExternalWait externalWait;
+
+    //stored clicks
+    private Entity.Type storedType;
+    private int storedTypeId;
 
 
     /**
@@ -143,6 +148,19 @@ class SecDetails extends Sector{
         healthLabel.setPosition(210, 78);
         shipParent.addActor(healthLabel);
 
+        //create the mode group
+        shipModeGroup = new Group();
+        shipModeGroup.setPosition(190, 40);
+        shipParent.addActor(shipModeGroup);
+
+        aggressiveLabel = new Label("[aggro]", skin, "small", Color.LIGHT_GRAY);
+        aggressiveLabel.setPosition(0, 20);
+        shipModeGroup.addActor(aggressiveLabel);
+
+        targetLabel = new Label("[firing]", skin, "small", Color.WHITE);
+        targetLabel.setPosition(0, 0);
+        shipModeGroup.addActor(targetLabel);
+
         //create the buttons
         shipButtonGroup = new Group();
         shipButtonGroup.setPosition(8, 10);
@@ -151,17 +169,20 @@ class SecDetails extends Sector{
         TextButton moveButton = new TextButton("M", skin, "emphasis");
         moveButton.setBounds(0, -6, 32, 32);
         shipButtonGroup.addActor(moveButton);
+        TextButton orbitButton = new TextButton("O", skin, "emphasis");
+        orbitButton.setBounds(38, -6, 32, 32);
+        shipButtonGroup.addActor(orbitButton);
         TextButton alignButton = new TextButton("A", skin, "emphasis");
-        alignButton.setBounds(38, -6, 32, 32);
+        alignButton.setBounds(76, -6, 32, 32);
         shipButtonGroup.addActor(alignButton);
         TextButton warpButton = new TextButton("W", skin, "emphasis");
-        warpButton.setBounds(76, -6, 32, 32);
+        warpButton.setBounds(114, -6, 32, 32);
         shipButtonGroup.addActor(warpButton);
         TextButton aggroButton = new TextButton("G", skin, "emphasis");
-        aggroButton.setBounds(124, -6, 32, 32);
+        aggroButton.setBounds(162, -6, 32, 32);
         shipButtonGroup.addActor(aggroButton);
         TextButton targetButton = new TextButton("T", skin, "emphasis");
-        targetButton.setBounds(162, -6, 32, 32);
+        targetButton.setBounds(200, -6, 32, 32);
         shipButtonGroup.addActor(targetButton);
 
         //listeners for the buttons
@@ -172,6 +193,14 @@ class SecDetails extends Sector{
                 game.updateCrossSectorListening(this, "Move command...");
                 this.externalWait = ExternalWait.MOVE;
                 return true;
+            }
+            return true;
+        });
+        orbitButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+            if(event instanceof ChangeListener.ChangeEvent){
+                game.updateCrossSectorListening(this, "Orbit command...");
+                this.externalWait = ExternalWait.ORBIT_WHO;
             }
             return true;
         });
@@ -198,7 +227,7 @@ class SecDetails extends Sector{
             if(event.isHandled()) return true;
 
             if(event instanceof ChangeListener.ChangeEvent){
-                MGameRequest req = new MShipAggro(selectGridId, selectShipId,
+                MGameReq req = new MShipAggroReq(selectGridId, selectShipId,
                         !state.grids[selectGridId].ships.get(selectShipId).aggro);
                 game.sendGameRequest(req);
             }
@@ -216,18 +245,19 @@ class SecDetails extends Sector{
             return true;
         });
 
-        //create the mode group
-        shipModeGroup = new Group();
-        shipModeGroup.setPosition(190, 40);
-        shipParent.addActor(shipModeGroup);
-
-        aggressiveLabel = new Label("[aggro]", skin, "small", Color.LIGHT_GRAY);
-        aggressiveLabel.setPosition(0, 20);
-        shipModeGroup.addActor(aggressiveLabel);
-
-        targetLabel = new Label("[firing]", skin, "small", Color.WHITE);
-        targetLabel.setPosition(0, 0);
-        shipModeGroup.addActor(targetLabel);
+        //add hints to the buttons
+        ActorHint moveHint = new ActorHint(moveButton, skin, game.glyph, "Move");
+        shipButtonGroup.addActor(moveHint.getGroup());
+        ActorHint orbitHint = new ActorHint(orbitButton, skin, game.glyph, "Orbit");
+        shipButtonGroup.addActor(orbitHint.getGroup());
+        ActorHint alignHint = new ActorHint(alignButton, skin, game.glyph, "Align");
+        shipButtonGroup.addActor(alignHint.getGroup());
+        ActorHint warpHint = new ActorHint(warpButton, skin, game.glyph, "Warp");
+        shipButtonGroup.addActor(warpHint.getGroup());
+        ActorHint aggroHint = new ActorHint(aggroButton, skin, game.glyph, "Aggro");
+        shipButtonGroup.addActor(aggroHint.getGroup());
+        ActorHint targetHint = new ActorHint(targetButton, skin, game.glyph, "Target");
+        shipButtonGroup.addActor(targetHint.getGroup());
     }
 
     @Override
@@ -326,24 +356,60 @@ class SecDetails extends Sector{
     }
 
     @Override
-    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, Entity.Type type,
-                            int typeId) {
+    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, Entity.Type type, int typeId) {
 
         if(game.getGrid() == selectGridId){
             //create the request
-            MGameRequest req = null;
+            MGameReq req = null;
             if(externalWait == ExternalWait.MOVE){
-                req = new MShipMoveRequest(selectGridId, selectShipId, gamePos);
+                req = new MShipMoveReq(selectGridId, selectShipId, gamePos);
+
+                game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.ALIGN){
                 Ship s = state.grids[selectGridId].ships.get(selectShipId);
-                req = new MShipAlignRequest(selectGridId, selectShipId,
+                req = new MShipAlignReq(selectGridId, selectShipId,
                         (float) Math.atan2(gamePos.y-s.pos.y, gamePos.x-s.pos.x));
+
+                game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.TARGET){
                 if(type != null){
-                    req = new MTargetRequest(selectGridId, selectShipId, type, typeId);
+                    req = new MTargetReq(selectGridId, selectShipId, type, typeId);
                 }
+
+                game.updateCrossSectorListening(null, null);
+            }
+            else if(externalWait == ExternalWait.ORBIT_WHO){
+                if(type != null){
+                    storedType = type;
+                    storedTypeId = typeId;
+
+                    game.updateCrossSectorListening(this, "Orbit radius command...");
+                    externalWait = ExternalWait.ORBIT_DIST;
+                    game.viewportOrbitSelectionGraphic(true, type, selectGridId, typeId);
+                }
+                else {
+                    game.updateCrossSectorListening(null, null);
+                }
+            }
+            else if(externalWait == ExternalWait.ORBIT_DIST){
+                Entity entity = null;
+                if(storedType == Entity.Type.Ship){
+                    entity = state.grids[selectGridId].ships.get(storedTypeId);
+                }
+                else if(storedType == Entity.Type.Station){
+                    entity = state.grids[selectGridId].station;
+                }
+
+                if(entity != null){
+                    float radius = gamePos.dst(entity.pos);
+
+                    req = new MShipOrbitReq(selectGridId, selectShipId, storedType, storedTypeId,
+                            radius);
+                }
+
+                game.updateCrossSectorListening(null, null);
             }
 
             //send the message to the server
@@ -351,18 +417,17 @@ class SecDetails extends Sector{
         }
         else {
             game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.YELLOW);
+            game.updateCrossSectorListening(null, null);
         }
-
-        game.updateCrossSectorListening(null, null);
     }
 
     @Override
     void minimapClickEvent(int grid){
         if(selectGridId != -1){
             //create the request
-            MGameRequest req = null;
+            MGameReq req = null;
             if(externalWait == ExternalWait.WARP){
-                req = new MShipWarpRequest(selectGridId, selectShipId, grid);
+                req = new MShipWarpReq(selectGridId, selectShipId, grid);
             }
             else if(externalWait == ExternalWait.ALIGN){
                 //calculate the angle
@@ -371,7 +436,7 @@ class SecDetails extends Sector{
                 float angle = (float) Math.atan2(g2.y-g1.y, g2.x-g1.x);
 
                 //create the request
-                req = new MShipAlignRequest(selectGridId, selectShipId, angle);
+                req = new MShipAlignReq(selectGridId, selectShipId, angle);
             }
 
             //send the message to the server
@@ -387,6 +452,10 @@ class SecDetails extends Sector{
 
     @Override
     void crossSectorListeningCancelled(){
+        if(externalWait == ExternalWait.ORBIT_DIST){
+            game.viewportOrbitSelectionGraphic(false, null, 0, 0);
+        }
+
         externalWait = ExternalWait.NONE;
     }
 
@@ -463,6 +532,8 @@ class SecDetails extends Sector{
         NONE,
         //viewport
         MOVE,
+        ORBIT_WHO,
+        ORBIT_DIST,
         TARGET,
         //viewport & minimap
         ALIGN,

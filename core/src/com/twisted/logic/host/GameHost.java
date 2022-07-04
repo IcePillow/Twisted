@@ -8,7 +8,7 @@ import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.*;
-import com.twisted.net.msg.gameRequest.*;
+import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
@@ -45,8 +45,8 @@ public class GameHost implements ServerContact {
     private final int hostId;
 
     //networking and game loop
-    private final HashMap<MGameRequest, Integer> requests; //requests being read during game logic
-    private final Map<MGameRequest, Integer> hotRequests; //requests stored between ticks (synchronized)
+    private final HashMap<MGameReq, Integer> requests; //requests being read during game logic
+    private final Map<MGameReq, Integer> hotRequests; //requests stored between ticks (synchronized)
     private boolean looping;
     private float millisSinceMajor;
 
@@ -232,7 +232,7 @@ public class GameHost implements ServerContact {
      */
     private void preLoopCalls(){
 
-        //dev ship
+        //dev ships
         Ship s1 = new Frigate(useNextShipId(), 2, new Vector2(1, 1),
                 new Vector2(0,0), (float) Math.PI/2, 0);
         grids[0].ships.put(s1.id, s1);
@@ -252,8 +252,8 @@ public class GameHost implements ServerContact {
      */
     @Override
     public void serverReceived(int clientId, Message message) {
-        if(message instanceof MGameRequest){
-            hotRequests.put((MGameRequest) message, clientId);
+        if(message instanceof MGameReq){
+            hotRequests.put((MGameReq) message, clientId);
         }
     }
 
@@ -326,15 +326,16 @@ public class GameHost implements ServerContact {
      */
     private void loop(){
         //handle requests
-        for(MGameRequest request : requests.keySet()){
-            int userId = requests.get(request);
+        for(MGameReq req : requests.keySet()){
+            int userId = requests.get(req);
 
-            if(request instanceof MJobRequest) handleJobRequest(userId, (MJobRequest) request);
-            else if(request instanceof MShipMoveRequest) handleShipMoveRequest(userId, (MShipMoveRequest) request);
-            else if(request instanceof MShipAlignRequest) handleShipAlignRequest(userId, (MShipAlignRequest) request);
-            else if(request instanceof MShipWarpRequest) handleShipWarpRequest(userId, (MShipWarpRequest) request);
-            else if(request instanceof MShipAggro) handleShipAggroRequest(userId, (MShipAggro) request);
-            else if(request instanceof MTargetRequest) handleShipTargetRequest(userId, (MTargetRequest) request);
+            if(req instanceof MJobReq) handleJobRequest(userId, (MJobReq) req);
+            else if(req instanceof MShipMoveReq) handleShipMoveRequest(userId, (MShipMoveReq) req);
+            else if(req instanceof MShipAlignReq) handleShipAlignRequest(userId, (MShipAlignReq) req);
+            else if(req instanceof MShipWarpReq) handleShipWarpRequest(userId, (MShipWarpReq) req);
+            else if(req instanceof MShipAggroReq) handleShipAggroRequest(userId, (MShipAggroReq) req);
+            else if(req instanceof MTargetReq) handleShipTargetRequest(userId, (MTargetReq) req);
+            else if(req instanceof MShipOrbitReq) handleShipOrbitRequest(userId, (MShipOrbitReq) req);
         }
 
         //updating
@@ -455,13 +456,13 @@ public class GameHost implements ServerContact {
                 }
                 else if(s.movement == Ship.Movement.MOVE_TO_POS){
                     //already close enough to target position
-                    if((distanceToTarget=s.pos.dst(s.targetPos)) <= 0.01f){
+                    if((distanceToTarget=s.pos.dst(s.moveTargetPos)) <= 0.01f){
                         s.trajectoryVel.set(0, 0);
                     }
                     else {
                         //set the targetVel to the correct direction and normalize
-                        s.trajectoryVel = new Vector2(s.targetPos.x - s.pos.x,
-                                s.targetPos.y - s.pos.y).nor();
+                        s.trajectoryVel = new Vector2(s.moveTargetPos.x - s.pos.x,
+                                s.moveTargetPos.y - s.pos.y).nor();
 
                         //find the effective max speed (compare speed can stop from to actual max speed)
                         float speedCanStopFrom = (float) Math.sqrt( 2*s.getMaxAccel()*distanceToTarget );
@@ -474,6 +475,42 @@ public class GameHost implements ServerContact {
                 }
                 else if(s.movement == Ship.Movement.ALIGN_TO_ANG){
                     //placeholder, empty
+                }
+                else if(s.movement == Ship.Movement.ORBIT_ENT){
+                    Entity tar = g.retrieveEntity(s.moveTargetEntType, s.moveTargetEntId);
+
+                    if(tar == null){
+                        s.movement = Ship.Movement.STOPPING;
+                        s.trajectoryVel.set(0, 0);
+                    }
+                    else {
+
+                        //get the angles in positive degrees
+                        double relPosAng = Math.atan2(tar.pos.y-s.pos.y, tar.pos.x-s.pos.x)*180/Math.PI;
+                        if(relPosAng < 0) relPosAng += 360;
+                        double velAng = Math.atan2(s.vel.y, s.vel.x)*180/Math.PI;
+                        if(velAng < 0) velAng += 360;
+
+                        //point on the orbit that the line between ship and target intersects
+                        Vector2 oPoint = new Vector2(s.pos.x-tar.pos.x, s.pos.y-tar.pos.y)
+                                .nor().scl(s.moveRelativeDist).add(tar.pos.x, tar.pos.y);
+
+                        //vector to represent the direction of travel
+                        Vector2 oPath = new Vector2(s.pos.x-tar.pos.x, s.pos.y-tar.pos.y)
+                                .nor().scl(0.9f*s.getMaxSpeed());
+
+                        if((velAng > relPosAng && velAng < relPosAng+180)
+                           || (velAng+360 > relPosAng && velAng+360 < relPosAng+180)){
+                            oPath.rotateRad((float) -Math.PI/2);
+                        }
+                        else {
+                            oPath.rotateRad((float) Math.PI/2);
+                        }
+
+                        //set the trajectory
+                        s.trajectoryVel.set(oPoint.x-s.pos.x+oPath.x, oPoint.y-s.pos.y+oPath.y);
+
+                    }
                 }
 
                 //accelerate the ship
@@ -492,10 +529,8 @@ public class GameHost implements ServerContact {
                     s.vel.x += accel.x;
                     s.vel.y += accel.y;
                 }
-
             }
         }
-
     }
 
     /**
@@ -681,9 +716,9 @@ public class GameHost implements ServerContact {
     /* Client Request Handling */
 
     /**
-     * Handles MJobRequest
+     * Handles MJobReq
      */
-    private void handleJobRequest(int userId, MJobRequest msg){
+    private void handleJobRequest(int userId, MJobReq msg){
 
         Station s = grids[msg.stationGrid].station;
         Station.Job j = msg.job;
@@ -719,9 +754,9 @@ public class GameHost implements ServerContact {
     }
 
     /**
-     * Handles MShipMoveRequest
+     * Handles MShipMoveReq
      */
-    private void handleShipMoveRequest(int userId, MShipMoveRequest msg){
+    private void handleShipMoveRequest(int userId, MShipMoveReq msg){
         //get the ship
         Ship s = grids[msg.grid].ships.get(msg.shipId);
         if(s == null){
@@ -745,19 +780,66 @@ public class GameHost implements ServerContact {
         else {
             //set the ship's movement
             s.movement = Ship.Movement.MOVE_TO_POS;
-            s.targetPos = msg.location;
+            s.moveTargetPos = msg.location;
 
             //set the description of the movement
-            s.moveCommand = "Moving to (" + df2.format(s.targetPos.x) + ", "
-                    + df2.format(s.targetPos.y) + ")";
+            s.moveCommand = "Moving to (" + df2.format(s.moveTargetPos.x) + ", "
+                    + df2.format(s.moveTargetPos.y) + ")";
         }
 
     }
 
     /**
-     * Handles MShipMoveRequest
+     * Handle MShipOrbitReq
      */
-    private void handleShipAlignRequest(int userId, MShipAlignRequest msg){
+    private void handleShipOrbitRequest(int userId, MShipOrbitReq msg){
+        //get the ship
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null){
+            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            return;
+        }
+
+        //check permissions
+        if(s.owner != userId || s.warpTimeToLand != 0 || s.id == msg.targetId){
+            MDenyRequest deny = new MDenyRequest(msg);
+
+            if(s.warpTimeToLand != 0){
+                deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.id == msg.targetId){
+                deny.reason = "Ship cannot orbit itself";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
+
+            server.sendMessage(userId, deny);
+        }
+        else {
+            Entity ent;
+            if((ent = grids[msg.grid].retrieveEntity(msg.targetType, msg.targetId)) != null){
+                //set the ship's movement
+                s.movement = Ship.Movement.ORBIT_ENT;
+                s.moveTargetEntType = msg.targetType;
+                s.moveTargetEntId = msg.targetId;
+                s.moveRelativeDist = msg.radius;
+
+                //set the description
+                if(ent instanceof Station){
+                    s.moveCommand = "Orbiting station";
+                }
+                else if(ent instanceof Ship) {
+                    s.moveCommand = "Orbiting " + ((Ship) ent).getType();
+                }
+            }
+        }
+    }
+
+    /**
+     * Handles MShipMoveReq
+     */
+    private void handleShipAlignRequest(int userId, MShipAlignReq msg){
         //get the ship
         Ship s = grids[msg.grid].ships.get(msg.shipId);
         if(s == null){
@@ -796,9 +878,9 @@ public class GameHost implements ServerContact {
     }
 
     /**
-     * Handles MShipWarpRequest
+     * Handles MShipWarpReq
      */
-    private void handleShipWarpRequest(int userId, MShipWarpRequest msg){
+    private void handleShipWarpRequest(int userId, MShipWarpReq msg){
         //get the ship
         Ship s = grids[msg.grid].ships.get(msg.shipId);
         if(s == null){
@@ -835,9 +917,9 @@ public class GameHost implements ServerContact {
     }
 
     /**
-     * Handles MShipAggro
+     * Handles MShipAggroReq
      */
-    private void handleShipAggroRequest(int userId, MShipAggro msg){
+    private void handleShipAggroRequest(int userId, MShipAggroReq msg){
         //get the ship
         Ship s = grids[msg.grid].ships.get(msg.shipId);
         if(s == null){
@@ -859,9 +941,9 @@ public class GameHost implements ServerContact {
     }
 
     /**
-     * Handle MShipTargetRequest
+     * Handle MShipTargetReq
      */
-    private void handleShipTargetRequest(int userId, MTargetRequest msg){
+    private void handleShipTargetRequest(int userId, MTargetReq msg){
         //get the ship
         Ship s = grids[msg.grid].ships.get(msg.shipId);
         if(s == null){

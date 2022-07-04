@@ -1,6 +1,7 @@
 package com.twisted.logic.descriptors;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 import com.twisted.logic.mobs.Mobile;
@@ -40,6 +41,22 @@ public class Grid implements Serializable {
 
         this.ships = new HashMap<>();
         this.mobiles = new HashMap<>();
+    }
+
+
+    /* Utility */
+
+    public Entity retrieveEntity(Entity.Type type, int id){
+
+        if(type == Entity.Type.Station){
+            return station;
+        }
+        else if(type == Entity.Type.Ship){
+            return ships.get(id);
+        }
+        else {
+            return null;
+        }
     }
 
 }
