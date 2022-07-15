@@ -1,6 +1,7 @@
 package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
@@ -17,6 +18,8 @@ import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.mobs.Mobile;
+
+import java.util.HashMap;
 
 class SecViewport extends Sector{
 
@@ -40,9 +43,8 @@ class SecViewport extends Sector{
     //graphics state
     private Vector2 camPos;
 
-    //selected entities
-    EntPtr selectBasic;
-    EntPtr selectOrbit;
+    //selected
+    private HashMap<Select, EntPtr> selections;
 
 
     /**
@@ -62,8 +64,7 @@ class SecViewport extends Sector{
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
 
-        selectBasic = null;
-        selectOrbit = null;
+        selections = new HashMap<>();
 
         return null;
     }
@@ -87,6 +88,13 @@ class SecViewport extends Sector{
 
         //click listener
         stage.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(event.isHandled()) return;
+                clickHandler(event.getButton(), event, x, y);
+            }
+        });
+        stage.addListener(new ClickListener(Input.Buttons.RIGHT){
             @Override
             public void clicked(InputEvent event, float x, float y){
                 if(event.isHandled()) return;
@@ -153,9 +161,11 @@ class SecViewport extends Sector{
         }
 
         //draw the basic selection circle
-        if(selectBasic != null){
-            if(selectBasic.type == Entity.Type.Ship && selectBasic.grid == game.getGrid()){
-                Ship s = state.grids[selectBasic.grid].ships.get(selectBasic.id);
+        if(selections.get(Select.BASIC) != null){
+            EntPtr sel = selections.get(Select.BASIC);
+
+            if(sel.type == Entity.Type.Ship && sel.grid == game.getGrid()){
+                Ship s = state.grids[sel.grid].ships.get(sel.id);
 
                 shape.setColor(Color.LIGHT_GRAY);
                 shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
@@ -166,8 +176,8 @@ class SecViewport extends Sector{
         }
 
         //draw the orbit selection circle
-        if(selectOrbit != null){
-            Entity ent = selectOrbit.retrieveFromGrid(g);
+        if(selections.get(Select.CIRCLE) != null){
+            Entity ent = selections.get(Select.CIRCLE).retrieveFromGrid(g);
 
             if(ent != null){
                 float orbCircleRad = new Vector2(
@@ -177,16 +187,34 @@ class SecViewport extends Sector{
 
                 shape.setColor(Color.LIGHT_GRAY);
                 for(float i=0; i<360; i+= 360f/(orbCircleRad*80)){
-                    shape.circle(ent.pos.x*LTR + orbCircleRad*LTR*(float)Math.cos(i*Math.PI/180),
-                            ent.pos.y*LTR + orbCircleRad*LTR*(float)Math.sin(i*Math.PI/180),
+                    shape.circle(LTR*(ent.pos.x + orbCircleRad*(float)Math.cos(i*Math.PI/180)),
+                            LTR*(ent.pos.y + orbCircleRad*(float)Math.sin(i*Math.PI/180)),
                             1);
                 }
             }
         }
 
+        //draw the move selection line
+        if(selections.get(Select.LINE) != null){
+            Entity ent = selections.get(Select.LINE).retrieveFromGrid(g);
+
+            if(ent != null){
+                Vector2 end = new Vector2(
+                        (cursor.x-stage.getWidth()/2f+camPos.x)/LTR,
+                        (cursor.y-stage.getHeight()/2f+camPos.y)/LTR);
+                float length = end.dst(ent.pos);
+                float angle = (float) Math.atan2(end.y-ent.pos.y, end.x-ent.pos.x);
+
+                shape.setColor(Color.LIGHT_GRAY);
+                for(float i=0; i<length; i+=0.1f){
+                    shape.circle(LTR*(ent.pos.x + i*(float)Math.cos(angle)),
+                            LTR*(ent.pos.y + i*(float)Math.sin(angle)),
+                            1);
+                }
+            }
+        }
 
         shape.end();
-
     }
 
     @Override
@@ -269,35 +297,23 @@ class SecViewport extends Sector{
     }
 
     /**
-     * Select a given entity.
+     * Updates the entity pointer of a given selection.
      */
-    void selectedEntity(Entity.Type type, int grid, int id){
-        selectBasic = new EntPtr(type, id, grid);
-    }
-
-    /**
-     * Select or deselect an entity for orbit circle entity. Calling this while another entity
-     * is already orbit selected will replace the previous one.
-     * @param toggle If this is false, all other parameters are ignored.
-     */
-    void orbitCircleEntity(boolean toggle, Entity.Type type, int grid, int id){
-        if(toggle){
-            selectOrbit = new EntPtr(type, id, grid);
-        }
-        else {
-            selectOrbit = null;
-        }
+    void updateSelection(Select select, boolean toggle, Entity.Type type, int grid, int id){
+        if(toggle) selections.put(select, new EntPtr(type, id, grid));
+        else selections.remove(select);
     }
 
 
     /* Updating Methods */
 
-    void updateSelectedBasicEntity(int grid){
-        selectBasic.grid = grid;
-    }
-
-    void updateOrbitCircleEntity(int grid){
-        selectOrbit.grid = grid;
+    /**
+     * Updates the grids of any selections that match this entity.
+     */
+    void updateSelectionGridsAsNeeded(Entity entity, int newGrid){
+        for(EntPtr ptr : selections.values()){
+            if(ptr.matches(entity)) ptr.grid = newGrid;
+        }
     }
 
 
@@ -308,6 +324,23 @@ class SecViewport extends Sector{
      */
     enum Direction {
         UP, RIGHT, DOWN, LEFT
+    }
+
+    /**
+     * Selection types.
+     */
+    enum Select {
+        BASIC,
+
+        /**
+         * Dotted circle around the entity, radius determined by mouse position.
+         */
+        CIRCLE,
+
+        /**
+         * Dotted line from entity to mouse.
+         */
+        LINE,
     }
 
 }

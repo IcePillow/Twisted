@@ -27,6 +27,11 @@ abstract class Sector {
     void minimapClickEvent(int grid){}
 
     /**
+     * Result from listening on the fleet window.
+     */
+    void fleetClickEvent(Entity entity, int grid){}
+
+    /**
      * Called when external listening is cancelled.
      */
     void crossSectorListeningCancelled(){}
@@ -71,5 +76,16 @@ abstract class Sector {
      * Called to clean up.
      */
     abstract void dispose();
+
+    public enum Type {
+        Details,
+        Fleet,
+        Industry,
+        Log,
+        Minimap,
+        Options,
+        Overlay,
+        Viewport
+    }
 
 }

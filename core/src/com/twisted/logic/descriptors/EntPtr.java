@@ -13,17 +13,32 @@ public class EntPtr {
     public final int id;
     public final Entity.Type type;
 
+    /**
+     * Base constructor.
+     */
     public EntPtr(Entity.Type type, int id, int grid){
         this.type = type;
         this.id = id;
         this.grid = grid;
     }
 
-
+    /**
+     * Uses the base constructor with the entity data provided.
+     */
     public static EntPtr createFromEntity(Entity entity, int grid){
         return new EntPtr(entity.getEntityType(), entity.getId(), grid);
     }
 
+    /**
+     * Returns a copy of this entity pointer.
+     */
+    public EntPtr cpy(){
+        return new EntPtr(type, id, grid);
+    }
+
+    /**
+     * Gets the entity from the grid. Returns null if not found.
+     */
     public Entity retrieveFromGrid(Grid grid){
         if(grid.id != this.grid){
             return null;
@@ -39,8 +54,12 @@ public class EntPtr {
         }
     }
 
+    /**
+     * Checks if the entity id and type passed in match the ones stored here.
+     * Will not match null, but no error will be thrown.
+     */
     public boolean matches(Entity entity){
-        return (entity.getId() == id && entity.getEntityType() == type);
+        return (entity != null && entity.getId() == id && entity.getEntityType() == type);
     }
 
 }

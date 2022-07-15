@@ -6,7 +6,7 @@ import com.twisted.logic.entities.Ship;
 import com.twisted.logic.host.GameHost;
 import com.twisted.logic.mobs.BlasterBolt;
 
-public class Blaster implements Weapon {
+public class Blaster extends Weapon {
 
     //data
     public final float damage;
@@ -28,6 +28,8 @@ public class Blaster implements Weapon {
         this.damage = damage;
         this.missileSpeed = speed;
         this.fullCooldown = fullCooldown;
+
+        this.active = false;
     }
 
 
@@ -42,11 +44,13 @@ public class Blaster implements Weapon {
     /* Action Methods */
 
     @Override
-    public void fire(GameHost host, Grid grid, Ship ship, Entity target, float delta) {
+    public void tick(GameHost host, Grid grid, Ship ship, Entity target,
+                     Ship.Targeting targeting, float delta) {
         if(cooling > 0){
             cooling -= delta;
         }
-        else {
+        else if(target != null && targeting == Ship.Targeting.Locked
+                && ship.pos.dst(target.pos) <= range && active) {
             BlasterBolt bolt = new BlasterBolt(host.useNextMobileId(), ship.pos.cpy(),
                     this, target.getEntityType(), target.getId());
             grid.mobiles.put(bolt.id, bolt);

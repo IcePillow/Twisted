@@ -97,7 +97,6 @@ public class FleetTab {
      * Should only be used if the tab is on a single grid.
      */
     public void sortByPosOrigin() {
-
         for(int i=0; i<rows.size(); i++){
             for(int j=i+1; j<rows.size(); j++){
                 if(rows.get(i).entity.pos.len() > rows.get(j).entity.pos.len()){
@@ -122,12 +121,33 @@ public class FleetTab {
     }
 
     /**
-     * Adds a fleet row.
+     * Adds a fleet row to the bottom.
+     *
+     * TODO fix the issue that on game load something is null in the entity.fleetRow.switchDisplayType() line
      */
     public void addEntityRow(Entity entity, SecFleet.TabType type){
         entity.fleetRow.switchDisplayType(type);
         vertical.addActorAt(vertical.getChildren().size, entity.fleetRow.group);
         rows.add(entity.fleetRow);
+    }
+
+    /**
+     * Adds an entity at a specified location.
+     */
+    public void addEntityRowAt(Entity entity, SecFleet.TabType type, int index){
+        entity.fleetRow.switchDisplayType(type);
+        vertical.addActorAt(index, entity.fleetRow.group);
+        rows.add(index, entity.fleetRow);
+    }
+
+    /**
+     * Move an entity row to a different location.
+     */
+    public void moveEntityRow(FleetRow row, int index){
+        removeEntity(row);
+
+        vertical.addActorAt(index, row.group);
+        rows.add(index, row);
     }
 
     /**
@@ -154,29 +174,6 @@ public class FleetTab {
      */
     public boolean hasEntityRow(FleetRow entityRow){
         return rows.contains(entityRow);
-    }
-
-    /**
-     * Reorders an entity row that is currently displayed to display it at the top.
-     * @param display True to show at top, false to show in default spot.
-     */
-    public void displayEntityRowAtTop(FleetRow row, SecFleet.TabType type, boolean display){
-        //remove it to be replaced somewhere else
-        removeEntity(row);
-
-        //add to the top
-        if(display){
-            vertical.addActorAt(countDisplayTop, row.group);
-            countDisplayTop++;
-
-            rows.add(row);
-        }
-        //add to the default
-        else {
-            vertical.addActorAt(vertical.getChildren().size, row.group);
-
-            countDisplayTop--;
-        }
     }
 
 }

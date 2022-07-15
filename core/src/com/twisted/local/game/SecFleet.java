@@ -9,11 +9,13 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.local.game.state.GameState;
 import com.twisted.local.game.util.FleetTab;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class SecFleet extends Sector {
@@ -29,6 +31,10 @@ public class SecFleet extends Sector {
 
     //rendering
     private float timeSinceSort;
+
+    //fleet grid index tracking
+    private int[] fleetGridEntCt;
+    private int fleetWarpEntCt;
 
 
     /**
@@ -111,7 +117,16 @@ public class SecFleet extends Sector {
     }
 
     @Override
+    public void setState(GameState state){
+        super.setState(state);
+
+        //entity tracking
+        fleetGridEntCt = new int[state.grids.length];
+    }
+
+    @Override
     void load() {
+        //set the currently selected one
         switchSelectedTabs(TabType.Fleet);
     }
 
@@ -143,6 +158,10 @@ public class SecFleet extends Sector {
         tabs.get(selected).selectTopTab(false);
         tabs.get(selected).clearEntities();
 
+        //reset the fleet counter
+        fleetWarpEntCt = 0;
+        Arrays.fill(fleetGridEntCt, 0);
+
         //select the new one
         selected = switchTo;
         tabs.get(selected).selectTopTab(true);
@@ -157,56 +176,80 @@ public class SecFleet extends Sector {
      * Reloads all entities on the given tab.
      */
     void reloadTabEntities(){
+        //reset the fleet counter
+        fleetWarpEntCt = 0;
+        Arrays.fill(fleetGridEntCt, 0);
+
+        //clear all entities
         tabs.get(selected).clearEntities();
+        //load the entities
         loadEntitiesForSelectedTab();
     }
 
     /**
-     * Tells this sector to update the entity with the new information.
-     * @param entityGrid The grid the entity is now on.
+     * Tells this sector to update the entity with new information from the state.
+     * Can add/remove entity if needed.
+     * @param entGrid The grid the entity is now on.
      */
-    void updateEntity(Entity entity, int entityGrid){
+    void upsertEntity(Entity entity, int entGrid){
         //updates the graphics
-        entity.fleetRow.updateDisplay(state, entityGrid);
+        entity.fleetRow.updateDisplay(state, entGrid);
 
-        //remove from grid
-        if(entityGrid != game.getGrid() && tabs.get(selected).hasEntityRow(entity.fleetRow) &&
+        //remove from non-fleet tab  TODO remove from fleet tab
+        if(tabs.get(selected).hasEntityRow(entity.fleetRow) &&
+                entGrid != game.getGrid() &&
                 (selected==TabType.Grid || selected==TabType.Ally || selected==TabType.Enemy)){
-
             tabs.get(selected).removeEntity(entity.fleetRow);
         }
-        //add to grid
-        if(entityGrid == game.getGrid() && !tabs.get(selected).hasEntityRow(entity.fleetRow) &&
+        //add to fleet tab
+        if(!tabs.get(selected).hasEntityRow(entity.fleetRow) &&
+                (entity.owner == state.myId && selected==TabType.Fleet)){
+            tabs.get(selected).addEntityRowAt(entity, selected, fleetTabIndexBasedOnGrid(entGrid));
+            if(entGrid != -1){
+                fleetGridEntCt[entGrid]++;
+            }
+            else {
+                fleetWarpEntCt++;
+            }
+        }
+        //add to non-fleet tab
+        else if(!tabs.get(selected).hasEntityRow(entity.fleetRow) &&
+                (entGrid == game.getGrid() &&
                 (selected==TabType.Grid ||
                 (selected==TabType.Ally && entity.owner == state.myId) ||
-                (selected==TabType.Enemy && entity.owner != state.myId))){
-
+                (selected==TabType.Enemy && entity.owner != state.myId)))){
             tabs.get(selected).addEntityRow(entity, selected);
         }
-        //warping reordering
-        if(entityGrid == -1 && !entity.fleetRowDisplayAtTop){
-            entity.fleetRowDisplayAtTop = true;
+    }
 
-            if(selected==TabType.Fleet){
-                tabs.get(selected).displayEntityRowAtTop(entity.fleetRow, selected, true);
-            }
+    public void updateEntityEnterWarp(Entity entity, int originGridId){
+        entity.fleetRowDisplayingWarp = true;
+
+        if(selected==TabType.Fleet){
+            tabs.get(selected).moveEntityRow(entity.fleetRow, fleetTabIndexBasedOnGrid(-1));
+
+            fleetWarpEntCt++;
+            fleetGridEntCt[originGridId]--;
         }
-        else if(entityGrid != -1 && entity.fleetRowDisplayAtTop){
-            entity.fleetRowDisplayAtTop = false;
+    }
 
-            if(selected==TabType.Fleet){
-                tabs.get(selected).displayEntityRowAtTop(entity.fleetRow, selected, false);
-            }
+    public void updateEntityExitWarp(Entity entity, int destGridId){
+        entity.fleetRowDisplayingWarp = false;
+
+        if(selected==TabType.Fleet){
+            //the -1 accounts for this ship leaving warp
+            tabs.get(selected).moveEntityRow(entity.fleetRow, fleetTabIndexBasedOnGrid(destGridId)-1);
+
+            fleetWarpEntCt--;
+            fleetGridEntCt[destGridId]++;
         }
     }
 
     /**
      * Called when an entity's name is clicked on.
      */
-    public void entityNameClicked(Entity entity){
-        if(entity instanceof Ship){
-            game.fleetShipSelected((Ship) entity);
-        }
+    public void entityNameClicked(int button, Entity entity){
+        game.fleetClickEvent(button, entity);
     }
 
 
@@ -214,27 +257,32 @@ public class SecFleet extends Sector {
 
     /**
      * Loads all entities for the given tab.
+     *
+     * TODO stop this from running twice when the game is first starting
      */
-    private void loadEntitiesForSelectedTab(){
+    private void loadEntitiesForSelectedTab() {
         FleetTab t = tabs.get(selected);
 
-        switch (selected){
+        switch (selected) {
             case Fleet: {
-                //in warp
-                for (Ship s : state.inWarp.values()){
-                    if(s.owner == state.myId){
+                //don't need to insert at specific indices because going in grid order
+                for (Ship s : state.inWarp.values()) {
+                    if (s.owner == state.myId) {
                         t.addEntityRow(s, selected);
+                        fleetWarpEntCt++;
                     }
                 }
                 for (Grid g : state.grids) {
                     //stations
-                    if (g.station.owner == state.myId){
+                    if (g.station.owner == state.myId) {
                         t.addEntityRow(g.station, selected);
+                        fleetGridEntCt[g.id]++;
                     }
                     //ships
-                    for(Ship s : g.ships.values()){
-                        if(s.owner == state.myId){
+                    for (Ship s : g.ships.values()) {
+                        if (s.owner == state.myId) {
                             t.addEntityRow(s, selected);
+                            fleetGridEntCt[g.id]++;
                         }
                     }
                 }
@@ -244,7 +292,7 @@ public class SecFleet extends Sector {
                 Grid g = state.grids[game.getGrid()];
                 //station
                 t.addEntityRow(g.station, selected);
-                for(Ship s : g.ships.values()){
+                for (Ship s : g.ships.values()) {
                     t.addEntityRow(s, selected);
                 }
                 break;
@@ -256,8 +304,8 @@ public class SecFleet extends Sector {
                     t.addEntityRow(g.station, selected);
                 }
                 //ships
-                for(Ship s : g.ships.values()){
-                    if(s.owner == state.myId){
+                for (Ship s : g.ships.values()) {
+                    if (s.owner == state.myId) {
                         t.addEntityRow(s, selected);
                     }
                 }
@@ -270,8 +318,8 @@ public class SecFleet extends Sector {
                     t.addEntityRow(g.station, selected);
                 }
                 //ships
-                for(Ship s : g.ships.values()){
-                    if(s.owner != state.myId){
+                for (Ship s : g.ships.values()) {
+                    if (s.owner != state.myId) {
                         t.addEntityRow(s, selected);
                     }
                 }
@@ -287,6 +335,24 @@ public class SecFleet extends Sector {
         if(selected != TabType.Fleet){
             tabs.get(selected).sortByPosOrigin();
         }
+    }
+
+    /**
+     * Returns the index that an entity on the given grid should be placed.
+     */
+    private int fleetTabIndexBasedOnGrid(int entGrid){
+        int count = fleetWarpEntCt;
+
+        //loop through grids until reaching the correct one
+        if(entGrid != -1){
+            int g = 0;
+            while (g <= entGrid) {
+                count += fleetGridEntCt[g];
+                g++;
+            }
+        }
+
+        return count;
     }
 
 

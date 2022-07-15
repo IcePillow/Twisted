@@ -6,40 +6,40 @@ import com.twisted.logic.entities.Ship;
 
 public class MAddShip implements MGameUpdate{
 
+    //meta data
     public Ship.Type type;
     public int grid;
     public int shipId;
-    public int ownerId;
 
-    public Vector2 position;
-    public Vector2 velocity;
-    public float rotation;
-    public float warpTimeToLand;
-
+    //data
+    private int ownerId;
+    private Vector2 position;
+    private Vector2 velocity;
+    private float rotation;
+    private float warpTimeToLand;
 
     /**
      * Constructor
      */
-    public MAddShip(Ship.Type type, int grid, int shipId, int ownerId, Vector2 position,
-                    Vector2 velocity, float rotation, float warpTimeToLand) {
+    private MAddShip(Ship.Type type, int grid, int shipId){
         this.type = type;
-
         this.grid = grid;
         this.shipId = shipId;
-        this.ownerId = ownerId;
-
-        this.position = position.cpy();
-        this.velocity = velocity.cpy();
-        this.rotation = rotation;
-        this.warpTimeToLand = warpTimeToLand;
     }
 
     /**
      * Creates an MAddShip from a ship with a body.
      */
     public static MAddShip createFromShipBody(int grid, Ship s){
-        return new MAddShip(s.getType(), grid, s.id, s.owner, s.pos,
-                s.vel, s.rot, s.warpTimeToLand);
+        MAddShip m = new MAddShip(s.getType(), grid, s.id);
+
+        m.ownerId = s.owner;
+        m.position = s.pos.cpy();
+        m.velocity = s.vel.cpy();
+        m.rotation = s.rot;
+        m.warpTimeToLand = s.warpTimeToLand;
+
+        return m;
     }
 
     /**

@@ -7,10 +7,14 @@ import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.twisted.local.lobby.Lobby;
 
+import java.text.DecimalFormat;
+
 public class Main extends Game {
 
 	public static final int WIDTH = 1440;
 	public static final int HEIGHT = 800;
+
+	public static final DecimalFormat df1 = new DecimalFormat("0.0");
 
 	private Screen scene;
 	@Override

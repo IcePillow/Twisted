@@ -1,5 +1,6 @@
 package com.twisted.local.game.util;
 
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -64,7 +65,7 @@ public class FleetRow {
         nameLabel.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y){
-                sector.entityNameClicked(entity);
+                sector.entityNameClicked(Input.Buttons.LEFT, entity);
             }
         });
     }

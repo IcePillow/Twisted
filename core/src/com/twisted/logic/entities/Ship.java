@@ -2,6 +2,7 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.attach.Weapon;
 
@@ -40,13 +41,11 @@ public abstract class Ship extends Entity implements Serializable {
 
     //ui and movement
     public String moveCommand;
-    public boolean aggro;
 
     //targeting
     public float targetTimeToLock; //only valid if targetingState != null
     public Targeting targetingState;
-    public Entity.Type targetingType;
-    public int targetingId; //only valid if targetingState != null
+    public EntPtr targetEntity; //only valid if targetingState != null
 
     //attachments
     public Weapon[] weapons;
@@ -56,7 +55,7 @@ public abstract class Ship extends Entity implements Serializable {
      * Constructor
      */
     protected Ship(int id, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand, int ctWeapon){
+                   float warpTimeToLand){
         //meta data
         this.id = id;
         this.owner = owner;
@@ -68,10 +67,8 @@ public abstract class Ship extends Entity implements Serializable {
 
         //command data
         this.moveCommand = "Stationary";
-        this.aggro = false;
         this.targetingState = null;
-        this.targetingType = null;
-        this.targetingId = 0;
+        this.targetEntity = null;
 
         //warping
         this.warpTimeToLand = warpTimeToLand;
@@ -80,7 +77,7 @@ public abstract class Ship extends Entity implements Serializable {
         this.health = getMaxHealth();
 
         //weapons
-        this.weapons = new Weapon[ctWeapon];
+        this.weapons = new Weapon[this.getWeaponSlots().length];
 
         //graphics stuff
         polygon = new Polygon(this.getVertices());
@@ -96,6 +93,7 @@ public abstract class Ship extends Entity implements Serializable {
     public abstract float getMaxSpeed();
     public abstract float getMaxAccel();
     public abstract int getMaxHealth();
+    public abstract Weapon.Type[] getWeaponSlots();
 
 
     /* Action Methods */
@@ -206,7 +204,6 @@ public abstract class Ship extends Entity implements Serializable {
     public enum Targeting {
         Locking,
         Locked,
-        Firing,
     }
 
 }

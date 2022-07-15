@@ -2,9 +2,11 @@ Work
     Current
     Future
         TODO figure out the launch bug in FleetTab
-        TODO go through other todos
+        TODO check other todos
         TODO add target indicator
         TODO add range indicator for weapons
+        TODO mark X indicator (for targeting)
+        TODO target distance range by ship (not weapon)
 Colors
     Light blue - 0x42a5f5ff
     Orange - 0xfb8c00ff

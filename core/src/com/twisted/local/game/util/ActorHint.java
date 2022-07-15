@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Button;
@@ -24,16 +25,16 @@ public class ActorHint {
     /**
      * Constructor
      */
-    public ActorHint(Button button, Skin skin, GlyphLayout glyph, String hintText){
+    public ActorHint(Actor actor, Skin skin, GlyphLayout glyph, String hintText){
 
         //create the display group
         float width = initGroup(glyph, skin, hintText);
-        group.setPosition(button.getX() + button.getWidth()/2f - width/2f,
-                button.getY()+button.getHeight()+2);
+        group.setPosition(actor.getX() + actor.getWidth()/2f - width/2f,
+                actor.getY()+actor.getHeight()+2);
         group.setVisible(false);
 
         //create the enter/exit listener
-        button.addListener(event -> {
+        actor.addListener(event -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType()==InputEvent.Type.enter){
                 //cancel any current controllers
                 if(visCon != null) {

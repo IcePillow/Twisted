@@ -10,6 +10,7 @@ public class MTargetReq implements MGameReq {
     public int targetId;
 
     public MTargetReq(int grid, int shipId, Entity.Type targetType, int targetId){
+        //TODO see if this can use EntPtr
         this.grid = grid;
         this.shipId = shipId;
         this.targetType = targetType;

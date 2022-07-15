@@ -1,8 +1,10 @@
 package com.twisted.net.msg.gameUpdate;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.attach.Weapon;
 
 public class MShipUpd implements MGameUpdate {
 
@@ -11,28 +13,28 @@ public class MShipUpd implements MGameUpdate {
     public final int grid; //-1 if in warp
 
     //state data
-    public Vector2 position;
-    public Vector2 velocity;
-    /**
-     * Stored in degrees.
-     */
-    public float rotation;
+    private Vector2 position;
+    private Vector2 velocity;
+    private float rotation; //stored in degrees
 
     //command data
     public String moveCommand;
-    public boolean aggro;
 
     //targeting
-    public float targetTimeToLock;
-    public Ship.Targeting targetingState;
-    public Entity.Type targetingType;
-    public int targetingId;
+    private float targetTimeToLock;
+    private Ship.Targeting targetingState;
+    private Entity.Type targetEntityType;
+    private int targetEntityId;
+    private int targetEntityGrid;
+
+    //weapons
+    private boolean[] weaponsActive;
 
     //warping
-    public float warpTimeToLand;
+    private float warpTimeToLand;
 
     //combat
-    public float health;
+    private float health;
 
 
     /**
@@ -44,27 +46,38 @@ public class MShipUpd implements MGameUpdate {
     }
 
 
-    /* Utility */
+    /* Exterior Facing Methods */
 
     /**
      * Copies non-meta data to the passed in ship.
      */
     public void copyDataToShip(Ship s){
+        //physics
         s.pos = position;
         s.vel = velocity;
         s.rot = rotation;
 
         s.moveCommand = moveCommand;
-        s.aggro = aggro;
 
         s.warpTimeToLand = warpTimeToLand;
 
-        s.targetTimeToLock = targetTimeToLock;
-        s.targetingState = targetingState;
-        s.targetingType = targetingType;
-        s.targetingId = targetingId;
-
         s.health = health;
+
+        //targeting
+        if(targetEntityType != null){
+            s.targetTimeToLock = targetTimeToLock;
+            s.targetingState = targetingState;
+            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid);
+        }
+        else {
+            s.targetEntity = null;
+            s.targetingState = null;
+        }
+
+        //weapons
+        for(int i=0; i<s.weapons.length; i++){
+            s.weapons[i].active = weaponsActive[i];
+        }
     }
 
     /**
@@ -73,21 +86,35 @@ public class MShipUpd implements MGameUpdate {
     public static MShipUpd createFromShip(Ship s, int grid){
         MShipUpd upd = new MShipUpd(s.id, grid);
 
+        //physics
         upd.position = s.pos.cpy();
         upd.velocity = s.vel.cpy();
         upd.rotation = s.rot;
 
         upd.moveCommand = s.moveCommand;
-        upd.aggro = s.aggro;
 
         upd.warpTimeToLand = s.warpTimeToLand;
 
+        upd.health = s.health;
+
+        //targeting
         upd.targetTimeToLock = s.targetTimeToLock;
         upd.targetingState = s.targetingState;
-        upd.targetingType = s.targetingType;
-        upd.targetingId = s.targetingId;
+        if(s.targetEntity != null){
+            upd.targetEntityType = s.targetEntity.type;
+            upd.targetEntityId = s.targetEntity.id;
+            upd.targetEntityGrid = s.targetEntity.grid;
+        }
+        else {
+            upd.targetEntityType = null;
+            upd.targetingState = null;
+        }
 
-        upd.health = s.health;
+        //weapons
+        upd.weaponsActive = new boolean[s.weapons.length];
+        for(int i=0; i<s.weapons.length; i++){
+            upd.weaponsActive[i] = s.weapons[i].active;
+        }
 
         return upd;
     }

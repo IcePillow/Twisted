@@ -33,7 +33,7 @@ public abstract class Entity {
 
     //graphics
     public FleetRow fleetRow;
-    public boolean fleetRowDisplayAtTop = false;
+    public boolean fleetRowDisplayingWarp = false;
 
     //typing methods
     public Type getEntityType(){

@@ -208,7 +208,7 @@ public class Game implements Screen, ClientContact {
         }
         else {
             //get the message and create the state
-            state = new com.twisted.local.game.state.GameState(m.getPlayers(), m.getColors());
+            state = new GameState(m.getPlayers(), m.getColors());
 
             //copy data
             state.serverTickDelay = m.tickDelay;
@@ -238,7 +238,6 @@ public class Game implements Screen, ClientContact {
 
             //load the graphics on the gdx thread
             Gdx.app.postRunnable(() -> {
-
                 for(Grid g : state.grids){
                     //create the graphics
                     g.station.createFleetRow(skin, state, fleetSec);
@@ -323,13 +322,8 @@ public class Game implements Screen, ClientContact {
         if(detailsSec.selectShipId == ship.id){
             detailsSec.updateShipData(ship, m.grid);
         }
-        if(viewportSec.selectBasic != null && viewportSec.selectBasic.matches(ship)){
-            viewportSec.updateSelectedBasicEntity(m.grid);
-        }
-        if(viewportSec.selectOrbit != null && viewportSec.selectOrbit.matches(ship)){
-            viewportSec.updateOrbitCircleEntity(m.grid);
-        }
-        fleetSec.updateEntity(ship, m.grid);
+        viewportSec.updateSelectionGridsAsNeeded(ship, m.grid);
+        fleetSec.upsertEntity(ship, m.grid);
     }
 
     private void receiveShipEnterWarp(MShipEnterWarp m){
@@ -337,12 +331,18 @@ public class Game implements Screen, ClientContact {
         Ship ship = state.grids[m.originGridId].ships.get(m.shipId);
         state.grids[m.originGridId].ships.remove(ship.id);
         state.inWarp.put(ship.id, ship);
+
+        //update sectors
+        fleetSec.updateEntityEnterWarp(ship, m.originGridId);
     }
 
     private void receiveShipExitWarp(MShipExitWarp m){
         Ship ship = state.inWarp.get(m.shipId);
         state.inWarp.remove(ship.id);
         state.grids[m.destGridId].ships.put(ship.id, ship);
+
+        //update sectors
+        fleetSec.updateEntityExitWarp(ship, m.destGridId);
     }
 
     private void receiveMobileUps(MMobileUps m){
@@ -400,6 +400,16 @@ public class Game implements Screen, ClientContact {
         }
 
     }
+
+    /**
+     * Modularization method for adding to the log.
+     */
+    void addToLog(String text, SecLog.LogColor logColor){
+        logSec.addToLog(text, logColor);
+    }
+
+
+    /* Cross Sector Listening */
 
     /**
      * Called by a sector to start listening to input on the viewport. New requests overwrite
@@ -464,27 +474,23 @@ public class Game implements Screen, ClientContact {
         else if(button == Input.Buttons.LEFT) {
             crossSectorListener.minimapClickEvent(grid);
         }
-
-    }
-
-    /**
-     * Modularization method for adding to the log.
-     */
-    void addToLog(String text, SecLog.LogColor logColor){
-        logSec.addToLog(text, logColor);
     }
 
     /**
      * Called when a ship is selected from the fleet window.
      */
-    void fleetShipSelected(Ship ship){
-        int gridId = state.findShipGridId(ship.id);
+    void fleetClickEvent(int button, Entity entity){
+        int gridId = state.findShipGridId(entity.getId());
 
-        if(gridId >= -1){
-            shipSelectedForDetails(gridId, ship.id);
+        //normal behavior
+        if(crossSectorListener == null){
+            if(entity instanceof Ship){
+                shipSelectedForDetails(gridId, entity.getId());
+            }
         }
+        //responding to listeners
         else {
-            System.out.println("Unexpected grid id in Game.fleetShipSelected()");
+            crossSectorListener.fleetClickEvent(entity, gridId);
         }
     }
 
@@ -498,14 +504,16 @@ public class Game implements Screen, ClientContact {
         detailsSec.shipSelected(gridId, shipId);
 
         //TODO separate this out from selecting for details (maybe?)
-        viewportSec.selectedEntity(Entity.Type.Ship, gridId, shipId);
+        viewportSec.updateSelection(SecViewport.Select.BASIC, true, Entity.Type.Ship,
+                gridId, shipId);
     }
 
-    /**
-     * Called by a non-viewport sector to tell the viewport to display this graphic.
-     */
-    void viewportOrbitSelectionGraphic(boolean toggle, Entity.Type type, int grid, int id){
-        viewportSec.orbitCircleEntity(toggle, type, grid, id);
+
+    /* External Facing Input Handling */
+
+    void viewportSelection(SecViewport.Select select, boolean toggle, Entity.Type type, int grid,
+                           int id){
+        viewportSec.updateSelection(select, toggle, type, grid, id);
     }
 
     /**
@@ -544,8 +552,6 @@ public class Game implements Screen, ClientContact {
         //load the skin and glyph
         skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
         glyph = new GlyphLayout();
-
-        //TODO remove passing in skin from all of these
 
         //prepare the viewport
         viewportSec = new SecViewport(this, stage);
@@ -586,15 +592,15 @@ public class Game implements Screen, ClientContact {
      * Called when the server sends the start message.
      */
     private void loadSectors(){
+        for(Sector s : sectors){
+            s.load();
+        }
+
         for(Grid g : state.grids){
             if(g.station.owner == state.myId){
                 switchGrid(g.id);
                 break;
             }
-        }
-
-        for(Sector s : sectors){
-            s.load();
         }
     }
 
