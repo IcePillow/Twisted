@@ -46,7 +46,7 @@ class SecDetails extends Sector {
     private TogImgButton[] weaponButtons;
 
     //graphics state
-    int selectGridId, selectShipId; //note gridId can be -1 for in warp
+    EntPtr selectEnt;
 
     //input state
     private ExternalWait externalWait;
@@ -175,31 +175,46 @@ class SecDetails extends Sector {
         healthGroup.addActor(healthLabel);
 
         // Children of shipButtonGroup \\
+        ImageButton stopButton = new ImageButton(new TextureRegionDrawable(
+                new Texture(Gdx.files.internal("images/ui/buttons/stop.png"))));
+        stopButton.setBounds(0, 0, 24, 24);
+        shipButtonGroup.addActor(stopButton);
         ImageButton moveButton = new ImageButton(new TextureRegionDrawable(
                 new Texture(Gdx.files.internal("images/ui/buttons/move.png"))));
-        moveButton.setBounds(0, 0, 24, 24);
+        moveButton.setBounds(28, 0, 24, 24);
         shipButtonGroup.addActor(moveButton);
         ImageButton orbitButton = new ImageButton(new TextureRegionDrawable(
                 new Texture(Gdx.files.internal("images/ui/buttons/orbit.png"))));
-        orbitButton.setBounds(28, 0, 24, 24);
+        orbitButton.setBounds(56, 0, 24, 24);
         shipButtonGroup.addActor(orbitButton);
         ImageButton alignButton = new ImageButton(new TextureRegionDrawable(
                 new Texture(Gdx.files.internal("images/ui/buttons/align.png"))));
-        alignButton.setBounds(56, 0, 24, 24);
+        alignButton.setBounds(84, 0, 24, 24);
         shipButtonGroup.addActor(alignButton);
         ImageButton warpButton = new ImageButton(new TextureRegionDrawable(
                 new Texture(Gdx.files.internal("images/ui/buttons/warp.png"))));
-        warpButton.setBounds(84, 0, 24, 24);
+        warpButton.setBounds(112, 0, 24, 24);
         shipButtonGroup.addActor(warpButton);
 
         //listeners for the shipButtonGroup
         SecDetails thisCrossSectorListener = this;
+        stopButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+
+            if(event instanceof ChangeListener.ChangeEvent){
+                game.sendGameRequest(new MShipStopReq(selectEnt.id, selectEnt.grid));
+                return true;
+            }
+            return true;
+        });
         moveButton.addCaptureListener((Event event) -> {
             if(event.isHandled()) return true;
 
             if(event instanceof ChangeListener.ChangeEvent){
                 game.updateCrossSectorListening(this, "Move command...");
-                game.viewportSelection(SecViewport.Select.LINE, true, Entity.Type.Ship, selectGridId, selectShipId);
+                game.viewportSelection(SecViewport.Select.BASE_MOUSE_LINE, true,
+                        new EntPtr(Entity.Type.Ship, selectEnt.id, selectEnt.grid, selectEnt.docked), Color.WHITE,
+                        0);
                 this.externalWait = ExternalWait.MOVE;
                 return true;
             }
@@ -259,17 +274,31 @@ class SecDetails extends Sector {
                 if(event.isHandled()) return;
 
                 //listen for an entity to select
-                if(selectGridId > -1 && state.grids[selectGridId].ships.get(selectShipId).targetingState == null){
+                if(selectEnt.grid > -1 && state.grids[selectEnt.grid].ships.get(selectEnt.id).targetingState == null){
                     game.updateCrossSectorListening(thisCrossSectorListener, "Target command...");
                     externalWait = ExternalWait.TARGET;
                 }
                 //cancel targeting
                 else {
-                    game.sendGameRequest(new MTargetReq(selectGridId, selectShipId, null, -1));
+                    game.sendGameRequest(new MTargetReq(selectEnt.grid, selectEnt.id, null, -1));
                 }
 
                 event.handle();
             }
+        });
+        targetButton.changeEnterListener(event -> {
+            if(event instanceof InputEvent){
+                if(((InputEvent) event).getType() == InputEvent.Type.enter){
+                    //TODO set this color based on weapon type
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                            selectEnt.cpy(), Color.RED, ((Ship)state.findEntity(selectEnt)).getTargetRange());
+                }
+                else if(((InputEvent) event).getType() == InputEvent.Type.exit){
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                            null, null, 0);
+                }
+            }
+            return false;
         });
         for(int i=0; i<weaponButtons.length; i++){
             TogImgButton button = weaponButtons[i];
@@ -279,10 +308,23 @@ class SecDetails extends Sector {
                 @Override
                 public void clicked(InputEvent event, float x, float y){
                     if(event.isHandled()) return;
-                    game.sendGameRequest(new MWeaponActiveReq(selectGridId, selectShipId, weaponId,
-                            !state.grids[selectGridId].ships.get(selectShipId).weapons[weaponId].active));
+                    game.sendGameRequest(new MWeaponActiveReq(selectEnt.grid, selectEnt.id, weaponId,
+                            !state.grids[selectEnt.grid].ships.get(selectEnt.id).weapons[weaponId].active));
                     event.handle();
                 }
+            });
+            button.changeEnterListener(event -> {
+                if(event instanceof InputEvent){
+                    if(((InputEvent) event).getType() == InputEvent.Type.enter){
+                        game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                                selectEnt.cpy(), Color.YELLOW,
+                                ((Ship)state.findEntity(selectEnt)).weapons[weaponId].getMaxRange());
+                    }
+                    else if(((InputEvent) event).getType() == InputEvent.Type.exit){
+                        game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false, null, null, 0);
+                    }
+                }
+                return false;
             });
         }
     }
@@ -305,54 +347,56 @@ class SecDetails extends Sector {
     /* Event Methods */
 
     @Override
-    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, Entity.Type type, int typeId) {
-        if(game.getGrid() == selectGridId){
+    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, EntPtr ptr) {
+        if(game.getGrid() == selectEnt.grid){
             //create the request
             MGameReq req = null;
             if(externalWait == ExternalWait.MOVE){
-                req = new MShipMoveReq(selectGridId, selectShipId, gamePos);
+                req = new MShipMoveReq(selectEnt.grid, selectEnt.id, gamePos);
 
                 game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.ALIGN){
-                Ship s = state.grids[selectGridId].ships.get(selectShipId);
-                req = new MShipAlignReq(selectGridId, selectShipId,
+                Ship s = state.grids[selectEnt.grid].ships.get(selectEnt.id);
+                req = new MShipAlignReq(selectEnt.grid, selectEnt.id,
                         (float) Math.atan2(gamePos.y-s.pos.y, gamePos.x-s.pos.x));
 
                 game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.TARGET){
-                if(type != null){
-                    req = new MTargetReq(selectGridId, selectShipId, type, typeId);
+                if(ptr != null){
+                    req = new MTargetReq(selectEnt.grid, selectEnt.id, ptr.type, ptr.id);
                 }
 
                 game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.ORBIT_WHO){
-                if(type != null){
-                    storeEntClick = new EntPtr(type, typeId, game.getGrid());
+                if(ptr != null){
+                    storeEntClick = ptr;
 
                     game.updateCrossSectorListening(this, "Orbit radius command...");
                     externalWait = ExternalWait.ORBIT_DIST;
-                    game.viewportSelection(SecViewport.Select.CIRCLE, true, type, selectGridId, typeId);
+                    game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
+                            new EntPtr(ptr.type, ptr.id, selectEnt.grid, selectEnt.docked), Color.WHITE,
+                            0);
                 }
                 else {
                     game.updateCrossSectorListening(null, null);
                 }
             }
             else if(externalWait == ExternalWait.ORBIT_DIST){
-                Entity entity = null;
+                Entity ent = null;
                 if(storeEntClick.type == Entity.Type.Ship){
-                    entity = state.grids[selectGridId].ships.get(storeEntClick.id);
+                    ent = state.grids[selectEnt.grid].ships.get(storeEntClick.id);
                 }
                 else if(storeEntClick.type == Entity.Type.Station){
-                    entity = state.grids[selectGridId].station;
+                    ent = state.grids[selectEnt.grid].station;
                 }
 
-                if(entity != null){
-                    float radius = gamePos.dst(entity.pos);
+                if(ent != null){
+                    float radius = gamePos.dst(ent.pos);
 
-                    req = new MShipOrbitReq(selectGridId, selectShipId, storeEntClick.type, storeEntClick.id,
+                    req = new MShipOrbitReq(selectEnt.grid, selectEnt.id, storeEntClick.type, storeEntClick.id,
                             radius);
                 }
 
@@ -373,20 +417,20 @@ class SecDetails extends Sector {
 
     @Override
     void minimapClickEvent(int grid){
-        if(selectGridId != -1){
+        if(selectEnt.grid != -1){
             //create the request
             MGameReq req = null;
             if(externalWait == ExternalWait.WARP){
-                req = new MShipWarpReq(selectGridId, selectShipId, grid);
+                req = new MShipWarpReq(selectEnt.grid, selectEnt.id, grid);
             }
             else if(externalWait == ExternalWait.ALIGN){
                 //calculate the angle
                 Vector2 g2 = state.grids[grid].pos;
-                Vector2 g1 = state.grids[selectGridId].pos;
+                Vector2 g1 = state.grids[selectEnt.grid].pos;
                 float angle = (float) Math.atan2(g2.y-g1.y, g2.x-g1.x);
 
                 //create the request
-                req = new MShipAlignReq(selectGridId, selectShipId, angle);
+                req = new MShipAlignReq(selectEnt.grid, selectEnt.id, angle);
             }
 
             //send the message to the server
@@ -401,12 +445,12 @@ class SecDetails extends Sector {
     }
 
     @Override
-    void fleetClickEvent(Entity entity, int gridId){
+    void fleetClickEvent(EntPtr ptr){
         //create the request
         MGameReq req = null;
         if(externalWait == ExternalWait.TARGET){
-            if(gridId == selectGridId){
-                req = new MTargetReq(selectGridId, selectShipId, entity.getEntityType(), entity.getId());
+            if(ptr.grid == selectEnt.grid){
+                req = new MTargetReq(selectEnt.grid, selectEnt.id, ptr.type, ptr.id);
             }
             else {
                 game.addToLog("Can't target entity on dif grid", SecLog.LogColor.YELLOW);
@@ -415,12 +459,12 @@ class SecDetails extends Sector {
             game.updateCrossSectorListening(null, null);
         }
         else if(externalWait == ExternalWait.ORBIT_WHO){
-            storeEntClick = new EntPtr(entity.getEntityType(), entity.getId(), gridId);
+            storeEntClick = ptr;
 
             game.updateCrossSectorListening(this, "Orbit radius command...");
             externalWait = ExternalWait.ORBIT_DIST;
-            game.viewportSelection(SecViewport.Select.CIRCLE, true, entity.getEntityType(),
-                    selectGridId, entity.getId());
+            game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
+                    new EntPtr(ptr.type, ptr.id, selectEnt.grid, ptr.docked), Color.WHITE, 0);
         }
         else {
             game.updateCrossSectorListening(null, null);
@@ -433,10 +477,10 @@ class SecDetails extends Sector {
     @Override
     void crossSectorListeningCancelled(){
         if(externalWait == ExternalWait.ORBIT_DIST){
-            game.viewportSelection(SecViewport.Select.CIRCLE, false, null, 0, 0);
+            game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, false, null, null, 0);
         }
         else if(externalWait == ExternalWait.MOVE){
-            game.viewportSelection(SecViewport.Select.LINE, false, null, 0, 0);
+            game.viewportSelection(SecViewport.Select.BASE_MOUSE_LINE, false, null,  null, 0);
         }
 
         externalWait = ExternalWait.NONE;
@@ -445,10 +489,9 @@ class SecDetails extends Sector {
     /**
      * A ship is selected to be displayed in the details sector
      */
-    void shipSelected(int gridId, int shipId){
+    void shipSelected(int gridId, int shipId, int docked){
         //set the selections
-        this.selectGridId = gridId;
-        this.selectShipId = shipId;
+        this.selectEnt = new EntPtr(Entity.Type.Ship, shipId, gridId, docked);
 
         //update the primary child
         parent.removeActorAt(1, true);
@@ -475,7 +518,7 @@ class SecDetails extends Sector {
      */
     void updateShipData(Ship s, int gridId){
         //meta data
-        this.selectGridId = gridId;
+        this.selectEnt.grid = gridId;
 
         //update movement and calculate new layout data
         shipMoveCommand.setText(s.moveCommand);
@@ -495,6 +538,7 @@ class SecDetails extends Sector {
                     else targetLabel.setText(Main.df1.format(s.targetTimeToLock) + "s");
                     break;
                 case Locked:
+                    //TODO locked indicator with color
                     targetLabel.setText("[X]");
                     break;
             }
@@ -528,6 +572,21 @@ class SecDetails extends Sector {
         }
     }
 
+    /**
+     * Stop selecting the current ship.
+     */
+    void stopSelectingShip(){
+        if(selectEnt.type != Entity.Type.Ship) return;
+
+        //remove from view
+        parent.removeActorAt(1, true);
+        parent.addActor(emptyParent);
+
+        //stop any listening
+        externalWait = null;
+        storeEntClick = null;
+    }
+
 
     /* Utility Methods */
 
@@ -538,7 +597,7 @@ class SecDetails extends Sector {
     private void shipSelectedLoading(Ship s){
         //update the name
         shipName.setText(s.getType().toString());
-        shipName.setColor(state.players.get(s.owner).color.object);
+        shipName.setColor(state.players.get(s.owner).getColor());
 
         //update the weapon button visibility
         for(int i=0; i<weaponButtons.length; i++){

@@ -4,12 +4,15 @@ import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 
 /**
@@ -44,6 +47,7 @@ public abstract class Station extends Entity implements Serializable {
     //lower level state variables
     public final ArrayList<CurrentJob> currentJobs;
     public final int[] resources;
+    public final LinkedHashMap<Integer, Ship> dockedShips;
 
 
     /**
@@ -73,6 +77,7 @@ public abstract class Station extends Entity implements Serializable {
 
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
+        dockedShips = new LinkedHashMap<>();
 
         this.pos = new Vector2(0, 0);
         this.rot = 0;

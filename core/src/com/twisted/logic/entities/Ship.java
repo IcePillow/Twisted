@@ -2,17 +2,20 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.attach.Weapon;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 
 public abstract class Ship extends Entity implements Serializable {
 
     /* Graphics (clientside) */
 
     public Polygon polygon; //used for click detection
+
 
     /* Logic (serverside) */
 
@@ -39,13 +42,15 @@ public abstract class Ship extends Entity implements Serializable {
 
     public float health;
 
+    public int docked; //-1 for not docked, otherwise, stationId
+
     //ui and movement
     public String moveCommand;
 
     //targeting
-    public float targetTimeToLock; //only valid if targetingState != null
     public Targeting targetingState;
     public EntPtr targetEntity; //only valid if targetingState != null
+    public float targetTimeToLock; //only valid if targetingState != null
 
     //attachments
     public Weapon[] weapons;
@@ -55,7 +60,7 @@ public abstract class Ship extends Entity implements Serializable {
      * Constructor
      */
     protected Ship(int id, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand){
+                   float warpTimeToLand, int docked){
         //meta data
         this.id = id;
         this.owner = owner;
@@ -64,6 +69,7 @@ public abstract class Ship extends Entity implements Serializable {
         this.pos = position;
         this.vel = velocity;
         this.rot = rotation;
+        this.docked = docked;
 
         //command data
         this.moveCommand = "Stationary";
@@ -92,6 +98,7 @@ public abstract class Ship extends Entity implements Serializable {
 
     public abstract float getMaxSpeed();
     public abstract float getMaxAccel();
+    public abstract float getTargetRange();
     public abstract int getMaxHealth();
     public abstract Weapon.Type[] getWeaponSlots();
 
@@ -204,6 +211,13 @@ public abstract class Ship extends Entity implements Serializable {
     public enum Targeting {
         Locking,
         Locked,
+    }
+
+    /**
+     * Kinds of removal.
+     */
+    public enum Removal {
+        EXPLOSION
     }
 
 }

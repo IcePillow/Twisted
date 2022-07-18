@@ -15,8 +15,8 @@ public class Frigate extends Ship {
      * Constructor
      */
     public Frigate(int shipId, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand){
-        super(shipId, owner, position, velocity, rotation, warpTimeToLand);
+                   float warpTimeToLand, int docked){
+        super(shipId, owner, position, velocity, rotation, warpTimeToLand, docked);
 
         weapons[0] = new Blaster(3, 2, 1.4f, 2);
         weapons[1] = new Blaster(3, 2, 1.4f, 2);
@@ -38,8 +38,12 @@ public class Frigate extends Ship {
         return 0.4f;
     }
     @Override
+    public float getTargetRange(){
+        return 3.5f;
+    }
+    @Override
     public int getMaxHealth(){
-        return 100;
+        return 2;
     }
     @Override
     public float getPaddedLogicalRadius() {

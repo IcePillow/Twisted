@@ -10,30 +10,25 @@ import com.twisted.logic.entities.Entity;
 public class EntPtr {
 
     public int grid;
+    public int docked;
     public final int id;
     public final Entity.Type type;
 
     /**
      * Base constructor.
      */
-    public EntPtr(Entity.Type type, int id, int grid){
+    public EntPtr(Entity.Type type, int id, int grid, int docked){
         this.type = type;
         this.id = id;
         this.grid = grid;
+        this.docked = docked;
     }
 
     /**
      * Uses the base constructor with the entity data provided.
      */
-    public static EntPtr createFromEntity(Entity entity, int grid){
-        return new EntPtr(entity.getEntityType(), entity.getId(), grid);
-    }
-
-    /**
-     * Returns a copy of this entity pointer.
-     */
-    public EntPtr cpy(){
-        return new EntPtr(type, id, grid);
+    public static EntPtr createFromEntity(Entity entity, int grid, int docked){
+        return new EntPtr(entity.getEntityType(), entity.getId(), grid, docked);
     }
 
     /**
@@ -46,12 +41,19 @@ public class EntPtr {
         else if(type == Entity.Type.Station){
             return grid.station;
         }
-        else if(type == Entity.Type.Ship){
+        else if(type == Entity.Type.Ship && docked == -1){
             return grid.ships.get(id);
+        }
+        else if(type == Entity.Type.Ship) {
+            return grid.station.dockedShips.get(id);
         }
         else {
             return null;
         }
+    }
+
+    public EntPtr cpy(){
+        return new EntPtr(type, id, grid, docked);
     }
 
     /**
@@ -60,6 +62,13 @@ public class EntPtr {
      */
     public boolean matches(Entity entity){
         return (entity != null && entity.getId() == id && entity.getEntityType() == type);
+    }
+
+    /**
+     * Checks if two pointers have the same values.
+     */
+    public boolean matches(EntPtr ptr){
+        return ptr.grid==grid && ptr.id==id && ptr.type==type;
     }
 
 }
