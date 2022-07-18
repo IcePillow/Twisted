@@ -13,6 +13,7 @@ public class MShipUpd implements MGameUpdate {
     public final int grid; //-1 if in warp
 
     //state data
+    public int docked;
     private Vector2 position;
     private Vector2 velocity;
     private float rotation; //stored in degrees
@@ -21,9 +22,9 @@ public class MShipUpd implements MGameUpdate {
     public String moveCommand;
 
     //targeting
-    private float targetTimeToLock;
     private Ship.Targeting targetingState;
     private Entity.Type targetEntityType;
+    private float targetTimeToLock;
     private int targetEntityId;
     private int targetEntityGrid;
 
@@ -53,6 +54,7 @@ public class MShipUpd implements MGameUpdate {
      */
     public void copyDataToShip(Ship s){
         //physics
+        s.docked = docked;
         s.pos = position;
         s.vel = velocity;
         s.rot = rotation;
@@ -67,7 +69,7 @@ public class MShipUpd implements MGameUpdate {
         if(targetEntityType != null){
             s.targetTimeToLock = targetTimeToLock;
             s.targetingState = targetingState;
-            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid);
+            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid, -1);
         }
         else {
             s.targetEntity = null;
@@ -87,6 +89,7 @@ public class MShipUpd implements MGameUpdate {
         MShipUpd upd = new MShipUpd(s.id, grid);
 
         //physics
+        upd.docked = s.docked;
         upd.position = s.pos.cpy();
         upd.velocity = s.vel.cpy();
         upd.rotation = s.rot;

@@ -1,5 +1,6 @@
 package com.twisted.local.game.util;
 
+import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
@@ -8,7 +9,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 public class TogImgButton extends Group{
 
     private Image one, two;
-    private ClickListener listener;
+    private ClickListener clickListener;
+    private EventListener enterListener;
 
     /**
      * Textures must have length at least one.
@@ -48,18 +50,37 @@ public class TogImgButton extends Group{
         this.two.setVisible(false);
 
         //add listeners
-        this.one.addListener(listener);
-        this.two.addListener(listener);
+        this.one.addListener(clickListener);
+        this.two.addListener(clickListener);
+        this.one.addListener(enterListener);
+        this.two.addListener(enterListener);
     }
 
     /**
-     * Changes the listener
+     * Changes the click listener.
      */
     public void changeClickListener(ClickListener listener){
-        one.removeListener(listener);
-        two.removeListener(listener);
+        if(clickListener != null){
+            one.removeListener(clickListener);
+            two.removeListener(clickListener);
+        }
 
-        this.listener = listener;
+        clickListener = listener;
+
+        one.addListener(listener);
+        two.addListener(listener);
+    }
+
+    /**
+     * Changes the enter/exit listener.
+     */
+    public void changeEnterListener(EventListener listener){
+        if(enterListener != null){
+            one.removeListener(enterListener);
+            two.removeListener(enterListener);
+        }
+
+        enterListener = listener;
 
         one.addListener(listener);
         two.addListener(listener);

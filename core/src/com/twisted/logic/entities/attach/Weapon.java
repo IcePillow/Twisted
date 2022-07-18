@@ -22,6 +22,8 @@ public abstract class Weapon {
     public abstract void tick(GameHost host, Grid grid, Ship ship, Entity target,
                               Ship.Targeting targeting, float delta);
 
+    public abstract void putOnFullCooldown();
+
     /* Data Methods */
 
     public abstract float getMaxRange();

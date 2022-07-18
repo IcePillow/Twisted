@@ -68,7 +68,7 @@ class SecMinimap extends Sector {
             }
             else {
                 g.station.minimapSprite = new Image(new Texture(Gdx.files.internal("images/circles/"
-                        + state.players.get(g.station.owner).color.file + ".png")));
+                        + state.players.get(g.station.owner).getFileCode() + ".png")));
             }
 
             //position is (indent + scaled positioning - half the width)

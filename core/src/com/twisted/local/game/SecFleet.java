@@ -188,7 +188,7 @@ public class SecFleet extends Sector {
 
     /**
      * Tells this sector to update the entity with new information from the state.
-     * Can add/remove entity if needed.
+     * Can remove entity if that entity has moved to a new grid.
      * @param entGrid The grid the entity is now on.
      */
     void upsertEntity(Entity entity, int entGrid){
@@ -222,7 +222,7 @@ public class SecFleet extends Sector {
         }
     }
 
-    public void updateEntityEnterWarp(Entity entity, int originGridId){
+    void updateEntityEnterWarp(Entity entity, int originGridId){
         entity.fleetRowDisplayingWarp = true;
 
         if(selected==TabType.Fleet){
@@ -233,7 +233,7 @@ public class SecFleet extends Sector {
         }
     }
 
-    public void updateEntityExitWarp(Entity entity, int destGridId){
+    void updateEntityExitWarp(Entity entity, int destGridId){
         entity.fleetRowDisplayingWarp = false;
 
         if(selected==TabType.Fleet){
@@ -242,6 +242,23 @@ public class SecFleet extends Sector {
 
             fleetWarpEntCt--;
             fleetGridEntCt[destGridId]++;
+        }
+    }
+
+    void removeEntity(Entity entity, int grid){
+        if(tabs.get(selected).hasEntityRow(entity.fleetRow)){
+            //remove it
+            tabs.get(selected).removeEntity(entity.fleetRow);
+
+            //update the fleet index counters
+            if(selected == TabType.Fleet){
+                if(grid != -1){
+                    fleetGridEntCt[grid]--;
+                }
+                else {
+                    fleetWarpEntCt--;
+                }
+            }
         }
     }
 

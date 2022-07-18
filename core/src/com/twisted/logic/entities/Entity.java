@@ -5,19 +5,20 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.local.game.SecFleet;
 import com.twisted.local.game.state.GameState;
-import com.twisted.local.game.state.PlayColor;
 import com.twisted.local.game.util.FleetRow;
 import com.twisted.logic.descriptors.Grid;
 
 public abstract class Entity {
 
-    //meta
+    /* Metadata */
     /**
      * Owner. Use 0 for none.
      */
     public int owner;
 
-    //physics
+
+    /* Logic */
+
     /**
      * Position.
      */
@@ -31,36 +32,50 @@ public abstract class Entity {
      */
     public float rot;
 
-    //graphics
+
+    /* Graphics */
+
+    //fields
     public FleetRow fleetRow;
     public boolean fleetRowDisplayingWarp = false;
 
-    //typing methods
+    //loading methods
+    public void createFleetRow(Skin skin, GameState state, SecFleet sector){
+        Color color;
+        if(this.owner > 0){
+            color = state.players.get(this.owner).getColor();
+        }
+        else {
+            color = Color.GRAY;
+        }
+
+        fleetRow = new FleetRow(this, skin, color, sector);
+    }
+
+    /* Typing Methods */
+
     public Type getEntityType(){
         if(this instanceof Ship) return Type.Ship;
         else if(this instanceof Station) return Type.Station;
         else return null;
     }
+
     /**
      * These ids are not unique across entities, but they should be unique across each subclass
      * of entities.
      */
     public abstract int getId();
 
-    //graphics loading methods
-    public void createFleetRow(Skin skin, GameState state, SecFleet sector){
-        Color color;
-        if(this.owner > 0){
-            color = state.players.get(this.owner).color.object;
+    public int isDocked(){
+        switch(getEntityType()){
+            case Ship:
+                return ((Ship) this).docked;
+            default:
+                return -1;
         }
-        else {
-            color = PlayColor.GRAY.object;
-        }
-
-        fleetRow = new FleetRow(this, skin, color, sector);
     }
 
-    //data methods
+    /* Graphics Methods */
 
     /**
      * These vertices are used for drawing.
@@ -73,10 +88,11 @@ public abstract class Entity {
      */
     public abstract float getPaddedLogicalRadius();
 
-    //action items
+    /* Action Methods */
+
     public abstract void takeDamage(Grid grid, float amount);
 
-    //enums
+    /* Enums */
     public enum Type {
         Station,
         Ship,

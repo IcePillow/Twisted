@@ -6,6 +6,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.state.GameState;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 
 abstract class Sector {
@@ -18,8 +19,7 @@ abstract class Sector {
     /**
      * Result from listening on the viewport.
      */
-    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos,
-                            Entity.Type type, int typeId){}
+    void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, EntPtr entity){}
 
     /**
      * Result from listening on the minimap.
@@ -29,7 +29,7 @@ abstract class Sector {
     /**
      * Result from listening on the fleet window.
      */
-    void fleetClickEvent(Entity entity, int grid){}
+    void fleetClickEvent(EntPtr ptr){}
 
     /**
      * Called when external listening is cancelled.
@@ -76,16 +76,5 @@ abstract class Sector {
      * Called to clean up.
      */
     abstract void dispose();
-
-    public enum Type {
-        Details,
-        Fleet,
-        Industry,
-        Log,
-        Minimap,
-        Options,
-        Overlay,
-        Viewport
-    }
 
 }

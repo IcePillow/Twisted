@@ -58,4 +58,9 @@ public class Blaster extends Weapon {
             cooling = fullCooldown;
         }
     }
+
+    @Override
+    public void putOnFullCooldown(){
+        this.cooling = fullCooldown;
+    }
 }

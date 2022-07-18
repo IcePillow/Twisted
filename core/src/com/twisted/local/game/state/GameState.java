@@ -1,9 +1,13 @@
 package com.twisted.local.game.state;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.twisted.logic.descriptors.CurrentJob;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
 
 import java.util.HashMap;
 
@@ -47,7 +51,7 @@ public class GameState {
     /**
      * Basic constructor.
      */
-    public GameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayColor> playerColors){
+    public GameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayerFile> playerFiles){
         this.readyToRender = false;
 
         this.playerNames = playerNames.values().toArray(new String[0]);
@@ -56,8 +60,8 @@ public class GameState {
         this.players = new HashMap<>();
         for(Integer key : playerNames.keySet()){
             //create player
-            GamePlayer gamePlayer = new GamePlayer(key, playerNames.get(key));
-            gamePlayer.color = playerColors.get(key);
+            GamePlayer gamePlayer = new GamePlayer(key, playerFiles.get(key).file, playerNames.get(key),
+                    playerFiles.get(key).color);
 
             //add it
             this.players.put(gamePlayer.getId(), gamePlayer);
@@ -85,6 +89,40 @@ public class GameState {
         }
 
         return -99;
+    }
+
+    /**
+     * Finds an entity in the state given the pointer.
+     */
+    public Entity findEntity(EntPtr ptr){
+        if(ptr.type == Entity.Type.Station){
+            return grids[ptr.grid].station;
+        }
+        else if(ptr.type == Entity.Type.Ship && ptr.grid != -1 && ptr.docked == -1){
+            return grids[ptr.grid].ships.get(ptr.id);
+        }
+        else if(ptr.type == Entity.Type.Ship && ptr.grid != -1){
+            return grids[ptr.grid].station.dockedShips.get(ptr.id);
+        }
+        else if(ptr.type == Entity.Type.Ship) {
+            return inWarp.get(ptr.id);
+        }
+
+        return null;
+    }
+
+    /**
+     * Gets the color for a given owner id.
+     */
+    public Color findColorForOwner(int owner){
+        GamePlayer player = players.get(owner);
+
+        if(player != null){
+            return player.getColor();
+        }
+        else {
+            return PlayerFile.GRAY.color;
+        }
     }
 
 }

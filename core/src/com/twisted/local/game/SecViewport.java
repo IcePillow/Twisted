@@ -12,20 +12,21 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.local.game.state.PlayColor;
+import com.twisted.local.game.cosmetic.Cosmetic;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.mobs.Mobile;
 
-import java.util.HashMap;
+import java.util.*;
 
 class SecViewport extends Sector{
 
     //constants
-    public static final float LTR = Game.LTR; //logical to rendered
+    private static final float LTR = Game.LTR; //logical to rendered
     private static final Color SPACE = new Color(0x020036ff);
+    private static final Color NEUTRAL_COL = Color.GRAY;
 
     //high level input
     private Vector2 cursor;
@@ -42,9 +43,15 @@ class SecViewport extends Sector{
 
     //graphics state
     private Vector2 camPos;
+    private float offset;
+
+    //cosmetics
+    private ArrayList<Cosmetic> cosmetics;
 
     //selected
     private HashMap<Select, EntPtr> selections;
+    private HashMap<Select, Color> selectionColors;
+    private HashMap<Select, Float> selectionValues;
 
 
     /**
@@ -64,7 +71,11 @@ class SecViewport extends Sector{
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
 
+        cosmetics = new ArrayList<>();
+
         selections = new HashMap<>();
+        selectionColors = new HashMap<>();
+        selectionValues = new HashMap<>();
 
         return null;
     }
@@ -111,6 +122,9 @@ class SecViewport extends Sector{
         sprite.setProjectionMatrix(camera.combined);
         shape.setProjectionMatrix(camera.combined);
 
+        //graphics
+        offset += delta;
+
         //access the grid and start drawing
         Grid g = state.grids[game.getGrid()];
         shape.begin(ShapeRenderer.ShapeType.Filled);
@@ -120,12 +134,15 @@ class SecViewport extends Sector{
 
         shape.begin(ShapeRenderer.ShapeType.Line);
 
+        //draw the cosmetics
+        renderCosmetics(delta, g);
+
         //draw the station
         if(g.station.owner == 0){
-            shape.setColor(PlayColor.GRAY.object);
+            shape.setColor(NEUTRAL_COL);
         }
         else {
-            shape.setColor(state.players.get(g.station.owner).color.object);
+            shape.setColor(state.players.get(g.station.owner).getColor());
         }
         Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
         stationDrawable.scale(LTR);
@@ -146,10 +163,10 @@ class SecViewport extends Sector{
         Polygon shipDrawable;
         for(Ship s : g.ships.values()){
             if(s.owner == 0){
-                shape.setColor(PlayColor.GRAY.object);
+                shape.setColor(NEUTRAL_COL);
             }
             else {
-                shape.setColor(state.players.get(s.owner).color.object);
+                shape.setColor(state.players.get(s.owner).getColor());
             }
 
             //draw the ship
@@ -160,14 +177,40 @@ class SecViewport extends Sector{
             shape.polygon(shipDrawable.getTransformedVertices());
         }
 
+        //draw the selection shapes
+        renderSelections(delta, g);
+
+        shape.end();
+    }
+
+    @Override
+    void dispose() {
+        sprite.dispose();
+    }
+
+
+    /* Rendering Utility */
+
+    private void renderCosmetics(float delta, Grid g){
+        Set<Cosmetic> cosmeticToRemove = new HashSet<>();
+        for(Cosmetic c : cosmetics){
+            if(!c.renderShape(delta, shape)) cosmeticToRemove.add(c);
+        }
+        for(Cosmetic c : cosmeticToRemove){
+            cosmetics.remove(c);
+        }
+    }
+
+    private void renderSelections(float delta, Grid g){
+
         //draw the basic selection circle
-        if(selections.get(Select.BASIC) != null){
-            EntPtr sel = selections.get(Select.BASIC);
+        if(selections.get(Select.BASE_SELECT) != null){
+            EntPtr sel = selections.get(Select.BASE_SELECT);
 
             if(sel.type == Entity.Type.Ship && sel.grid == game.getGrid()){
                 Ship s = state.grids[sel.grid].ships.get(sel.id);
 
-                shape.setColor(Color.LIGHT_GRAY);
+                shape.setColor(selectionColors.get(Select.BASE_SELECT));
                 shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
             }
             else{
@@ -175,9 +218,26 @@ class SecViewport extends Sector{
             }
         }
 
+        //set range selection circle
+        if(selections.get(Select.CIRCLE_RANGE_IND_ROT) != null){
+            Entity ent = selections.get(Select.CIRCLE_RANGE_IND_ROT).retrieveFromGrid(g);
+
+            if(ent != null) {
+                float radius = selectionValues.get(Select.CIRCLE_RANGE_IND_ROT);
+                float off = 3 * (offset%360);
+
+                shape.setColor(selectionColors.get(Select.CIRCLE_RANGE_IND_ROT));
+                for (float i=0; i<360; i+=2*360f/(radius*80f)) {
+                    shape.circle(LTR*(ent.pos.x + radius*(float)Math.cos((off+i) * Math.PI/180)),
+                            LTR*(ent.pos.y + radius*(float)Math.sin((off+i) * Math.PI/180)),
+                            1);
+                }
+            }
+        }
+
         //draw the orbit selection circle
-        if(selections.get(Select.CIRCLE) != null){
-            Entity ent = selections.get(Select.CIRCLE).retrieveFromGrid(g);
+        if(selections.get(Select.BASE_MOUSE_CIRCLE) != null){
+            Entity ent = selections.get(Select.BASE_MOUSE_CIRCLE).retrieveFromGrid(g);
 
             if(ent != null){
                 float orbCircleRad = new Vector2(
@@ -185,7 +245,7 @@ class SecViewport extends Sector{
                         (cursor.y-stage.getHeight()/2f+camPos.y)/100f)
                         .dst(ent.pos);
 
-                shape.setColor(Color.LIGHT_GRAY);
+                shape.setColor(selectionColors.get(Select.BASE_MOUSE_CIRCLE));
                 for(float i=0; i<360; i+= 360f/(orbCircleRad*80)){
                     shape.circle(LTR*(ent.pos.x + orbCircleRad*(float)Math.cos(i*Math.PI/180)),
                             LTR*(ent.pos.y + orbCircleRad*(float)Math.sin(i*Math.PI/180)),
@@ -195,8 +255,8 @@ class SecViewport extends Sector{
         }
 
         //draw the move selection line
-        if(selections.get(Select.LINE) != null){
-            Entity ent = selections.get(Select.LINE).retrieveFromGrid(g);
+        if(selections.get(Select.BASE_MOUSE_LINE) != null){
+            Entity ent = selections.get(Select.BASE_MOUSE_LINE).retrieveFromGrid(g);
 
             if(ent != null){
                 Vector2 end = new Vector2(
@@ -205,7 +265,7 @@ class SecViewport extends Sector{
                 float length = end.dst(ent.pos);
                 float angle = (float) Math.atan2(end.y-ent.pos.y, end.x-ent.pos.x);
 
-                shape.setColor(Color.LIGHT_GRAY);
+                shape.setColor(selectionColors.get(Select.BASE_MOUSE_LINE));
                 for(float i=0; i<length; i+=0.1f){
                     shape.circle(LTR*(ent.pos.x + i*(float)Math.cos(angle)),
                             LTR*(ent.pos.y + i*(float)Math.sin(angle)),
@@ -214,12 +274,6 @@ class SecViewport extends Sector{
             }
         }
 
-        shape.end();
-    }
-
-    @Override
-    void dispose() {
-        sprite.dispose();
     }
 
 
@@ -268,40 +322,57 @@ class SecViewport extends Sector{
         float adjY = (y-stage.getHeight()/2f+camPos.y)/LTR;
 
         //prep the variables that tell what is clicked on
-        Entity.Type type = null;
-        int shipId = 0;
+        EntPtr ptr = null;
 
         //figure out what was clicked on (mobiles ignored)
         if(g.station.polygon.contains(adjX, adjY)){
-            type = Entity.Type.Station;
+            ptr = new EntPtr(Entity.Type.Station, g.id, g.id, -1);
         }
         for(Ship s : g.ships.values()){
-            if(s.polygon.contains(adjX, adjY)){
-                type = Entity.Type.Ship;
-                shipId = s.id;
+            //create slightly larger polygon
+            Polygon sPoly = new Polygon(s.polygon.getVertices());
+            sPoly.translate(s.pos.x, s.pos.y);
+            sPoly.scale(1.35f);
+            //check if it contains
+            if(sPoly.contains(adjX, adjY)){
+                ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, -1);
             }
         }
 
-        //do the correct thing based on the state and what was clicked on
-        if(type == Entity.Type.Ship) {
-            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
-                    Entity.Type.Ship, shipId);
-        }
-        else if(type == Entity.Type.Station){
-            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY),
-                    Entity.Type.Station, game.getGrid());
-        }
-        else {
-            game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), null, -1);
-        }
+        //send the viewport click event
+        game.viewportClickEvent(button, new Vector2(x, y), new Vector2(adjX, adjY), ptr);
     }
 
     /**
      * Updates the entity pointer of a given selection.
+     * @param value A value that may be used in the drawing of the selection (such as a circle radius).
+     *              May or may not be used for a given select.
      */
-    void updateSelection(Select select, boolean toggle, Entity.Type type, int grid, int id){
-        if(toggle) selections.put(select, new EntPtr(type, id, grid));
-        else selections.remove(select);
+    void updateSelection(Select select, boolean toggle, EntPtr ptr, Color color, float value){
+        if(toggle) {
+            selections.put(select, ptr);
+            selectionColors.put(select, color);
+            selectionValues.put(select, value);
+        }
+        else {
+            selections.remove(select);
+        }
+    }
+
+    /**
+     * Remove all selections with the provided entity.
+     */
+    void removeSelectionsOfEntity(EntPtr ptr){
+        Set<Select> toBeRemoved = new HashSet<>();
+
+        for(Select s : selections.keySet()){
+            if(selections.get(s).matches(ptr)) toBeRemoved.add(s);
+        }
+        for(Select s : toBeRemoved){
+            selections.remove(s);
+            selectionColors.remove(s);
+            selectionValues.remove(s);
+        }
     }
 
 
@@ -314,6 +385,13 @@ class SecViewport extends Sector{
         for(EntPtr ptr : selections.values()){
             if(ptr.matches(entity)) ptr.grid = newGrid;
         }
+    }
+
+
+    /* Cosmetic Methods */
+
+    void addCosmetic(Cosmetic cosmetic){
+        cosmetics.add(cosmetic);
     }
 
 
@@ -330,17 +408,23 @@ class SecViewport extends Sector{
      * Selection types.
      */
     enum Select {
-        BASIC,
-
+        /**
+         * The basic solid circle surrounding an entity.
+         */
+        BASE_SELECT,
         /**
          * Dotted circle around the entity, radius determined by mouse position.
          */
-        CIRCLE,
-
+        BASE_MOUSE_CIRCLE,
         /**
          * Dotted line from entity to mouse.
          */
-        LINE,
+        BASE_MOUSE_LINE,
+
+        /**
+         * Range indicator that rotates. Set radius.
+         */
+        CIRCLE_RANGE_IND_ROT,
     }
 
 }

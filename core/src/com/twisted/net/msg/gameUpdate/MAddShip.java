@@ -17,6 +17,7 @@ public class MAddShip implements MGameUpdate{
     private Vector2 velocity;
     private float rotation;
     private float warpTimeToLand;
+    private int docked;
 
     /**
      * Constructor
@@ -38,6 +39,7 @@ public class MAddShip implements MGameUpdate{
         m.velocity = s.vel.cpy();
         m.rotation = s.rot;
         m.warpTimeToLand = s.warpTimeToLand;
+        m.docked = s.docked;
 
         return m;
     }
@@ -51,7 +53,7 @@ public class MAddShip implements MGameUpdate{
         Ship s = null;
         switch(type){
             case Frigate:
-                s = new Frigate(shipId, ownerId, position, velocity, rotation, warpTimeToLand);
+                s = new Frigate(shipId, ownerId, position, velocity, rotation, warpTimeToLand, docked);
                 break;
             default:
                 System.out.println("Unexpected ship type in MAddShip.createDrawableShip()");

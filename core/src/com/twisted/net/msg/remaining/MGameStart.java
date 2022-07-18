@@ -1,9 +1,10 @@
 package com.twisted.net.msg.remaining;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.local.game.state.PlayerFile;
 import com.twisted.logic.entities.Station;
 import com.twisted.net.msg.Message;
-import com.twisted.local.game.state.PlayColor;
 
 import java.util.HashMap;
 
@@ -16,9 +17,9 @@ public class MGameStart implements Message {
     public HashMap<Integer, String> getPlayers(){
         return idToName;
     }
-    private final HashMap<Integer, PlayColor> idToColor;
-    public HashMap<Integer, PlayColor> getColors(){
-        return idToColor;
+    private final HashMap<Integer, PlayerFile> playerFiles;
+    public HashMap<Integer, PlayerFile> getPlayerFiles(){
+        return playerFiles;
     }
 
     //the player id of the client receiving this
@@ -47,10 +48,10 @@ public class MGameStart implements Message {
     /**
      * Constructor.
      */
-    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, PlayColor> idToColor,
+    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, PlayerFile> playerFiles,
                       int numGrids){
         this.idToName = idToName;
-        this.idToColor = idToColor;
+        this.playerFiles = playerFiles;
 
         //grid stuff
         gridPositions = new Vector2[numGrids];
