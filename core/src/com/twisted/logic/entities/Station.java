@@ -1,9 +1,12 @@
 package com.twisted.logic.entities;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
@@ -33,7 +36,6 @@ public abstract class Station extends Entity implements Serializable {
     /* Variables */
 
     //final descriptive variables
-    public final int grid;
     @Override
     public int getId(){
         return grid;

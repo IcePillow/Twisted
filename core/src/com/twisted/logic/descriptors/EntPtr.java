@@ -10,14 +10,14 @@ import com.twisted.logic.entities.Entity;
 public class EntPtr {
 
     public int grid;
-    public int docked;
+    public boolean docked;
     public final int id;
     public final Entity.Type type;
 
     /**
      * Base constructor.
      */
-    public EntPtr(Entity.Type type, int id, int grid, int docked){
+    public EntPtr(Entity.Type type, int id, int grid, boolean docked){
         this.type = type;
         this.id = id;
         this.grid = grid;
@@ -27,8 +27,9 @@ public class EntPtr {
     /**
      * Uses the base constructor with the entity data provided.
      */
-    public static EntPtr createFromEntity(Entity entity, int grid, int docked){
-        return new EntPtr(entity.getEntityType(), entity.getId(), grid, docked);
+    public static EntPtr createFromEntity(Entity entity){
+        if(entity == null) return null;
+        return new EntPtr(entity.getEntityType(), entity.getId(), entity.grid, entity.isDocked());
     }
 
     /**
@@ -41,7 +42,7 @@ public class EntPtr {
         else if(type == Entity.Type.Station){
             return grid.station;
         }
-        else if(type == Entity.Type.Ship && docked == -1){
+        else if(type == Entity.Type.Ship && !docked){
             return grid.ships.get(id);
         }
         else if(type == Entity.Type.Ship) {

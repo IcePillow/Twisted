@@ -12,11 +12,6 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup;
 import com.badlogic.gdx.utils.Align;
-import com.twisted.local.game.SecFleet;
-import com.twisted.logic.entities.Entity;
-
-import java.util.ArrayList;
-import java.util.Collections;
 
 public class FleetTab {
 
@@ -28,39 +23,22 @@ public class FleetTab {
         return header;
     }
 
-    /**
-     * Vertical group that goes in the scrollpane.
-     */
-    private VerticalGroup vertical;
-    public VerticalGroup getVertical() {
-        return vertical;
-    }
-
     //graphical stuff
     private Label label;
     private Image black;
-    private Skin skin;
-
-    //logical
-    private final ArrayList<FleetRow> rows;
-    private Actor swappingOne, swappingTwo;
-    private int countDisplayTop;
-
+    private final Skin skin;
 
     /**
      * Creates a header object for a SecFleet object. Does not add any listeners.
      * Also creates a vertical group for the scroll pane.
      */
-    public FleetTab(String name, Skin skin, GlyphLayout glyph, Vector2 headerPos, Vector2 headerSize) {
+    public FleetTab(String name, Skin skin, GlyphLayout glyph, Vector2 headerPos,
+                    Vector2 headerSize) {
         //copy
         this.skin = skin;
-        this.countDisplayTop = 0;
 
         //graphics
         createGraphics(name, glyph, headerPos, headerSize);
-
-        //create the fleet row storage
-        rows = new ArrayList<>();
     }
 
     private void createGraphics(String name, GlyphLayout glyph, Vector2 headerPos,
@@ -82,98 +60,17 @@ public class FleetTab {
         glyph.setText(skin.getFont("small"), name);
         label.setPosition(headerSize.x / 2f - glyph.width / 2f, -2);
         header.addActor(label);
-
-        //create the vertical
-        vertical = new VerticalGroup();
-        vertical.top().left();
-        vertical.columnAlign(Align.left);
     }
 
 
     /* Exterior Methods */
 
     /**
-     * Sort the rows of this tab by their proximity to origin.
-     * Should only be used if the tab is on a single grid.
-     */
-    public void sortByPosOrigin() {
-        for(int i=0; i<rows.size(); i++){
-            for(int j=i+1; j<rows.size(); j++){
-                if(rows.get(i).entity.pos.len() > rows.get(j).entity.pos.len()){
-                    //perform swap on arraylist
-                    Collections.swap(rows, i, j);
-
-                    //swap on vertical (had to do manually, the method didn't swap them visually)
-                    swappingOne = vertical.removeActorAt(j, false);
-                    swappingTwo = vertical.removeActorAt(i, false);
-                    vertical.addActorAt(i, swappingOne);
-                    vertical.addActorAt(j, swappingTwo);
-                }
-            }
-        }
-    }
-
-    /**
+     * Selecting or deselecting the tab at the top.
      * @param select True to select, false to deselect.
      */
-    public void selectTopTab(boolean select) {
+    public void selectTab(boolean select) {
         black.setVisible(!select);
-    }
-
-    /**
-     * Adds a fleet row to the bottom.
-     *
-     * TODO fix the issue that on game load something is null in the entity.fleetRow.switchDisplayType() line
-     */
-    public void addEntityRow(Entity entity, SecFleet.TabType type){
-        entity.fleetRow.switchDisplayType(type);
-        vertical.addActorAt(vertical.getChildren().size, entity.fleetRow.group);
-        rows.add(entity.fleetRow);
-    }
-
-    /**
-     * Adds an entity at a specified location.
-     */
-    public void addEntityRowAt(Entity entity, SecFleet.TabType type, int index){
-        entity.fleetRow.switchDisplayType(type);
-        vertical.addActorAt(index, entity.fleetRow.group);
-        rows.add(index, entity.fleetRow);
-    }
-
-    /**
-     * Move an entity row to a different location.
-     */
-    public void moveEntityRow(FleetRow row, int index){
-        removeEntity(row);
-
-        vertical.addActorAt(index, row.group);
-        rows.add(index, row);
-    }
-
-    /**
-     * Removes an entity row from both the scrollpane's vertical group and the state tracking list.
-     */
-    public void removeEntity(FleetRow row){
-        vertical.removeActor(row.group);
-        rows.remove(row);
-    }
-
-    /**
-     * Clears all entities.
-     */
-    public void clearEntities() {
-        //it glitched when I tried to use vertical.clearChildren() so this is done manually
-        while (vertical.getChildren().size > 0) {
-            vertical.removeActorAt(0, true);
-        }
-        rows.clear();
-    }
-
-    /**
-     * Returns whether this tab contains the passed in entity row.
-     */
-    public boolean hasEntityRow(FleetRow entityRow){
-        return rows.contains(entityRow);
     }
 
 }

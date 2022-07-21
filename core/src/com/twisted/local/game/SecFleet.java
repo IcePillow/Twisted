@@ -5,44 +5,58 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.local.game.state.GameState;
+import com.badlogic.gdx.utils.Align;
 import com.twisted.local.game.util.FleetTab;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
 
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 
 public class SecFleet extends Sector {
 
+    //constants
+    private final static int TOT_HEIGHT =450, MID_HEIGHT=14, TOP_HEIGHT =24;
+
     //reference variables
-    private Game game;
+    private final Game game;
+    private final Skin skin;
 
     //tree
     private Group parent;
-    private ScrollPane bodyPane;
     private HashMap<TabType, FleetTab> tabs;
-    private TabType selected;
+    private TabType selectedType;
+    private VerticalGroup vertical;
+    private Group headerBar;
 
-    //rendering
-    private float timeSinceSort;
+    //row tracking
+    private final ArrayList<Entity> entities;
+    private final HashMap<Entity, HorizontalGroup> entityToRow; //caches created rows
 
-    //fleet grid index tracking
-    private int[] fleetGridEntCt;
-    private int fleetWarpEntCt;
+    //state
+    private float timeWithoutSorting;
 
 
-    /**
-     * Constructor
-     */
+    /* Creation */
+
     SecFleet(Game game){
         this.game = game;
-        this.selected = TabType.Fleet;
+        this.skin = game.skin;
+        this.selectedType = TabType.Fleet;
+
+        entities = new ArrayList<>();
+        entityToRow = new HashMap<>();
+
+        timeWithoutSorting = 0;
     }
 
     @Override
@@ -51,33 +65,54 @@ public class SecFleet extends Sector {
         parent = super.init();
         parent.setBounds(0, 230, 300, 450);
 
-        //create the decoration
+        //initialize subsections
+        parent.addActor(initDecoration());
+        parent.addActor(initTabs());
+        parent.addActor(initHeaderBar());
+        parent.addActor(initPane());
+
+        return parent;
+    }
+
+    private Group initDecoration(){
+        //set variables
+
+        //create the group
         Group decoration = new Group();
         decoration.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(decoration);
 
+        //load texture
+        Texture blackPixel = new Texture(Gdx.files.internal("images/pixels/black.png"));
+
+        //create the images
         Image ribbon = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
-        Image embeddedBot = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
-        embeddedBot.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-9-24);
+
+        Image embeddedBot = new Image(blackPixel);
+        embeddedBot.setBounds(3, 3, parent.getWidth()-6,
+                TOT_HEIGHT-12-MID_HEIGHT-TOP_HEIGHT);
         decoration.addActor(embeddedBot);
-        Image embeddedTop = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
-        embeddedTop.setBounds(3, 6+embeddedBot.getHeight(), parent.getWidth()-6, 24);
+
+        Image embeddedMid = new Image(blackPixel);
+        embeddedMid.setBounds(3, 3+embeddedBot.getHeight()+3, parent.getWidth()-6,
+                MID_HEIGHT);
+        decoration.addActor(embeddedMid);
+
+        Image embeddedTop = new Image(blackPixel);
+        embeddedTop.setBounds(3, 3+embeddedBot.getHeight()+3+embeddedMid.getHeight()+3,
+                parent.getWidth()-6, TOP_HEIGHT);
         decoration.addActor(embeddedTop);
 
-        //initialize tabs
-        tabs = new HashMap<>();
-
-        //add subsections
-        parent.addActor(initTabs());
-        parent.addActor(bodyPane = initScrollPane(parent.getWidth()-6, parent.getHeight()-9-24));
-        return parent;
+        return decoration;
     }
 
     private Group initTabs(){
         Group group = new Group();
         group.setPosition(3, 421);
+
+        tabs = new HashMap<>();
 
         //create the tabs
         TabType[] types = TabType.values();
@@ -101,45 +136,46 @@ public class SecFleet extends Sector {
             });
         }
 
+        //select tab
+        tabs.get(TabType.Fleet).selectTab(true);
+
         return group;
     }
 
-    private ScrollPane initScrollPane(float width, float height){
+    private Group initHeaderBar(){
+        headerBar = new Group();
+        headerBar.setPosition(5, 401);
 
-        ScrollPane pane = new ScrollPane(tabs.get(TabType.Fleet).getVertical());
-        pane.setBounds(3, 3, width, height);
+        loadHeaderBar(TabType.Fleet);
+
+        return headerBar;
+    }
+
+    private ScrollPane initPane(){
+        vertical = new VerticalGroup();
+        vertical.top().left();
+        vertical.columnAlign(Align.left);
+
+        ScrollPane pane = new ScrollPane(vertical, skin);
+        pane.setBounds(3, 3, 294, TOT_HEIGHT-12-MID_HEIGHT-TOP_HEIGHT);
         pane.setScrollingDisabled(true, false);
         pane.setupFadeScrollBars(0.2f, 0.2f);
         pane.setSmoothScrolling(false);
-        pane.setColor(Color.GRAY);
+        pane.setColor(Color.BLACK);
 
         return pane;
     }
 
     @Override
-    public void setState(GameState state){
-        super.setState(state);
-
-        //entity tracking
-        fleetGridEntCt = new int[state.grids.length];
-    }
-
-    @Override
     void load() {
-        //set the currently selected one
-        switchSelectedTabs(TabType.Fleet);
     }
 
     @Override
     void render(float delta) {
-        timeSinceSort += delta;
-
-        if(timeSinceSort > 0.5f){
-            //perform the sort
-            sortTab();
-
-            //reset the timer
-            timeSinceSort = 0;
+        timeWithoutSorting += delta;
+        if(timeWithoutSorting > 0.5f){
+            sortEntities();
+            timeWithoutSorting = 0;
         }
     }
 
@@ -148,228 +184,351 @@ public class SecFleet extends Sector {
     }
 
 
-    /* Event Methods */
+    /* External Event Methods */
 
     /**
-     * Switches which tab is currently selected and displaying.
+     * Switches which grid data is being displayed.
      */
-    void switchSelectedTabs(TabType switchTo){
-        //unselect the current one
-        tabs.get(selected).selectTopTab(false);
-        tabs.get(selected).clearEntities();
+    void switchGridFocus(){
+        if(selectedType != TabType.Fleet){
+            //remove everything about the old grid
+            vertical.clearChildren();
+            entities.clear();
+            entityToRow.clear();
 
-        //reset the fleet counter
-        fleetWarpEntCt = 0;
-        Arrays.fill(fleetGridEntCt, 0);
-
-        //select the new one
-        selected = switchTo;
-        tabs.get(selected).selectTopTab(true);
-        bodyPane.setActor(tabs.get(selected).getVertical());
-        loadEntitiesForSelectedTab();
-
-        //sort correctly
-        sortTab();
-    }
-
-    /**
-     * Reloads all entities on the given tab.
-     */
-    void reloadTabEntities(){
-        //reset the fleet counter
-        fleetWarpEntCt = 0;
-        Arrays.fill(fleetGridEntCt, 0);
-
-        //clear all entities
-        tabs.get(selected).clearEntities();
-        //load the entities
-        loadEntitiesForSelectedTab();
-    }
-
-    /**
-     * Tells this sector to update the entity with new information from the state.
-     * Can remove entity if that entity has moved to a new grid.
-     * @param entGrid The grid the entity is now on.
-     */
-    void upsertEntity(Entity entity, int entGrid){
-        //updates the graphics
-        entity.fleetRow.updateDisplay(state, entGrid);
-
-        //remove from non-fleet tab  TODO remove from fleet tab
-        if(tabs.get(selected).hasEntityRow(entity.fleetRow) &&
-                entGrid != game.getGrid() &&
-                (selected==TabType.Grid || selected==TabType.Ally || selected==TabType.Enemy)){
-            tabs.get(selected).removeEntity(entity.fleetRow);
+            //generate the new grid stuff
+            addAllEntities(selectedType);
         }
-        //add to fleet tab
-        if(!tabs.get(selected).hasEntityRow(entity.fleetRow) &&
-                (entity.owner == state.myId && selected==TabType.Fleet)){
-            tabs.get(selected).addEntityRowAt(entity, selected, fleetTabIndexBasedOnGrid(entGrid));
-            if(entGrid != -1){
-                fleetGridEntCt[entGrid]++;
+    }
+
+    /**
+     * Adds an entity to the correct spot and updates its values.
+     */
+    void checkAddEntity(Entity entity){
+        //check if this entity should be added
+        if(selectedType == TabType.Fleet){
+            if(state.myId != entity.owner) return;
+        }
+        else {
+            if(game.getGrid() != entity.grid ||
+                    (entity instanceof Ship && ((Ship) entity).warpTimeToLand != 0)) return;
+        }
+
+        //find the correct position
+        int index = 0;
+        for(Entity e : entities){
+            if(entityOrdering(entity, e) < 0) break;
+            else index++;
+        }
+
+        //add it
+        entities.add(index, entity);
+        vertical.addActorAt(index, getEntityRow(entity, selectedType));
+        updEntityValues(entity);
+    }
+
+    /**
+     * Removes the entity from the display.
+     */
+    void checkRemoveEntity(Entity entity){
+        //check if the entity should be removed
+        if(state.findEntity(EntPtr.createFromEntity(entity)) != null){
+            if(selectedType == TabType.Fleet && entity.owner == state.myId){
+                return;
             }
             else {
-                fleetWarpEntCt++;
+                //check if it is still in space on the grid
+                if(entity instanceof Ship &&
+                        state.grids[game.getGrid()].ships.containsKey(entity.getId())){
+                    //check ownership
+                    switch(selectedType){
+                        case Ally:
+                            if(entity.owner == state.myId) return;
+                            break;
+                        case Enemy:
+                            if(entity.owner != state.myId) return;
+                            break;
+                        default:
+                            return;
+                    }
+                }
             }
         }
-        //add to non-fleet tab
-        else if(!tabs.get(selected).hasEntityRow(entity.fleetRow) &&
-                (entGrid == game.getGrid() &&
-                (selected==TabType.Grid ||
-                (selected==TabType.Ally && entity.owner == state.myId) ||
-                (selected==TabType.Enemy && entity.owner != state.myId)))){
-            tabs.get(selected).addEntityRow(entity, selected);
+
+        //find index
+        int index = entities.indexOf(entity);
+
+        //remove it
+        if(index > -1){
+            entities.remove(entity);
+            vertical.removeActorAt(index, true);
+            entityToRow.remove(entity);
         }
     }
 
-    void updateEntityEnterWarp(Entity entity, int originGridId){
-        entity.fleetRowDisplayingWarp = true;
+    /**
+     * Reload entity.
+     */
+    void reloadEntity(Entity entity){
+        //find index
+        int index = entities.indexOf(entity);
 
-        if(selected==TabType.Fleet){
-            tabs.get(selected).moveEntityRow(entity.fleetRow, fleetTabIndexBasedOnGrid(-1));
-
-            fleetWarpEntCt++;
-            fleetGridEntCt[originGridId]--;
+        //remove it
+        if(index > -1){
+            entities.remove(entity);
+            vertical.removeActorAt(index, true);
+            entityToRow.remove(entity);
         }
+
+        //add it back
+        checkAddEntity(entity);
     }
 
-    void updateEntityExitWarp(Entity entity, int destGridId){
-        entity.fleetRowDisplayingWarp = false;
+    /**
+     * Sorts the entities based on their proximity to the origin. Does not operate if type is fleet.
+     * TODO add different comparing functions
+     */
+    void sortEntities(){
+        Actor swappingOne, swappingTwo;
 
-        if(selected==TabType.Fleet){
-            //the -1 accounts for this ship leaving warp
-            tabs.get(selected).moveEntityRow(entity.fleetRow, fleetTabIndexBasedOnGrid(destGridId)-1);
+        if(selectedType != TabType.Fleet){
+            //double loop
+            for(int i=0; i<entities.size(); i++){
+                for(int j=i+1; j<entities.size(); j++){
+                    if(entities.get(i).pos.len() > entities.get(j).pos.len()){
+                        //perform the swap
+                        Collections.swap(entities, i, j);
 
-            fleetWarpEntCt--;
-            fleetGridEntCt[destGridId]++;
-        }
-    }
-
-    void removeEntity(Entity entity, int grid){
-        if(tabs.get(selected).hasEntityRow(entity.fleetRow)){
-            //remove it
-            tabs.get(selected).removeEntity(entity.fleetRow);
-
-            //update the fleet index counters
-            if(selected == TabType.Fleet){
-                if(grid != -1){
-                    fleetGridEntCt[grid]--;
-                }
-                else {
-                    fleetWarpEntCt--;
+                        //swap on vertical (had to do manually, the method didn't swap them visually)
+                        swappingOne = vertical.removeActorAt(j, false);
+                        swappingTwo = vertical.removeActorAt(i, false);
+                        vertical.addActorAt(i, swappingOne);
+                        vertical.addActorAt(j, swappingTwo);
+                    }
                 }
             }
         }
     }
 
     /**
-     * Called when an entity's name is clicked on.
+     * Updates the UI to match the entity's current logical values.
      */
-    public void entityNameClicked(int button, Entity entity){
-        game.fleetClickEvent(button, entity);
+    void updEntityValues(Entity entity){
+        //get the group, return if it doesn't already exist
+        HorizontalGroup group = entityToRow.get(entity);
+        if(group == null) return;
+
+
+        if(entity instanceof Ship){
+            if(selectedType == TabType.Fleet){
+                if(entity.grid != -1) ((Label) group.getChild(0)).setText("[" + state.grids[entity.grid].nickname  + "]");
+                else ((Label) group.getChild(0)).setText("[W]");
+                group.getChild(1).setColor(state.findColorForOwner(entity.owner));
+            }
+            else {
+                group.getChild(0).setColor(state.findColorForOwner(entity.owner));
+            }
+        }
+        else if(entity instanceof Station){
+            group.getChild(0).setColor(state.findColorForOwner(entity.owner));
+        }
+    }
+
+
+    /* Internal Event Methods */
+
+    /**
+     * Switches which tab is selected.
+     */
+    private void switchSelectedTabs(TabType type){
+        //do nothing if it's the same type
+        if(type == selectedType) return;
+
+        //update selected type
+        tabs.get(selectedType).selectTab(false);
+        selectedType = type;
+        tabs.get(selectedType).selectTab(true);
+
+        //clear entities
+        vertical.clearChildren();
+        entities.clear();
+        entityToRow.clear();
+
+        //add all the needed entities
+        addAllEntities(type);
+        loadHeaderBar(type);
+    }
+
+    /**
+     * Called when an entity name is clicked on.
+     */
+    private void entityClicked(int button, Entity entity){
+        game.fleetClickEvent(entity);
     }
 
 
     /* Utility Methods */
 
     /**
-     * Loads all entities for the given tab.
-     *
-     * TODO stop this from running twice when the game is first starting
+     * Used to decide the ordering of two entities.
+     * @return -1 if entOne belongs higher up. 1 if entTwo belongs higher up. 0 if indifferent.
      */
-    private void loadEntitiesForSelectedTab() {
-        FleetTab t = tabs.get(selected);
+    private int entityOrdering(Entity entOne, Entity entTwo){
+        //check warp
+        if(entOne.grid == -1 && entTwo.grid != -1) return -1;
+        else if(entOne.grid != -1 && entTwo.grid == -1) return 1;
+        //check grid
+        else if(entOne.grid < entTwo.grid) return -1;
+        else if(entOne.grid > entTwo.grid) return 1;
+        //check type
+        else if(entOne instanceof Station && entTwo instanceof Ship) return -1;
+        else if(entOne instanceof Ship && entTwo instanceof Station) return 1;
+        //check docked
+        else if(!entOne.isDocked() && entTwo.isDocked()) return -1;
+        else if(entOne.isDocked() && !entTwo.isDocked()) return 1;
+        //compare positions
+        else if(!entOne.isDocked() && !(entOne.grid==-1) && !entTwo.isDocked() && !(entTwo.grid==-1)){
+            if(entOne.pos.len() < entTwo.pos.len()) return -1;
+            else if(entOne.pos.len() > entTwo.pos.len()) return 1;
+        }
 
-        switch (selected) {
-            case Fleet: {
-                //don't need to insert at specific indices because going in grid order
-                for (Ship s : state.inWarp.values()) {
-                    if (s.owner == state.myId) {
-                        t.addEntityRow(s, selected);
-                        fleetWarpEntCt++;
-                    }
-                }
-                for (Grid g : state.grids) {
-                    //stations
-                    if (g.station.owner == state.myId) {
-                        t.addEntityRow(g.station, selected);
-                        fleetGridEntCt[g.id]++;
-                    }
-                    //ships
-                    for (Ship s : g.ships.values()) {
-                        if (s.owner == state.myId) {
-                            t.addEntityRow(s, selected);
-                            fleetGridEntCt[g.id]++;
-                        }
-                    }
-                }
-                break;
+        //return equal ordering
+        return 0;
+    }
+
+    /**
+     * Gets the row for a given entity. If none exists, then it creates one.
+     */
+    private HorizontalGroup getEntityRow(Entity entity, TabType type){
+
+        HorizontalGroup actor = entityToRow.get(entity);
+
+        if(actor == null){
+            if(entity instanceof Ship) actor = createShipRow((Ship) entity, type);
+            else if(entity instanceof Station) actor = createStationRow((Station) entity, type);
+
+            entityToRow.put(entity, actor);
+        }
+
+        return actor;
+    }
+
+    /**
+     * Adds all entities necessary for this tab type.
+     */
+    private void addAllEntities(TabType type){
+        if(type == TabType.Fleet){
+            //ships in warp
+            for(Ship s : state.inWarp.values()){
+                checkAddEntity(s);
             }
-            case Grid: {
-                Grid g = state.grids[game.getGrid()];
+            //not in warp
+            for(Grid g : state.grids){
                 //station
-                t.addEntityRow(g.station, selected);
-                for (Ship s : g.ships.values()) {
-                    t.addEntityRow(s, selected);
+                if(g.station.owner == state.myId){
+                    checkAddEntity(g.station);
                 }
-                break;
+                //ships in space
+                for(Ship s : g.ships.values()){
+                    checkAddEntity(s);
+                }
+                //docked ships
+                for(Ship s : g.station.dockedShips.values()){
+                    checkAddEntity(s);
+                }
             }
-            case Ally: {
-                Grid g = state.grids[game.getGrid()];
-                //station
-                if (g.station.owner == state.myId) {
-                    t.addEntityRow(g.station, selected);
-                }
-                //ships
-                for (Ship s : g.ships.values()) {
-                    if (s.owner == state.myId) {
-                        t.addEntityRow(s, selected);
-                    }
-                }
-                break;
+        }
+        else {
+            Grid g = state.grids[game.getGrid()];
+            //add station
+            if(type == TabType.Grid ||
+                    (type == TabType.Ally && g.station.owner == state.myId) ||
+                    (type == TabType.Enemy && g.station.owner != state.myId)){
+                checkAddEntity(g.station);
             }
-            case Enemy: {
-                Grid g = state.grids[game.getGrid()];
-                //station
-                if (g.station.owner != state.myId) {
-                    t.addEntityRow(g.station, selected);
+            //add ships
+            for(Ship s : g.ships.values()){
+                if(type == TabType.Grid ||
+                        (type == TabType.Ally && s.owner == state.myId) ||
+                        (type == TabType.Enemy && s.owner != state.myId)){
+                    checkAddEntity(s);
                 }
-                //ships
-                for (Ship s : g.ships.values()) {
-                    if (s.owner != state.myId) {
-                        t.addEntityRow(s, selected);
-                    }
-                }
-                break;
             }
+
         }
     }
 
     /**
-     * Checks if a sort should be performed, then performs it if it should.
+     * Loads the header bar for the given tab type.
      */
-    private void sortTab(){
-        if(selected != TabType.Fleet){
-            tabs.get(selected).sortByPosOrigin();
-        }
+    private void loadHeaderBar(TabType type){
+        headerBar.clearChildren();
+
+        //name child
+        Label nameLab = new Label("Name", skin, "small", Color.GRAY);
+        nameLab.setFontScale(0.8f);
+        headerBar.addActor(nameLab);
+
+        //position child
+        Label posLab = new Label("Dst", skin, "small", Color.GRAY);
+        posLab.setFontScale(0.8f);
+        posLab.setX(90);
+        headerBar.addActor(posLab);
+
+        //velocity child
+        Label spdLab = new Label("Spd", skin, "small", Color.GRAY);
+        spdLab.setFontScale(0.8f);
+        spdLab.setX(135);
+        headerBar.addActor(spdLab);
     }
 
     /**
-     * Returns the index that an entity on the given grid should be placed.
+     * TODO make more detailed
      */
-    private int fleetTabIndexBasedOnGrid(int entGrid){
-        int count = fleetWarpEntCt;
+    private HorizontalGroup createShipRow(Ship ship, TabType type){
+        HorizontalGroup group = new HorizontalGroup();
 
-        //loop through grids until reaching the correct one
-        if(entGrid != -1){
-            int g = 0;
-            while (g <= entGrid) {
-                count += fleetGridEntCt[g];
-                g++;
-            }
+        //actors
+        if(type == TabType.Fleet){
+            Label tagLabel = new Label("[X]", skin, "small", Color.LIGHT_GRAY);
+            group.addActor(tagLabel);
         }
+        Label nameLabel = new Label(ship.getType().toString(), skin, "small", Color.WHITE);
+        group.addActor(nameLabel);
 
-        return count;
+        //listeners
+        nameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(event.isHandled()) return;
+                entityClicked(Input.Buttons.LEFT, ship);
+                event.handle();
+            }
+        });
+
+        return group;
+    }
+
+    /**
+     * TODO make more detailed
+     */
+    private HorizontalGroup createStationRow(Station station, TabType type){
+        HorizontalGroup group = new HorizontalGroup();
+
+        Label nameLabel = new Label(station.shortNickname, skin, "small", Color.WHITE);
+        group.addActor(nameLabel);
+
+        //listeners
+        nameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(event.isHandled()) return;
+                entityClicked(Input.Buttons.LEFT, station);
+                event.handle();
+            }
+        });
+
+        return group;
     }
 
 

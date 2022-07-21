@@ -1,23 +1,22 @@
 package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.twisted.Main;
-import com.twisted.local.game.util.TogImgButton;
+import com.twisted.local.game.state.GameState;
+import com.twisted.local.game.util.*;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.net.msg.gameReq.*;
+
+import java.util.HashMap;
 
 /**
  * The details sector that shows the details of a particular entity when clicked on. Currently
@@ -28,31 +27,25 @@ import com.twisted.net.msg.gameReq.*;
         > (0) decoration
         > (1) child parents (empty/ship/etc)
  */
-class SecDetails extends Sector {
+public class SecDetails extends Sector {
 
-    //reference variables
-    private Game game;
-
-    //graphics utilities
-    private Skin skin;
+    //high level references
+    private final Game game;
+    private final Skin skin;
 
     //tree
-    private Group parent, emptyParent, shipParent;
-    private Group shipButtonGroup, shipWeaponGroup;
-    private Label shipName, shipMoveCommand, shipGrid, shipPosition, shipVelocity, healthLabel,
-            targetLabel;
-    private TogImgButton targetButton;
-    private Image healthFill;
-    private TogImgButton[] weaponButtons;
+    private Group parent;
 
     //graphics state
-    EntPtr selectEnt;
+    private final HashMap<Display, DetailsSecGroup> displayGroups;
+    private Display activeDisplay;
 
     //input state
     private ExternalWait externalWait;
-
-    //stored clicks
     private EntPtr storeEntClick;
+
+    //assets
+    private HashMap<Weapon.Type, TextureRegionDrawable[]> weaponTextureMap; //arrays [off, on]
 
 
     /**
@@ -63,6 +56,9 @@ class SecDetails extends Sector {
         this.skin = game.skin;
 
         externalWait = ExternalWait.NONE;
+        activeDisplay = Display.EMPTY;
+
+        displayGroups = new HashMap<>();
     }
 
     /**
@@ -71,8 +67,18 @@ class SecDetails extends Sector {
     @Override
     Group init() {
         parent = super.init();
+        Vector2 size = new Vector2(300, 125); //TODO use this when creating groups
         parent.setBounds(0, 100, 300, 125);
 
+        //initialize stuff
+        parent.addActor(initDecoration(size));
+        initDisplayGroups(size);
+        initAssets();
+
+        return parent;
+    }
+
+    private Group initDecoration(Vector2 size){
         //decoration group
         Group decoration = new Group();
 
@@ -84,248 +90,40 @@ class SecDetails extends Sector {
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
         decoration.addActor(embedded);
 
-        parent.addActor(decoration);
-
-        //create the ship details group
-        parent.addActor(initEmptySubgroup());
-        initShipSubgroup();
-
-        return parent;
+        //return
+        return decoration;
     }
 
-    /**
-     * Init the base level of the subgroup.
-     */
-    private Group initEmptySubgroup(){
-        emptyParent = new Group();
+    private void initDisplayGroups(Vector2 size){
+        //create the display groups
+        displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_IN_SPACE, new ShipInSpaceDets(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_DOCKED, new ShipDockedDets(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_IN_WARP, new ShipInWarpDets(this, skin, game.glyph, size));
 
-        Label label = new Label("[Selection]", skin, "medium", Color.WHITE);
-        label.setPosition(8, 100);
-        emptyParent.addActor(label);
-
-        return emptyParent;
+        //add the default actor
+        parent.addActor(displayGroups.get(Display.EMPTY));
     }
 
-    /**
-     * Init the ship subgroup.
-     */
-    private void initShipSubgroup(){
-        //initialize the details group
-        shipParent = new Group();
+    private void initAssets(){
+        weaponTextureMap = new HashMap<>();
 
-        //initialize the higher direct children of shipParent
-        Group topTextGroup = new Group();
-        topTextGroup.setPosition(6, 100);
-        shipParent.addActor(topTextGroup);
+        for(Weapon.Type t : Weapon.Type.values()){
+            TextureRegionDrawable[] arr = new TextureRegionDrawable[2];
 
-        Group locationGroup = new Group();
-        locationGroup.setPosition(6, 42);
-        shipParent.addActor(locationGroup);
+            arr[0] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-off.png")));
+            arr[1] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-on.png")));
 
-        Group healthGroup = new Group();
-        healthGroup.setPosition(6, 87);
-        shipParent.addActor(healthGroup);
-
-        shipButtonGroup = new Group();
-        shipButtonGroup.setPosition(6, 4);
-        shipParent.addActor(shipButtonGroup);
-
-        shipWeaponGroup = new Group();
-        shipWeaponGroup.setPosition(190, 30);
-        shipParent.addActor(shipWeaponGroup);
-
-        // Children of the topTextGroup \\
-        shipGrid = new Label("[?]", skin, "medium", Color.WHITE);
-        topTextGroup.addActor(shipGrid);
-
-        shipName = new Label("[Ship Name]", skin, "medium", Color.WHITE);
-        shipName.setPosition(30, 0);
-        topTextGroup.addActor(shipName);
-
-        shipMoveCommand = new Label("[movement cmd]", skin, "small", Color.LIGHT_GRAY);
-        shipMoveCommand.setFontScale(0.9f);
-        game.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setPosition(290 - game.glyph.width*shipMoveCommand.getFontScaleX(), 0);
-        topTextGroup.addActor(shipMoveCommand);
-
-        // Children of the locationGroup \\
-        shipPosition = new Label("[x]\n[y]", skin, "small", Color.LIGHT_GRAY);
-        locationGroup.addActor(shipPosition);
-
-        shipVelocity = new Label("[sp]\n[ag]", skin, "small", Color.LIGHT_GRAY);
-        shipVelocity.setPosition(84, 0);
-        locationGroup.addActor(shipVelocity);
-
-        // Children of the healthGroup \\
-        Image healthOutline = new Image(new Texture(Gdx.files.internal("images/pixels/gray.png")));
-        healthOutline.setBounds(0, 0, 202, 10);
-        healthGroup.addActor(healthOutline);
-
-        Image healthInline = new Image(new Texture(Gdx.files.internal("images/pixels/darkgray.png")));
-        healthInline.setBounds(1, 1, 200, 8);
-        healthGroup.addActor(healthInline);
-
-        healthFill = new Image(new Texture(Gdx.files.internal("images/pixels/green.png")));
-        healthFill.setBounds(1, 1, 200, 8);
-        healthGroup.addActor(healthFill);
-
-        healthLabel = new Label("[health]", skin, "small",
-                new Color(0,0.49f,0,1));
-        healthLabel.setPosition(204, -7);
-        healthGroup.addActor(healthLabel);
-
-        // Children of shipButtonGroup \\
-        ImageButton stopButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/stop.png"))));
-        stopButton.setBounds(0, 0, 24, 24);
-        shipButtonGroup.addActor(stopButton);
-        ImageButton moveButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/move.png"))));
-        moveButton.setBounds(28, 0, 24, 24);
-        shipButtonGroup.addActor(moveButton);
-        ImageButton orbitButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/orbit.png"))));
-        orbitButton.setBounds(56, 0, 24, 24);
-        shipButtonGroup.addActor(orbitButton);
-        ImageButton alignButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/align.png"))));
-        alignButton.setBounds(84, 0, 24, 24);
-        shipButtonGroup.addActor(alignButton);
-        ImageButton warpButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/warp.png"))));
-        warpButton.setBounds(112, 0, 24, 24);
-        shipButtonGroup.addActor(warpButton);
-
-        //listeners for the shipButtonGroup
-        SecDetails thisCrossSectorListener = this;
-        stopButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-
-            if(event instanceof ChangeListener.ChangeEvent){
-                game.sendGameRequest(new MShipStopReq(selectEnt.id, selectEnt.grid));
-                return true;
-            }
-            return true;
-        });
-        moveButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-
-            if(event instanceof ChangeListener.ChangeEvent){
-                game.updateCrossSectorListening(this, "Move command...");
-                game.viewportSelection(SecViewport.Select.BASE_MOUSE_LINE, true,
-                        new EntPtr(Entity.Type.Ship, selectEnt.id, selectEnt.grid, selectEnt.docked), Color.WHITE,
-                        0);
-                this.externalWait = ExternalWait.MOVE;
-                return true;
-            }
-            return true;
-        });
-        orbitButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-            if(event instanceof ChangeListener.ChangeEvent){
-                game.updateCrossSectorListening(this, "Orbit command...");
-                this.externalWait = ExternalWait.ORBIT_WHO;
-            }
-            return true;
-        });
-        alignButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-
-            if(event instanceof ChangeListener.ChangeEvent){
-                game.updateCrossSectorListening(this, "Align command...");
-                this.externalWait = ExternalWait.ALIGN;
-                return true;
-            }
-            return true;
-        });
-        warpButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-
-            if(event instanceof ChangeListener.ChangeEvent){
-                game.updateCrossSectorListening(this, "Warp command...");
-                this.externalWait = ExternalWait.WARP;
-            }
-            return true;
-        });
-
-        // Children of the shipWeaponGroup \\
-        targetLabel = new Label("[firing]", skin, "small", Color.WHITE);
-        targetLabel.setPosition(28, 0);
-        shipWeaponGroup.addActor(targetLabel);
-
-        targetButton = new TogImgButton(
-                new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/target-off.png"))),
-                new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/target-on.png")))
-        );
-        targetButton.setBounds(0, 0, 24, 24);
-        shipWeaponGroup.addActor(targetButton);
-
-        weaponButtons = new TogImgButton[3];
-        for(int i=0; i<weaponButtons.length; i++){
-            weaponButtons[i] = new TogImgButton(null, null);
-            weaponButtons[i].setBounds(i*28, 28, 24, 24);
-            shipWeaponGroup.addActor(weaponButtons[i]);
+            weaponTextureMap.put(t, arr);
         }
+    }
 
-        //listeners for the shipWeaponGroup
-        targetButton.changeClickListener(new ClickListener(Input.Buttons.LEFT){
-            @Override
-            public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
+    @Override
+    void setState(GameState state){
+        this.state = state;
 
-                //listen for an entity to select
-                if(selectEnt.grid > -1 && state.grids[selectEnt.grid].ships.get(selectEnt.id).targetingState == null){
-                    game.updateCrossSectorListening(thisCrossSectorListener, "Target command...");
-                    externalWait = ExternalWait.TARGET;
-                }
-                //cancel targeting
-                else {
-                    game.sendGameRequest(new MTargetReq(selectEnt.grid, selectEnt.id, null, -1));
-                }
-
-                event.handle();
-            }
-        });
-        targetButton.changeEnterListener(event -> {
-            if(event instanceof InputEvent){
-                if(((InputEvent) event).getType() == InputEvent.Type.enter){
-                    //TODO set this color based on weapon type
-                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                            selectEnt.cpy(), Color.RED, ((Ship)state.findEntity(selectEnt)).getTargetRange());
-                }
-                else if(((InputEvent) event).getType() == InputEvent.Type.exit){
-                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
-                            null, null, 0);
-                }
-            }
-            return false;
-        });
-        for(int i=0; i<weaponButtons.length; i++){
-            TogImgButton button = weaponButtons[i];
-            int weaponId = i;
-
-            button.changeClickListener(new ClickListener(Input.Buttons.LEFT){
-                @Override
-                public void clicked(InputEvent event, float x, float y){
-                    if(event.isHandled()) return;
-                    game.sendGameRequest(new MWeaponActiveReq(selectEnt.grid, selectEnt.id, weaponId,
-                            !state.grids[selectEnt.grid].ships.get(selectEnt.id).weapons[weaponId].active));
-                    event.handle();
-                }
-            });
-            button.changeEnterListener(event -> {
-                if(event instanceof InputEvent){
-                    if(((InputEvent) event).getType() == InputEvent.Type.enter){
-                        game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                                selectEnt.cpy(), Color.YELLOW,
-                                ((Ship)state.findEntity(selectEnt)).weapons[weaponId].getMaxRange());
-                    }
-                    else if(((InputEvent) event).getType() == InputEvent.Type.exit){
-                        game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false, null, null, 0);
-                    }
-                }
-                return false;
-            });
+        for(DetailsSecGroup d : displayGroups.values()){
+            d.setState(state);
         }
     }
 
@@ -348,97 +146,115 @@ class SecDetails extends Sector {
 
     @Override
     void viewportClickEvent(Vector2 screenPos, Vector2 gamePos, EntPtr ptr) {
-        if(game.getGrid() == selectEnt.grid){
-            //create the request
-            MGameReq req = null;
-            if(externalWait == ExternalWait.MOVE){
-                req = new MShipMoveReq(selectEnt.grid, selectEnt.id, gamePos);
+        Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
 
-                game.updateCrossSectorListening(null, null);
-            }
-            else if(externalWait == ExternalWait.ALIGN){
-                Ship s = state.grids[selectEnt.grid].ships.get(selectEnt.id);
-                req = new MShipAlignReq(selectEnt.grid, selectEnt.id,
-                        (float) Math.atan2(gamePos.y-s.pos.y, gamePos.x-s.pos.x));
+        if(ent == null){
+            System.out.println("Unexpected state");
+            new Exception().printStackTrace();
+            return;
+        }
+        else if(ent instanceof Ship){
+            if(game.getGrid() == ent.grid){
+                //create the request
+                MGameReq req = null;
+                if(externalWait == ExternalWait.MOVE){
+                    req = new MShipMoveReq(ent.grid, ent.getId(), gamePos);
 
-                game.updateCrossSectorListening(null, null);
-            }
-            else if(externalWait == ExternalWait.TARGET){
-                if(ptr != null){
-                    req = new MTargetReq(selectEnt.grid, selectEnt.id, ptr.type, ptr.id);
+                    game.updateCrossSectorListening(null, null);
                 }
+                else if(externalWait == ExternalWait.ALIGN){
+                    Ship s = state.grids[ent.grid].ships.get(ent.getId());
+                    req = new MShipAlignReq(ent.grid, ent.getId(),
+                            (float) Math.atan2(gamePos.y-s.pos.y, gamePos.x-s.pos.x));
 
-                game.updateCrossSectorListening(null, null);
-            }
-            else if(externalWait == ExternalWait.ORBIT_WHO){
-                if(ptr != null){
-                    storeEntClick = ptr;
+                    game.updateCrossSectorListening(null, null);
+                }
+                else if(externalWait == ExternalWait.TARGET){
+                    if(ptr != null){
+                        req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
+                    }
 
-                    game.updateCrossSectorListening(this, "Orbit radius command...");
-                    externalWait = ExternalWait.ORBIT_DIST;
-                    game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
-                            new EntPtr(ptr.type, ptr.id, selectEnt.grid, selectEnt.docked), Color.WHITE,
-                            0);
+                    game.updateCrossSectorListening(null, null);
+                }
+                else if(externalWait == ExternalWait.ORBIT_WHO){
+                    if(ptr != null){
+                        storeEntClick = ptr;
+
+                        game.updateCrossSectorListening(this, "Orbit radius command...");
+                        externalWait = ExternalWait.ORBIT_DIST;
+                        game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
+                                new EntPtr(ptr.type, ptr.id, ent.grid, ent.isDocked()), Color.WHITE,
+                                0);
+                    }
+                    else {
+                        game.updateCrossSectorListening(null, null);
+                    }
+                }
+                else if(externalWait == ExternalWait.ORBIT_DIST){
+                    Entity target = null;
+                    if(storeEntClick.type == Entity.Type.Ship){
+                        target = state.grids[ent.grid].ships.get(storeEntClick.id);
+                    }
+                    else if(storeEntClick.type == Entity.Type.Station){
+                        target = state.grids[ent.grid].station;
+                    }
+
+                    if(target != null){
+                        float radius = gamePos.dst(target.pos);
+
+                        req = new MShipOrbitReq(ent.grid, ent.getId(), storeEntClick.type,
+                                storeEntClick.id, radius);
+                    }
+
+                    game.updateCrossSectorListening(null, null);
                 }
                 else {
                     game.updateCrossSectorListening(null, null);
                 }
-            }
-            else if(externalWait == ExternalWait.ORBIT_DIST){
-                Entity ent = null;
-                if(storeEntClick.type == Entity.Type.Ship){
-                    ent = state.grids[selectEnt.grid].ships.get(storeEntClick.id);
-                }
-                else if(storeEntClick.type == Entity.Type.Station){
-                    ent = state.grids[selectEnt.grid].station;
-                }
 
-                if(ent != null){
-                    float radius = gamePos.dst(ent.pos);
-
-                    req = new MShipOrbitReq(selectEnt.grid, selectEnt.id, storeEntClick.type, storeEntClick.id,
-                            radius);
-                }
-
-                game.updateCrossSectorListening(null, null);
+                //send the message to the server
+                if(req != null) game.sendGameRequest(req);
             }
             else {
+                game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.YELLOW);
                 game.updateCrossSectorListening(null, null);
             }
-
-            //send the message to the server
-            if(req != null) game.sendGameRequest(req);
-        }
-        else {
-            game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.YELLOW);
-            game.updateCrossSectorListening(null, null);
         }
     }
 
     @Override
     void minimapClickEvent(int grid){
-        if(selectEnt.grid != -1){
-            //create the request
-            MGameReq req = null;
-            if(externalWait == ExternalWait.WARP){
-                req = new MShipWarpReq(selectEnt.grid, selectEnt.id, grid);
-            }
-            else if(externalWait == ExternalWait.ALIGN){
-                //calculate the angle
-                Vector2 g2 = state.grids[grid].pos;
-                Vector2 g1 = state.grids[selectEnt.grid].pos;
-                float angle = (float) Math.atan2(g2.y-g1.y, g2.x-g1.x);
-
+        Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
+        if(ent == null){
+            System.out.println("Unexpected state");
+            new Exception().printStackTrace();
+            return;
+        }
+        else if(ent instanceof Ship){
+            if(ent.grid != -1){
                 //create the request
-                req = new MShipAlignReq(selectEnt.grid, selectEnt.id, angle);
-            }
+                MGameReq req = null;
+                if(externalWait == ExternalWait.WARP){
+                    req = new MShipWarpReq(ent.grid, ent.getId(), grid);
+                }
+                else if(externalWait == ExternalWait.ALIGN){
+                    //calculate the angle
+                    Vector2 g2 = state.grids[grid].pos;
+                    Vector2 g1 = state.grids[ent.grid].pos;
+                    float angle = (float) Math.atan2(g2.y-g1.y, g2.x-g1.x);
 
-            //send the message to the server
-            if(req != null) game.sendGameRequest(req);
+                    //create the request
+                    req = new MShipAlignReq(ent.grid, ent.getId(), angle);
+                }
+
+                //send the message to the server
+                if(req != null) game.sendGameRequest(req);
+            }
+            else {
+                game.addToLog("Cannot command a ship that is currently in warp", SecLog.LogColor.YELLOW);
+            }
         }
-        else {
-            game.addToLog("Cannot command a ship that is currently in warp", SecLog.LogColor.YELLOW);
-        }
+
 
         //release the cross sector listening
         game.updateCrossSectorListening(null, null);
@@ -446,32 +262,41 @@ class SecDetails extends Sector {
 
     @Override
     void fleetClickEvent(EntPtr ptr){
-        //create the request
-        MGameReq req = null;
-        if(externalWait == ExternalWait.TARGET){
-            if(ptr.grid == selectEnt.grid){
-                req = new MTargetReq(selectEnt.grid, selectEnt.id, ptr.type, ptr.id);
+        Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
+
+        if(ent == null){
+            System.out.println("Unexpected state");
+            new Exception().printStackTrace();
+            return;
+        }
+        else if(ent instanceof Ship){
+            //create the request
+            MGameReq req = null;
+            if(externalWait == ExternalWait.TARGET){
+                if(ptr.grid == ent.grid){
+                    req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
+                }
+                else {
+                    game.addToLog("Can't target entity on dif grid", SecLog.LogColor.YELLOW);
+                }
+
+                game.updateCrossSectorListening(null, null);
+            }
+            else if(externalWait == ExternalWait.ORBIT_WHO){
+                storeEntClick = ptr;
+
+                game.updateCrossSectorListening(this, "Orbit radius command...");
+                externalWait = ExternalWait.ORBIT_DIST;
+                game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
+                        new EntPtr(ptr.type, ptr.id, ent.grid, ptr.docked), Color.WHITE, 0);
             }
             else {
-                game.addToLog("Can't target entity on dif grid", SecLog.LogColor.YELLOW);
+                game.updateCrossSectorListening(null, null);
             }
 
-            game.updateCrossSectorListening(null, null);
+            //send the message to the server
+            if(req != null) game.sendGameRequest(req);
         }
-        else if(externalWait == ExternalWait.ORBIT_WHO){
-            storeEntClick = ptr;
-
-            game.updateCrossSectorListening(this, "Orbit radius command...");
-            externalWait = ExternalWait.ORBIT_DIST;
-            game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
-                    new EntPtr(ptr.type, ptr.id, selectEnt.grid, ptr.docked), Color.WHITE, 0);
-        }
-        else {
-            game.updateCrossSectorListening(null, null);
-        }
-
-        //send the message to the server
-        if(req != null) game.sendGameRequest(req);
     }
 
     @Override
@@ -486,145 +311,160 @@ class SecDetails extends Sector {
         externalWait = ExternalWait.NONE;
     }
 
+
+    /* Asset Access */
+
     /**
-     * A ship is selected to be displayed in the details sector
+     * For accessing weapon button textures.
+     * @param on True to retrieve the on texture. False for the off one.
+     * @return A pre-loaded texture region.
      */
-    void shipSelected(int gridId, int shipId, int docked){
-        //set the selections
-        this.selectEnt = new EntPtr(Entity.Type.Ship, shipId, gridId, docked);
-
-        //update the primary child
-        parent.removeActorAt(1, true);
-        parent.addActor(shipParent);
-
-        //get the ship
-        Ship s;
-        if(gridId != -1){
-            s = state.grids[gridId].ships.get(shipId);
-        }
-        else {
-            s = state.inWarp.get(shipId);
-        }
-
-        //call loading to prepare the sector for the new ship
-        shipSelectedLoading(s);
-
-        //call update to make the state changes
-        updateShipData(s, gridId);
+    public TextureRegionDrawable retrieveWeaponTexture(Weapon.Type type, boolean on){
+        if(on) return weaponTextureMap.get(type)[1];
+        else return weaponTextureMap.get(type)[0];
     }
 
-    /**
-     * Called when new data about the ship has come through.
-     */
-    void updateShipData(Ship s, int gridId){
-        //meta data
-        this.selectEnt.grid = gridId;
 
-        //update movement and calculate new layout data
-        shipMoveCommand.setText(s.moveCommand);
-        game.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setX(290 - game.glyph.width*shipMoveCommand.getFontScaleX());
-
-        //update the health
-        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(s.getMaxHealth())+1)) + "s",
-                ((int) Math.ceil(s.health)) + "/" + s.getMaxHealth()));
-        healthFill.setWidth(200 * s.health / s.getMaxHealth());
-
-        //update targeting text
-        if(s.targetEntity != null){
-            switch(s.targetingState){
-                case Locking:
-                    if(s.targetTimeToLock > 0.95f) targetLabel.setText(Math.round(s.targetTimeToLock) + "s");
-                    else targetLabel.setText(Main.df1.format(s.targetTimeToLock) + "s");
-                    break;
-                case Locked:
-                    //TODO locked indicator with color
-                    targetLabel.setText("[X]");
-                    break;
-            }
-        }
-        else {
-            targetLabel.setText("");
-        }
-
-        //targeting button
-        targetButton.updateVisible(s.targetingState==null);
-
-        //update active weapons
-        for(int i=0; i<s.weapons.length; i++){
-            weaponButtons[i].updateVisible(!s.weapons[i].active);
-        }
-
-        //warp dependent
-        if(gridId != -1){
-            shipGrid.setText("[" + state.grids[gridId].nickname  +"]");
-
-            float[] rounded = s.roundedPosition(1);
-            shipPosition.setText("X = " + rounded[0] + "\nY = " + rounded[1]);
-
-            rounded = s.roundedBearing(2);
-            shipVelocity.setText("Sp = " + rounded[0] + "\nAg = " + (int) rounded[1]);
-        }
-        else {
-            shipGrid.setText("[W]");
-            shipPosition.setText("X = ?\nY = ?");
-            shipVelocity.setText("Sp = ?\nAg = ?");
-        }
-    }
+    /* Entity Event Methods */
 
     /**
-     * Stop selecting the current ship.
+     * Selects an entity.
      */
-    void stopSelectingShip(){
-        if(selectEnt.type != Entity.Type.Ship) return;
+    void selectEntity(Entity entity){
+        //make the old one invisible
+        parent.removeActor(displayGroups.get(activeDisplay));
 
-        //remove from view
-        parent.removeActorAt(1, true);
-        parent.addActor(emptyParent);
+        //set the active display
+        if(entity == null){
+            activeDisplay = Display.EMPTY;
+        }
+        else if(entity instanceof Ship){
+            if(entity.grid == -1) activeDisplay = Display.SHIP_IN_WARP;
+            else if(!entity.isDocked()) activeDisplay = Display.SHIP_IN_SPACE;
+            else activeDisplay = Display.SHIP_DOCKED;
+        }
+        else if(entity instanceof Station){
+            //TODO fill this properly
+            activeDisplay = Display.EMPTY;
+        }
 
         //stop any listening
         externalWait = null;
         storeEntClick = null;
+
+        //load and make the new one visible
+        displayGroups.get(activeDisplay).selectEntity(entity);
+        parent.addActor(displayGroups.get(activeDisplay));
+        displayGroups.get(activeDisplay).updateEntity();
+    }
+
+    /**
+     * Stop selecting the entity if it is the currently selected one.
+     */
+    void deselectEntity(EntPtr ptr){
+        if(ptr.matches(displayGroups.get(activeDisplay).getSelectedEntity())){
+            selectEntity(null);
+        }
+    }
+
+    /**
+     * Update the entity's ui to match its logical values.
+     */
+    void updateEntity(EntPtr ptr){
+        if(ptr.matches(displayGroups.get(activeDisplay).getSelectedEntity())){
+            displayGroups.get(activeDisplay).updateEntity();
+        }
+    }
+
+    /**
+     * If this entity is the currently selected one, then it will be deselected and reselected.
+     */
+    void reloadEntity(Entity entity){
+        if(EntPtr.createFromEntity(entity).matches(displayGroups.get(activeDisplay).getSelectedEntity())){
+            selectEntity(null);
+            selectEntity(entity);
+        }
     }
 
 
-    /* Utility Methods */
 
-    /**
-     * Does stuff to load in ship that only needs to be done once when it's selected as opposed
-     * to be being done in updateShipData.
-     */
-    private void shipSelectedLoading(Ship s){
-        //update the name
-        shipName.setText(s.getType().toString());
-        shipName.setColor(state.players.get(s.owner).getColor());
+    /* Internal Event Methods */
 
-        //update the weapon button visibility
-        for(int i=0; i<weaponButtons.length; i++){
-            //set visibility
-            weaponButtons[i].setVisible(i < s.getWeaponSlots().length);
+    public void input(Entity ent, Input input){
+        input(ent, input, 0);
+    }
 
-            //update the kind of each weapon
-            if(weaponButtons[i].isVisible()){
-                TextureRegionDrawable one=null, two=null;
-
-                switch(s.weapons[i].getType()){
-                    case Blaster:
-                        //TODO make new images for this
-                        one = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-off.png")));
-                        two = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-on.png")));
-                        break;
+    public void input(Entity ent, Input input, int value){
+        switch(input){
+            case SHIP_STOP: {
+                game.sendGameRequest(new MShipStopReq(ent.getId(), ent.grid));
+                break;
+            }
+            case SHIP_MOVE: {
+                game.updateCrossSectorListening(this, "Move command...");
+                game.viewportSelection(SecViewport.Select.BASE_MOUSE_LINE, true,
+                        new EntPtr(Entity.Type.Ship, ent.getId(), ent.grid, ent.isDocked()), Color.WHITE,
+                        0);
+                this.externalWait = SecDetails.ExternalWait.MOVE;
+                break;
+            }
+            case SHIP_ORBIT: {
+                game.updateCrossSectorListening(this, "Orbit command...");
+                this.externalWait = SecDetails.ExternalWait.ORBIT_WHO;
+                break;
+            }
+            case SHIP_ALIGN: {
+                game.updateCrossSectorListening(this, "Align command...");
+                this.externalWait = SecDetails.ExternalWait.ALIGN;
+                break;
+            }
+            case SHIP_WARP: {
+                game.updateCrossSectorListening(this, "Warp command...");
+                this.externalWait = SecDetails.ExternalWait.WARP;
+                break;
+            }
+            case SHIP_DOCK: {
+                game.sendGameRequest(new MShipDockReq(ent.getId(), ent.grid));
+                break;
+            }
+            case SHIP_TARGET: {
+                //listen for an entity to select
+                if(ent.grid > -1 &&
+                        state.grids[ent.grid].ships.get(ent.getId()).targetingState == null){
+                    game.updateCrossSectorListening(this, "Target command...");
+                    externalWait = SecDetails.ExternalWait.TARGET;
                 }
-
-                if(one != null){
-                    weaponButtons[i].switchTextures(one, two);
+                //cancel targeting
+                else {
+                    game.sendGameRequest(new MTargetReq(ent.grid, ent.getId(), null, -1));
                 }
+                break;
+            }
+            case SHIP_WEAPON_TOGGLE: {
+                game.sendGameRequest(new MWeaponActiveReq(ent.grid, ent.getId(), value,
+                        !((Ship) ent).weapons[value].active));
+                break;
+            }
+
+            case SHIP_WEAPON_HOVER_ON: {
+                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                        EntPtr.createFromEntity(ent), Color.YELLOW,
+                        ((Ship)ent).weapons[value].getMaxRange());
+                break;
+            }
+            case SHIP_WEAPON_HOVER_OFF:
+            case SHIP_TARGET_HOVER_OFF: {
+                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                        null, null, 0);
+                break;
+            }
+            case SHIP_TARGET_HOVER_ON: {
+                //TODO set this color based on weapon type
+                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).getTargetRange());
+                break;
             }
         }
-
-        //visibility based on ownership
-        shipButtonGroup.setVisible(s.owner == state.myId);
-        shipWeaponGroup.setVisible(s.owner == state.myId);
     }
 
 
@@ -633,7 +473,7 @@ class SecDetails extends Sector {
     /**
      * What this sector is listening for from any given external sector.
      */
-    private enum ExternalWait {
+    public enum ExternalWait {
         //all
         NONE,
         //viewport
@@ -645,5 +485,28 @@ class SecDetails extends Sector {
         ALIGN,
         //minimap
         WARP,
+    }
+
+    public enum Input {
+        SHIP_STOP,
+        SHIP_MOVE,
+        SHIP_ORBIT,
+        SHIP_ALIGN,
+        SHIP_WARP,
+        SHIP_DOCK,
+        SHIP_TARGET,
+        SHIP_WEAPON_TOGGLE,
+
+        SHIP_TARGET_HOVER_ON,
+        SHIP_TARGET_HOVER_OFF,
+        SHIP_WEAPON_HOVER_ON,
+        SHIP_WEAPON_HOVER_OFF,
+    }
+
+    public enum Display {
+        EMPTY,
+        SHIP_IN_SPACE,
+        SHIP_DOCKED,
+        SHIP_IN_WARP,
     }
 }

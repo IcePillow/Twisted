@@ -25,8 +25,6 @@ import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameReq.MGameReq;
 import com.twisted.net.msg.gameReq.MJobReq;
-import com.twisted.net.msg.gameReq.MShipMoveReq;
-import com.twisted.net.msg.gameReq.MTargetReq;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
@@ -193,7 +191,7 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MShipExitWarp) receiveShipExitWarp((MShipExitWarp) m);
         else if(m instanceof MMobileUps) receiveMobileUps((MMobileUps) m);
         else if(m instanceof MRemShip) receiveRemShip((MRemShip) m);
-        else if(m instanceof MUndockShip) receiveUndockShip((MUndockShip) m);
+        else if(m instanceof MShipDockingChange) receiveShipDockingChange((MShipDockingChange) m);
     }
 
     @Override
@@ -245,12 +243,12 @@ public class Game implements Screen, ClientContact {
 
             //load the graphics on the gdx thread
             Gdx.app.postRunnable(() -> {
+                loadSectors();
+
                 for(Grid g : state.grids){
-                    //create the graphics
-                    g.station.createFleetRow(skin, state, fleetSec);
+                    fleetSec.checkAddEntity(g.station);
                 }
 
-                loadSectors();
                 state.readyToRender = true;
             });
         }
@@ -300,21 +298,18 @@ public class Game implements Screen, ClientContact {
         if(m.request instanceof MJobReq){
             logSec.addToLog(m.reason, SecLog.LogColor.RED);
         }
-        else if(m.request instanceof MShipMoveReq){
-            logSec.addToLog(m.reason, SecLog.LogColor.GRAY);
-        }
-        else if(m.request instanceof MTargetReq){
+        else {
             logSec.addToLog(m.reason, SecLog.LogColor.GRAY);
         }
     }
 
     private void receiveAddShip(MAddShip m){
-        //create the ship
+        //create the ship TODO other types of ships
         Ship ship = null;
         if(m.type == Ship.Type.Frigate){
             //create the ship, add the ship, then retrieve it
             ship = m.createDrawableShip();
-            if(ship.docked == -1){
+            if(!ship.docked){
                 state.grids[m.grid].ships.put(m.shipId, ship);
             }
             else {
@@ -324,16 +319,15 @@ public class Game implements Screen, ClientContact {
                 industrySec.addDockedShip(ship);
             }
         }
-        //TODO other types of ships
 
-        //set things in the ship
+        //set things in the ship and tell sectors
         if(ship != null) {
             //physics
             ship.polygon.setPosition(ship.pos.x, ship.pos.y);
             ship.polygon.rotate(ship.rot);
 
-            //graphics
-            ship.createFleetRow(skin, state, fleetSec);
+            //tell sectors
+            fleetSec.checkAddEntity(ship);
         }
     }
 
@@ -342,7 +336,7 @@ public class Game implements Screen, ClientContact {
         //not in warp
         if(m.grid != -1){
             //not docked
-            if(m.docked == -1) {
+            if(!m.docked) {
                 ship = state.grids[m.grid].ships.get(m.shipId);
             }
             else {
@@ -359,30 +353,32 @@ public class Game implements Screen, ClientContact {
         if(m.grid != -1) ship.updatePolygon();
 
         //update the sectors if needed
-        if(detailsSec.selectEnt != null && detailsSec.selectEnt.id == ship.id){
-            detailsSec.updateShipData(ship, m.grid);
-        }
+        detailsSec.updateEntity(EntPtr.createFromEntity(ship));
         viewportSec.updateSelectionGridsAsNeeded(ship, m.grid);
-        fleetSec.upsertEntity(ship, m.grid);
+        fleetSec.updEntityValues(ship);
     }
 
     private void receiveShipEnterWarp(MShipEnterWarp m){
         //move the ship to "in warp"
         Ship ship = state.grids[m.originGridId].ships.get(m.shipId);
+        ship.grid = -1;
         state.grids[m.originGridId].ships.remove(ship.id);
         state.inWarp.put(ship.id, ship);
 
-        //update sectors
-        fleetSec.updateEntityEnterWarp(ship, m.originGridId);
+        //tell sectors
+        fleetSec.reloadEntity(ship);
+        detailsSec.reloadEntity(ship);
     }
 
     private void receiveShipExitWarp(MShipExitWarp m){
         Ship ship = state.inWarp.get(m.shipId);
+        ship.grid = m.destGridId;
         state.inWarp.remove(ship.id);
         state.grids[m.destGridId].ships.put(ship.id, ship);
 
-        //update sectors
-        fleetSec.updateEntityExitWarp(ship, m.destGridId);
+        //tell sectors
+        fleetSec.reloadEntity(ship);
+        detailsSec.reloadEntity(ship);
     }
 
     private void receiveMobileUps(MMobileUps m){
@@ -418,7 +414,6 @@ public class Game implements Screen, ClientContact {
     }
 
     private void receiveRemShip(MRemShip m){
-
         //get the object
         EntPtr ptr = new EntPtr(Entity.Type.Ship, m.shipId, m.grid, m.docked);
         Ship ship = (Ship) state.findEntity(ptr);
@@ -427,20 +422,10 @@ public class Game implements Screen, ClientContact {
         state.grids[grid].ships.remove(m.shipId);
         state.inWarp.remove(m.shipId);
 
-        //remove from details sector
-        if(detailsSec.selectEnt != null && detailsSec.selectEnt.type == Entity.Type.Ship
-                && detailsSec.selectEnt.id == m.shipId){
-            detailsSec.stopSelectingShip();
-            this.updateCrossSectorListening(null, "");
-        }
-
-        //remove from fleet sector
-        if(ship != null){
-            fleetSec.removeEntity(ship, m.grid);
-        }
-
-        //remove from viewport selections
+        //tell sectors
+        detailsSec.deselectEntity(EntPtr.createFromEntity(ship));
         viewportSec.removeSelectionsOfEntity(ptr);
+        fleetSec.checkRemoveEntity(ship);
 
         //explosion
         if(ship != null && m.grid != -1){
@@ -450,17 +435,37 @@ public class Game implements Screen, ClientContact {
         }
     }
 
-    private void receiveUndockShip(MUndockShip m){
-        //move the ship
-        Ship s = state.grids[m.grid].station.dockedShips.get(m.shipId);
-        state.grids[m.grid].station.dockedShips.remove(s.id);
-        state.grids[m.grid].ships.put(s.id, s);
+    private void receiveShipDockingChange(MShipDockingChange m){
+        if(m.docked){
+            //get ship and update values
+            Ship s = state.grids[m.grid].ships.get(m.shipId);
+            EntPtr ptr = EntPtr.createFromEntity(s);
+            m.update.copyDataToShip(s);
 
-        //update the ship values
-        m.update.copyDataToShip(s);
+            //move the ship
+            state.grids[m.grid].ships.remove(s.id);
+            state.grids[m.grid].station.dockedShips.put(s.id, s);
 
-        //tell the sectors
-        industrySec.removeDockedShip(m.grid, s);
+            //tell the sectors
+            industrySec.addDockedShip(s);
+            viewportSec.removeSelectionsOfEntity(ptr);
+            detailsSec.reloadEntity(s);
+            fleetSec.checkRemoveEntity(s);
+        }
+        else {
+            //get the ship and update values
+            Ship s = state.grids[m.grid].station.dockedShips.get(m.shipId);
+            m.update.copyDataToShip(s);
+
+            //move the ship
+            state.grids[m.grid].station.dockedShips.remove(s.id);
+            state.grids[m.grid].ships.put(s.id, s);
+
+            //tell the sectors
+            industrySec.removeDockedShip(m.grid, s);
+            detailsSec.reloadEntity(s);
+            fleetSec.checkAddEntity(s);
+        }
     }
 
 
@@ -525,17 +530,18 @@ public class Game implements Screen, ClientContact {
     /**
      * Called when a viewport click event occurs.
      */
-    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, EntPtr entity){
+    void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, EntPtr ptr){
         //normal behavior
         if(crossSectorListener == null){
             //selecting a ship for details
-            if(entity != null && entity.type == Entity.Type.Ship && button == Input.Buttons.LEFT){
-                shipSelectedForDetails(grid, entity.id, entity.docked);
+            if(ptr != null && button == Input.Buttons.LEFT){
+                Entity entity = state.findEntity(ptr);
+                entitySelectedForDetails(entity);
             }
         }
         //responding to external listeners
         else if(button == Input.Buttons.LEFT) {
-            crossSectorListener.viewportClickEvent(screenPos, gamePos, entity);
+            crossSectorListener.viewportClickEvent(screenPos, gamePos, ptr);
         }
         //cancelling external listeners
         else {
@@ -561,21 +567,19 @@ public class Game implements Screen, ClientContact {
     }
 
     /**
-     * Called when a ship is selected from the fleet window.
+     * Called when an entity is selected from the fleet window.
      */
-    void fleetClickEvent(int button, Entity entity){
+    void fleetClickEvent(Entity entity){
         int gridId = state.findShipGridId(entity.getId());
 
         //normal behavior
         if(crossSectorListener == null){
-            if(entity instanceof Ship){
-                shipSelectedForDetails(gridId, entity.getId(), entity.isDocked());
-            }
+            entitySelectedForDetails(entity);
         }
         //responding to listeners
         else {
-            int docked = (entity.getEntityType()==Entity.Type.Ship) ? ((Ship) entity).docked : -1 ;
-            crossSectorListener.fleetClickEvent(new EntPtr(entity.getEntityType(), entity.getId(), gridId, docked));
+            crossSectorListener.fleetClickEvent(new EntPtr(entity.getEntityType(), entity.getId(),
+                    gridId, entity.isDocked()));
         }
     }
 
@@ -585,12 +589,11 @@ public class Game implements Screen, ClientContact {
     /**
      * Called when the user selects a particular ship's details to be displayed.
      */
-    private void shipSelectedForDetails(int gridId, int shipId, int docked){
-        detailsSec.shipSelected(gridId, shipId, docked);
+    private void entitySelectedForDetails(Entity entity){
+        detailsSec.selectEntity(entity);
 
-        //TODO separate this out from selecting for details (maybe?)
         viewportSec.updateSelection(SecViewport.Select.BASE_SELECT, true,
-                new EntPtr(Entity.Type.Ship, shipId, gridId, docked), Color.LIGHT_GRAY, 0);
+                EntPtr.createFromEntity(entity), Color.LIGHT_GRAY, 0);
     }
 
 
@@ -611,7 +614,7 @@ public class Game implements Screen, ClientContact {
 
         viewportSec.switchFocusedGrid();
         minimapSec.switchFocusedGrid(newGrid);
-        fleetSec.reloadTabEntities();
+        fleetSec.switchGridFocus();
     }
 
     /**

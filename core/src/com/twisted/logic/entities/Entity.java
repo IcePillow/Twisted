@@ -2,10 +2,9 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.local.game.SecFleet;
-import com.twisted.local.game.state.GameState;
-import com.twisted.local.game.util.FleetRow;
 import com.twisted.logic.descriptors.Grid;
 
 public abstract class Entity {
@@ -31,26 +30,13 @@ public abstract class Entity {
      * Rotation.
      */
     public float rot;
+    /**
+     * Current grid.
+     * -1 for warp
+     * Docked counts as being on grid
+     */
+    public int grid;
 
-
-    /* Graphics */
-
-    //fields
-    public FleetRow fleetRow;
-    public boolean fleetRowDisplayingWarp = false;
-
-    //loading methods
-    public void createFleetRow(Skin skin, GameState state, SecFleet sector){
-        Color color;
-        if(this.owner > 0){
-            color = state.players.get(this.owner).getColor();
-        }
-        else {
-            color = Color.GRAY;
-        }
-
-        fleetRow = new FleetRow(this, skin, color, sector);
-    }
 
     /* Typing Methods */
 
@@ -66,14 +52,15 @@ public abstract class Entity {
      */
     public abstract int getId();
 
-    public int isDocked(){
+    public boolean isDocked(){
         switch(getEntityType()){
             case Ship:
                 return ((Ship) this).docked;
             default:
-                return -1;
+                return false;
         }
     }
+
 
     /* Graphics Methods */
 
@@ -87,6 +74,7 @@ public abstract class Entity {
      * to display the selection circle on the viewport.
      */
     public abstract float getPaddedLogicalRadius();
+
 
     /* Action Methods */
 

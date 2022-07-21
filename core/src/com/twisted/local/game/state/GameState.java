@@ -98,14 +98,19 @@ public class GameState {
         if(ptr.type == Entity.Type.Station){
             return grids[ptr.grid].station;
         }
-        else if(ptr.type == Entity.Type.Ship && ptr.grid != -1 && ptr.docked == -1){
-            return grids[ptr.grid].ships.get(ptr.id);
-        }
-        else if(ptr.type == Entity.Type.Ship && ptr.grid != -1){
-            return grids[ptr.grid].station.dockedShips.get(ptr.id);
-        }
-        else if(ptr.type == Entity.Type.Ship) {
-            return inWarp.get(ptr.id);
+        else if(ptr.type == Entity.Type.Ship){
+            //in space
+            if(ptr.grid != -1 && !ptr.docked){
+                return grids[ptr.grid].ships.get(ptr.id);
+            }
+            //docked
+            else if(ptr.grid != -1){
+                return grids[ptr.grid].station.dockedShips.get(ptr.id);
+            }
+            //in warp
+            else {
+                return inWarp.get(ptr.id);
+            }
         }
 
         return null;

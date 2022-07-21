@@ -9,11 +9,11 @@ public class MRemShip implements MGameUpdate {
 
     public int shipId;
     public int grid;
-    public int docked;
+    public boolean docked;
 
     public Ship.Removal removal;
 
-    public MRemShip(int shipId, int grid, Ship.Removal removal, int docked){
+    public MRemShip(int shipId, int grid, Ship.Removal removal, boolean docked){
         this.shipId = shipId;
         this.grid = grid;
         this.docked = docked;

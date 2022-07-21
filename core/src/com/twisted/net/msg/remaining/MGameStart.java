@@ -1,6 +1,5 @@
 package com.twisted.net.msg.remaining;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.local.game.state.PlayerFile;
 import com.twisted.logic.entities.Station;

@@ -423,7 +423,7 @@ public class SecIndustry extends Sector{
      * Add a docked ship.
      */
     void addDockedShip(Ship ship){
-        if(ship.docked != -1 && ship.docked != focusStationId) return;
+        if(!ship.docked || ship.grid != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
             DockedShipRow row = new DockedShipRow(this, skin, game.glyph, QUEUE_WIDTHS, ship);
@@ -453,8 +453,8 @@ public class SecIndustry extends Sector{
     /* Internal Event Methods */
 
     public void undockButtonClicked(Ship ship){
-        if(ship.docked != -1){
-            game.sendGameRequest(new MShipUndockReq(ship.id, ship.docked));
+        if(ship.docked){
+            game.sendGameRequest(new MShipUndockReq(ship.id, ship.grid));
         }
         else {
             System.out.println("Unexpected non-docked ship in SecIndustry.undockButtonClicked()");

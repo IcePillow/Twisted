@@ -1,6 +1,5 @@
 package com.twisted.logic.host;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.local.game.state.PlayerFile;
 import com.twisted.logic.Player;
@@ -239,15 +238,15 @@ public class GameHost implements ServerContact {
     private void preLoopCalls(){
 
         //dev ships
-        Ship s1 = new Frigate(useNextShipId(), 2, new Vector2(1, 1),
-                new Vector2(0,0), (float) Math.PI/2, 0, -1);
+        Ship s1 = new Frigate(useNextShipId(), 0, 2, new Vector2(1, 1),
+                new Vector2(0,0), (float) Math.PI/2, 0, false);
         grids[0].ships.put(s1.id, s1);
-        server.broadcastMessage(MAddShip.createFromShipBody(0, s1));
+        server.broadcastMessage(MAddShip.createFromShipBody(s1));
 
-        Ship s2 = new Frigate(useNextShipId(), 1, new Vector2(-1, 1),
-                new Vector2(0,0), (float) -Math.PI/2, 0, -1);
+        Ship s2 = new Frigate(useNextShipId(), 0, 1, new Vector2(-0.9f, 0.9f),
+                new Vector2(0,0), (float) -Math.PI/2, 0, false);
         grids[0].ships.put(s2.id, s2);
-        server.broadcastMessage(MAddShip.createFromShipBody(0, s2));
+        server.broadcastMessage(MAddShip.createFromShipBody(s2));
     }
 
 
@@ -344,6 +343,7 @@ public class GameHost implements ServerContact {
             else if(req instanceof MWeaponActiveReq) handleWeaponActiveRequest(userId, (MWeaponActiveReq) req);
             else if(req instanceof MShipStopReq) handleShipStopRequest(userId, (MShipStopReq) req);
             else if(req instanceof MShipUndockReq) handleShipUndockRequest(userId, (MShipUndockReq) req);
+            else if(req instanceof MShipDockReq) handleShipDockReq(userId, (MShipDockReq) req);
         }
 
         //updating
@@ -422,9 +422,9 @@ public class GameHost implements ServerContact {
                     Ship sh = null;
                     switch(job.jobType){
                         case Frigate:
-                            sh = new Frigate(useNextShipId(), job.owner, new Vector2(1, 0),
+                            sh = new Frigate(useNextShipId(), grid.id, job.owner, new Vector2(1, 0),
                                     new Vector2(0, 0), (float) Math.PI/2, 0,
-                                    grid.station.grid);
+                                    true);
 
                             break;
                         //TODO add the rest of the ship cases
@@ -435,7 +435,7 @@ public class GameHost implements ServerContact {
 
                     if(sh != null){
                         //add ship to world
-                        if(sh.docked == -1){
+                        if(!sh.docked){
                             grid.ships.put(sh.id, sh);
                         }
                         else {
@@ -443,7 +443,7 @@ public class GameHost implements ServerContact {
                         }
 
                         //tell users
-                        server.broadcastMessage(MAddShip.createFromShipBody(grid.id, sh));
+                        server.broadcastMessage(MAddShip.createFromShipBody(sh));
                     }
                 }
             }
@@ -454,14 +454,12 @@ public class GameHost implements ServerContact {
      * Calculates the trajectory the ship wants to take to reach its desired location or velocity.
      */
     private void calculateTrajectories(){
-
         //variables being used each loop
         float distanceToTarget;
         Vector2 accel = new Vector2(0, 0);
 
         for(Grid g : grids){
             for(Ship s : g.ships.values()) {
-
                 //check there is a targetPos and that it is not already close enough
                 if(s.movement == Ship.Movement.STOPPING){
                     s.trajectoryVel.set(0, 0);
@@ -498,13 +496,13 @@ public class GameHost implements ServerContact {
                 else if(s.movement == Ship.Movement.ORBIT_ENT){
                     Entity tar = g.retrieveEntity(s.moveTargetEntType, s.moveTargetEntId);
 
+                    //TODO fix orbiting calculations
                     if(tar == null){
                         s.movement = Ship.Movement.STOPPING;
                         s.moveCommand = "Stationary";
                         s.trajectoryVel.set(0, 0);
                     }
                     else {
-
                         //get the angles in positive degrees
                         double relPosAng = Math.atan2(tar.pos.y-s.pos.y, tar.pos.x-s.pos.x)*180/Math.PI;
                         if(relPosAng < 0) relPosAng += 360;
@@ -529,14 +527,12 @@ public class GameHost implements ServerContact {
 
                         //set the trajectory
                         s.trajectoryVel.set(oPoint.x-s.pos.x+oPath.x, oPoint.y-s.pos.y+oPath.y);
-
                     }
                 }
 
                 //accelerate the ship
                 if(s.trajectoryVel != null){
                     //find the desired, then clamp it
-
                     accel.set(s.trajectoryVel.x-s.vel.x, s.trajectoryVel.y-s.vel.y);
 
                     float length = accel.len();
@@ -583,6 +579,7 @@ public class GameHost implements ServerContact {
 
                     //update physics
                     s.pos.set(0, 0);
+                    s.grid = -1;
 
                     //update targeting
                     s.targetingState = null;
@@ -624,6 +621,7 @@ public class GameHost implements ServerContact {
 
                 //add it to the correct grid
                 grids[s.warpTargetGridId].ships.put(s.id, s);
+                s.grid = s.warpTargetGridId;
 
                 //exiting warp
                 s.warpTargetGridId = -1;
@@ -698,7 +696,7 @@ public class GameHost implements ServerContact {
             //health checks
             for(Ship s : g.ships.values()){
                 if(s.health <= 0){
-                    server.broadcastMessage(new MRemShip(s.id, g.id, Ship.Removal.EXPLOSION, -1));
+                    server.broadcastMessage(new MRemShip(s.id, g.id, Ship.Removal.EXPLOSION, false));
                     toBeRemoved.add(s);
                 }
             }
@@ -716,11 +714,11 @@ public class GameHost implements ServerContact {
         //ship data, not in warp then in warp
         for(Grid g : grids){
             for(Ship s : g.ships.values()){
-                server.broadcastMessage(MShipUpd.createFromShip(s, g.id));
+                server.broadcastMessage(MShipUpd.createFromShip(s));
             }
         }
         for(Ship s : shipsInWarp.values()){
-            server.broadcastMessage(MShipUpd.createFromShip(s, -1));
+            server.broadcastMessage(MShipUpd.createFromShip(s));
         }
 
         //mobile data
@@ -734,9 +732,6 @@ public class GameHost implements ServerContact {
 
     /* Client Request Handling */
 
-    /**
-     * Handles MJobReq
-     */
     private void handleJobRequest(int userId, MJobReq msg){
         Station s = (Station) findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
         Station.Job j = msg.job;
@@ -775,9 +770,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handles MShipMoveReq
-     */
     private void handleShipMoveRequest(int userId, MShipMoveReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -787,11 +779,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -811,9 +806,6 @@ public class GameHost implements ServerContact {
 
     }
 
-    /**
-     * Handle MShipOrbitReq
-     */
     private void handleShipOrbitRequest(int userId, MShipOrbitReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -823,14 +815,17 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.warpTimeToLand != 0 || s.id == msg.targetId){
+        if(s.owner != userId || s.grid == -1 || s.id == msg.targetId || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
             }
             else if(s.id == msg.targetId){
                 deny.reason = "Ship cannot orbit itself";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -858,9 +853,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handles MShipMoveReq
-     */
     private void handleShipAlignRequest(int userId, MShipAlignReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -870,11 +862,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -889,9 +884,6 @@ public class GameHost implements ServerContact {
                     (float) Math.cos(msg.angle) * s.getMaxSpeed() * 0.8f,
                     (float) Math.sin(msg.angle) * s.getMaxSpeed() * 0.8f);
 
-            System.out.println(s.movement);
-            System.out.println(s.trajectoryVel);
-
             //set the description of the movement
             int degrees = -((int) (msg.angle*180/Math.PI - 90));
             if(degrees < 0) degrees += 360;
@@ -899,9 +891,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handles MShipWarpReq
-     */
     private void handleShipWarpRequest(int userId, MShipWarpReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -911,11 +900,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions and basics
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -927,7 +919,7 @@ public class GameHost implements ServerContact {
             //set the target grid id
             s.movement = Ship.Movement.ALIGN_FOR_WARP;
             s.warpTargetGridId = msg.targetGridId;
-            s.moveCommand = "Aligning to grid " + msg.targetGridId;
+            s.moveCommand = "Aligning to grid " + grids[msg.targetGridId].nickname;
 
             //get the angle to the target grid
             float angle = (float) Math.atan2(grids[msg.targetGridId].pos.y-grids[msg.grid].pos.y,
@@ -938,9 +930,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handle MShipTargetReq
-     */
     private void handleShipTargetRequest(int userId, MTargetReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -950,11 +939,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions and basics
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -969,7 +961,7 @@ public class GameHost implements ServerContact {
             //start locking on to the target
             if(target != null && target.pos.dst(s.pos) <= s.getTargetRange()){
                 s.targetingState = Ship.Targeting.Locking;
-                s.targetEntity = EntPtr.createFromEntity(target, msg.grid, -1);
+                s.targetEntity = EntPtr.createFromEntity(target);
 
                 //TODO calculate locking time based on entity types
                 s.targetTimeToLock = 1;
@@ -988,9 +980,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handle MWeaponActiveReq
-     */
     private void handleWeaponActiveRequest(int userId, MWeaponActiveReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -1000,11 +989,12 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
-                deny.reason = "Cannot command a ship that is currently in warp";
+
+            if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -1017,9 +1007,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handle MShipStopReq
-     */
     private void handleShipStopRequest(int userId, MShipStopReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
@@ -1029,11 +1016,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.warpTimeToLand != 0){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-            if(s.warpTimeToLand != 0){
+            if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -1050,9 +1040,6 @@ public class GameHost implements ServerContact {
         }
     }
 
-    /**
-     * Handles MShipUndockReq
-     */
     private void handleShipUndockRequest(int userId, MShipUndockReq msg){
         Ship s = grids[msg.stationId].station.dockedShips.get(msg.shipId);
         if(s == null) {
@@ -1061,9 +1048,19 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId){
+        if(s.owner != userId || s.grid == -1 || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
-            deny.reason = "Cannot command ship for unexpected reason";
+
+            if(s.grid == -1){
+                deny.reason = "Cannot undock a ship in warp";
+            }
+            else if(s.docked){
+                deny.reason = "Cannot command a docked ship";
+            }
+            else {
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
+
             server.sendMessage(userId, deny);
         }
         else {
@@ -1075,7 +1072,7 @@ public class GameHost implements ServerContact {
             s.rot = (float) Math.random()*6.28f;
             s.pos.set(0.8f*(float)Math.cos(s.rot), 0.8f*(float)Math.sin(s.rot));
             s.vel.set(s.getMaxSpeed()/3 * (float)Math.cos(s.rot), s.getMaxSpeed()/3 * (float)Math.sin(s.rot));
-            s.docked = -1;
+            s.docked = false;
 
             //set ai
             s.movement = Ship.Movement.STOPPING;
@@ -1089,8 +1086,59 @@ public class GameHost implements ServerContact {
             s.targetingState = null;
             s.warpTimeToLand = 0;
 
-            server.broadcastMessage(new MUndockShip(s.id, msg.stationId, MShipUpd.createFromShip(s, msg.stationId)));
+            server.broadcastMessage(new MShipDockingChange(s.id, msg.stationId, false,
+                    MShipUpd.createFromShip(s)));
         }
+    }
+
+    private void handleShipDockReq(int userId, MShipDockReq msg){
+        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        if(s == null) {
+            System.out.println("Couldn't find ship in GameHost.handleShipDockReq()");
+            return;
+        }
+
+        //check permissions and others TODO add in combat checks
+        if(s.owner != userId || grids[msg.grid].station.owner != s.owner){
+            MDenyRequest deny = new MDenyRequest(msg);
+
+            if(s.owner != userId){
+                deny.reason = "Cannot command ship for unexpected reason";
+            }
+            else if(s.grid == -1){
+                deny.reason = "Cannot dock a ship in warp";
+            }
+            else if(grids[msg.grid].station.owner != s.owner){
+                deny.reason = "You do not own that station";
+            }
+
+            server.sendMessage(userId, deny);
+        }
+        else {
+            //dock the ship TODO range checks
+            grids[msg.grid].ships.remove(s.id);
+            Station station = grids[msg.grid].station;
+            station.dockedShips.put(s.id, s);
+
+            //set physics
+            s.rot = 0;
+            s.pos.set(station.pos);
+            s.vel.set(0, 0);
+            s.docked = true;
+
+            //reset other values
+            for(Weapon w : s.weapons){
+                w.active = false;
+            }
+            s.targetTimeToLock = -1;
+            s.targetingState = null;
+            s.warpTimeToLand = 0;
+
+            //send to clients
+            server.broadcastMessage(new MShipDockingChange(s.id, station.grid, true,
+                    MShipUpd.createFromShip(s)));
+        }
+
     }
 
 

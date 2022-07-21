@@ -1,16 +1,18 @@
 package com.twisted.net.msg.gameUpdate;
 
-public class MUndockShip implements MGameUpdate{
+public class MShipDockingChange implements MGameUpdate{
 
     public int shipId;
     public int grid;
+    public boolean docked;
 
     public MShipUpd update;
 
 
-    public MUndockShip(int shipId, int grid, MShipUpd update){
+    public MShipDockingChange(int shipId, int grid, boolean docked, MShipUpd update){
         this.shipId = shipId;
         this.grid = grid;
+        this.docked = docked;
         this.update = update;
     }
 

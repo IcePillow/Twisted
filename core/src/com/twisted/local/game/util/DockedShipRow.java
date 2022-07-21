@@ -58,7 +58,7 @@ public class DockedShipRow extends HorizontalGroup {
         filler1 = new Actor();
         this.addActor(filler1);
 
-        undockImage = new Image(new Texture(Gdx.files.internal("images/ui/buttons/undock.png")));
+        undockImage = new Image(new Texture(Gdx.files.internal("images/ui/icons/undock.png")));
         this.addActor(undockImage);
     }
 

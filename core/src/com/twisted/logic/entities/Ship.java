@@ -1,7 +1,11 @@
 package com.twisted.logic.entities;
 
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
@@ -42,7 +46,7 @@ public abstract class Ship extends Entity implements Serializable {
 
     public float health;
 
-    public int docked; //-1 for not docked, otherwise, stationId
+    public boolean docked; //-1 for not docked, otherwise, stationId
 
     //ui and movement
     public String moveCommand;
@@ -59,10 +63,11 @@ public abstract class Ship extends Entity implements Serializable {
     /**
      * Constructor
      */
-    protected Ship(int id, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand, int docked){
+    protected Ship(int id, int grid, int owner, Vector2 position, Vector2 velocity, float rotation,
+                   float warpTimeToLand, boolean docked){
         //meta data
         this.id = id;
+        this.grid = grid;
         this.owner = owner;
 
         //physics

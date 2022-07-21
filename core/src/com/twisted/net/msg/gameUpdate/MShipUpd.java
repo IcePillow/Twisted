@@ -10,10 +10,10 @@ public class MShipUpd implements MGameUpdate {
 
     //metadata
     public final int shipId;
-    public final int grid; //-1 if in warp
 
     //state data
-    public int docked;
+    public int grid; //-1 if in warp
+    public boolean docked;
     private Vector2 position;
     private Vector2 velocity;
     private float rotation; //stored in degrees
@@ -41,7 +41,7 @@ public class MShipUpd implements MGameUpdate {
     /**
      * Constructor
      */
-    private MShipUpd(int shipId, int grid){
+    private MShipUpd(int shipId){
         this.shipId = shipId;
         this.grid = grid;
     }
@@ -54,6 +54,7 @@ public class MShipUpd implements MGameUpdate {
      */
     public void copyDataToShip(Ship s){
         //physics
+        s.grid = grid;
         s.docked = docked;
         s.pos = position;
         s.vel = velocity;
@@ -69,7 +70,7 @@ public class MShipUpd implements MGameUpdate {
         if(targetEntityType != null){
             s.targetTimeToLock = targetTimeToLock;
             s.targetingState = targetingState;
-            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid, -1);
+            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid, false);
         }
         else {
             s.targetEntity = null;
@@ -85,10 +86,11 @@ public class MShipUpd implements MGameUpdate {
     /**
      * Creates a filled out MShipUpd from the passed in ship.
      */
-    public static MShipUpd createFromShip(Ship s, int grid){
-        MShipUpd upd = new MShipUpd(s.id, grid);
+    public static MShipUpd createFromShip(Ship s){
+        MShipUpd upd = new MShipUpd(s.id);
 
         //physics
+        upd.grid = s.grid;
         upd.docked = s.docked;
         upd.position = s.pos.cpy();
         upd.velocity = s.vel.cpy();

@@ -21,7 +21,7 @@ import com.twisted.logic.mobs.Mobile;
 
 import java.util.*;
 
-class SecViewport extends Sector{
+public class SecViewport extends Sector{
 
     //constants
     private static final float LTR = Game.LTR; //logical to rendered
@@ -32,11 +32,11 @@ class SecViewport extends Sector{
     private Vector2 cursor;
 
     //reference variables
-    private Game game;
+    private final Game game;
 
     //graphics utilities
-    private Skin skin;
-    private Stage stage;
+    private final Skin skin;
+    private final Stage stage;
     OrthographicCamera camera;
     SpriteBatch sprite;
     ShapeRenderer shape;
@@ -207,11 +207,14 @@ class SecViewport extends Sector{
         if(selections.get(Select.BASE_SELECT) != null){
             EntPtr sel = selections.get(Select.BASE_SELECT);
 
-            if(sel.type == Entity.Type.Ship && sel.grid == game.getGrid()){
+            if(sel.type == Entity.Type.Ship && sel.grid == game.getGrid() && !sel.docked){
                 Ship s = state.grids[sel.grid].ships.get(sel.id);
 
-                shape.setColor(selectionColors.get(Select.BASE_SELECT));
-                shape.circle(s.pos.x*LTR, s.pos.y*LTR, s.getPaddedLogicalRadius()*LTR);
+                if(s != null){
+                    shape.setColor(selectionColors.get(Select.BASE_SELECT));
+                    shape.circle(s.pos.x*LTR, s.pos.y*LTR,
+                            s.getPaddedLogicalRadius()*LTR);
+                }
             }
             else{
                 // TODO add case for station
@@ -220,16 +223,16 @@ class SecViewport extends Sector{
 
         //set range selection circle
         if(selections.get(Select.CIRCLE_RANGE_IND_ROT) != null){
-            Entity ent = selections.get(Select.CIRCLE_RANGE_IND_ROT).retrieveFromGrid(g);
+            Entity sel = selections.get(Select.CIRCLE_RANGE_IND_ROT).retrieveFromGrid(g);
 
-            if(ent != null) {
+            if(sel != null && sel.grid == game.getGrid()) {
                 float radius = selectionValues.get(Select.CIRCLE_RANGE_IND_ROT);
                 float off = 3 * (offset%360);
 
                 shape.setColor(selectionColors.get(Select.CIRCLE_RANGE_IND_ROT));
                 for (float i=0; i<360; i+=2*360f/(radius*80f)) {
-                    shape.circle(LTR*(ent.pos.x + radius*(float)Math.cos((off+i) * Math.PI/180)),
-                            LTR*(ent.pos.y + radius*(float)Math.sin((off+i) * Math.PI/180)),
+                    shape.circle(LTR*(sel.pos.x + radius*(float)Math.cos((off+i) * Math.PI/180)),
+                            LTR*(sel.pos.y + radius*(float)Math.sin((off+i) * Math.PI/180)),
                             1);
                 }
             }
@@ -237,18 +240,18 @@ class SecViewport extends Sector{
 
         //draw the orbit selection circle
         if(selections.get(Select.BASE_MOUSE_CIRCLE) != null){
-            Entity ent = selections.get(Select.BASE_MOUSE_CIRCLE).retrieveFromGrid(g);
+            Entity sel = selections.get(Select.BASE_MOUSE_CIRCLE).retrieveFromGrid(g);
 
-            if(ent != null){
+            if(sel != null &&  sel.grid == game.getGrid()){
                 float orbCircleRad = new Vector2(
                         (cursor.x-stage.getWidth()/2f+camPos.x)/100f,
                         (cursor.y-stage.getHeight()/2f+camPos.y)/100f)
-                        .dst(ent.pos);
+                        .dst(sel.pos);
 
                 shape.setColor(selectionColors.get(Select.BASE_MOUSE_CIRCLE));
                 for(float i=0; i<360; i+= 360f/(orbCircleRad*80)){
-                    shape.circle(LTR*(ent.pos.x + orbCircleRad*(float)Math.cos(i*Math.PI/180)),
-                            LTR*(ent.pos.y + orbCircleRad*(float)Math.sin(i*Math.PI/180)),
+                    shape.circle(LTR*(sel.pos.x + orbCircleRad*(float)Math.cos(i*Math.PI/180)),
+                            LTR*(sel.pos.y + orbCircleRad*(float)Math.sin(i*Math.PI/180)),
                             1);
                 }
             }
@@ -256,19 +259,19 @@ class SecViewport extends Sector{
 
         //draw the move selection line
         if(selections.get(Select.BASE_MOUSE_LINE) != null){
-            Entity ent = selections.get(Select.BASE_MOUSE_LINE).retrieveFromGrid(g);
+            Entity sel = selections.get(Select.BASE_MOUSE_LINE).retrieveFromGrid(g);
 
-            if(ent != null){
+            if(sel != null && sel.grid == game.getGrid()){
                 Vector2 end = new Vector2(
                         (cursor.x-stage.getWidth()/2f+camPos.x)/LTR,
                         (cursor.y-stage.getHeight()/2f+camPos.y)/LTR);
-                float length = end.dst(ent.pos);
-                float angle = (float) Math.atan2(end.y-ent.pos.y, end.x-ent.pos.x);
+                float length = end.dst(sel.pos);
+                float angle = (float) Math.atan2(end.y-sel.pos.y, end.x-sel.pos.x);
 
                 shape.setColor(selectionColors.get(Select.BASE_MOUSE_LINE));
                 for(float i=0; i<length; i+=0.1f){
-                    shape.circle(LTR*(ent.pos.x + i*(float)Math.cos(angle)),
-                            LTR*(ent.pos.y + i*(float)Math.sin(angle)),
+                    shape.circle(LTR*(sel.pos.x + i*(float)Math.cos(angle)),
+                            LTR*(sel.pos.y + i*(float)Math.sin(angle)),
                             1);
                 }
             }
@@ -326,7 +329,7 @@ class SecViewport extends Sector{
 
         //figure out what was clicked on (mobiles ignored)
         if(g.station.polygon.contains(adjX, adjY)){
-            ptr = new EntPtr(Entity.Type.Station, g.id, g.id, -1);
+            ptr = new EntPtr(Entity.Type.Station, g.id, g.id, false);
         }
         for(Ship s : g.ships.values()){
             //create slightly larger polygon
@@ -335,7 +338,7 @@ class SecViewport extends Sector{
             sPoly.scale(1.35f);
             //check if it contains
             if(sPoly.contains(adjX, adjY)){
-                ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, -1);
+                ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
             }
         }
 
@@ -407,7 +410,7 @@ class SecViewport extends Sector{
     /**
      * Selection types.
      */
-    enum Select {
+    public enum Select {
         /**
          * The basic solid circle surrounding an entity.
          */
