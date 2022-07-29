@@ -8,7 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 
-public class EmptyDets extends DetailsSecGroup{
+public class EmptyDets extends DetsGroup {
 
 
     public EmptyDets(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size) {

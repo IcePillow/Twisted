@@ -5,5 +5,5 @@ import com.twisted.net.msg.Message;
 /**
  * Updates about game states from the server to a user.
  */
-public interface MGameUpdate extends Message {
+public interface MGameUpd extends Message {
 }

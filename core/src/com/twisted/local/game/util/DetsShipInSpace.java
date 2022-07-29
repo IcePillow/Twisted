@@ -20,11 +20,8 @@ import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.attach.Weapon;
 
-import java.util.HashMap;
-
-public class ShipInSpaceDets extends DetailsSecGroup{
+public class DetsShipInSpace extends DetsGroup {
 
     //tree
     private Group shipButtonGroup, shipWeaponGroup;
@@ -41,7 +38,7 @@ public class ShipInSpaceDets extends DetailsSecGroup{
 
     /* Construction */
 
-    public ShipInSpaceDets(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size) {
+    public DetsShipInSpace(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size) {
         super(sector, skin, glyph, size);
 
         Group topTextGroup = createTopTextGroup();
@@ -149,7 +146,21 @@ public class ShipInSpaceDets extends DetailsSecGroup{
         dockButton.setBounds(140, 0, 24, 24);
         shipButtonGroup.addActor(dockButton);
 
-        //listeners
+        //hover listeners
+        dockButton.addListener((Event event) -> {
+            if(event instanceof InputEvent){
+                if(((InputEvent) event).getType() == InputEvent.Type.enter){
+                    sector.input(sel, SecDetails.Input.SHIP_DOCK_HOVER_ON);
+                }
+                else if(((InputEvent) event).getType() == InputEvent.Type.exit){
+                    sector.input(sel, SecDetails.Input.SHIP_DOCK_HOVER_OFF);
+                }
+            }
+
+            return true;
+        });
+
+        //click listeners
         stopButton.addCaptureListener((Event event) -> {
             if(event.isHandled()) return true;
 
@@ -290,7 +301,10 @@ public class ShipInSpaceDets extends DetailsSecGroup{
 
         //update the name
         shipName.setText(sel.getType().toString());
-        shipName.setColor(state.players.get(sel.owner).getColor());
+        shipName.setColor(state.findColorForOwner(sel.owner));
+
+        //update the grid
+        shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
 
         //update the weapon button visibility
         for(int i=0; i<weaponButtons.length; i++){
@@ -300,8 +314,8 @@ public class ShipInSpaceDets extends DetailsSecGroup{
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
                 weaponButtons[i].switchTextures(
-                        sector.retrieveWeaponTexture(sel.weapons[i].getType(), false),
-                        sector.retrieveWeaponTexture(sel.weapons[i].getType(), true));
+                        sector.retrieveWeaponTex(sel.weapons[i].getType(), false),
+                        sector.retrieveWeaponTex(sel.weapons[i].getType(), true));
             }
         }
 
@@ -349,8 +363,6 @@ public class ShipInSpaceDets extends DetailsSecGroup{
 
         //warp dependent
         if(sel.grid != -1){
-            shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
-
             float[] rounded = sel.roundedPosition(1);
             shipPosition.setText("X = " + rounded[0] + "\nY = " + rounded[1]);
 
@@ -364,6 +376,7 @@ public class ShipInSpaceDets extends DetailsSecGroup{
         }
     }
 
+    @Override
     public Entity getSelectedEntity(){
         return sel;
     }

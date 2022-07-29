@@ -47,7 +47,7 @@ public class Frigate extends Ship {
     }
     @Override
     public float getPaddedLogicalRadius() {
-        return 0.165f;
+        return 0.16f;
     }
     @Override
     public Weapon.Type[] getWeaponSlots(){

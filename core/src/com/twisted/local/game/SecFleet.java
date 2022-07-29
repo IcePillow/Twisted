@@ -10,13 +10,17 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
+import com.twisted.Main;
+import com.twisted.local.game.util.FleetContainer;
 import com.twisted.local.game.util.FleetTab;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.attach.Weapon;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -25,7 +29,10 @@ import java.util.HashMap;
 public class SecFleet extends Sector {
 
     //constants
-    private final static int TOT_HEIGHT =450, MID_HEIGHT=14, TOP_HEIGHT =24;
+    private final static int TOT_HEIGHT =450, MID_HEIGHT=14, TOP_HEIGHT=24;
+    private final static float PANEL_NAME_WID=95, GRID_TAG_WID=26, SHIP_NAME_WID=PANEL_NAME_WID-GRID_TAG_WID;
+    private final static float PANEL_DIST_WID=35;
+    private final static float PANEL_SPD_WID=35;
 
     //reference variables
     private final Game game;
@@ -44,6 +51,9 @@ public class SecFleet extends Sector {
 
     //state
     private float timeWithoutSorting;
+
+    //assets
+    private HashMap<Entity.Subtype, TextureRegionDrawable> entityTextureMap;
 
 
     /* Creation */
@@ -70,6 +80,9 @@ public class SecFleet extends Sector {
         parent.addActor(initTabs());
         parent.addActor(initHeaderBar());
         parent.addActor(initPane());
+
+        //assets
+        initAssets();
 
         return parent;
     }
@@ -164,6 +177,20 @@ public class SecFleet extends Sector {
         pane.setColor(Color.BLACK);
 
         return pane;
+    }
+
+    private void initAssets(){
+        //entity icon textures
+        entityTextureMap = new HashMap<>();
+        for(Ship.Type t : Ship.Type.values()){
+            entityTextureMap.put(t, new TextureRegionDrawable(new Texture(Gdx.files.internal(
+                    "images/entities/" + t.name().toLowerCase() + "-icon.png"))));
+        }
+        TextureRegionDrawable stationTexture = new TextureRegionDrawable(new Texture(Gdx.files.internal(
+                "images/entities/station-icon.png")));
+        for(Station.Type t : Station.Type.values()){
+            entityTextureMap.put(t, stationTexture);
+        }
     }
 
     @Override
@@ -318,19 +345,14 @@ public class SecFleet extends Sector {
         HorizontalGroup group = entityToRow.get(entity);
         if(group == null) return;
 
-
-        if(entity instanceof Ship){
-            if(selectedType == TabType.Fleet){
-                if(entity.grid != -1) ((Label) group.getChild(0)).setText("[" + state.grids[entity.grid].nickname  + "]");
-                else ((Label) group.getChild(0)).setText("[W]");
-                group.getChild(1).setColor(state.findColorForOwner(entity.owner));
+        for(Actor a : group.getChildren()){
+            if(a instanceof FleetContainer<?>){
+                ((FleetContainer<?>) a).updateValuesFromEntity(entity);
             }
             else {
-                group.getChild(0).setColor(state.findColorForOwner(entity.owner));
+                System.out.println("Unexpected actor type");
+                new Exception().printStackTrace();
             }
-        }
-        else if(entity instanceof Station){
-            group.getChild(0).setColor(state.findColorForOwner(entity.owner));
         }
     }
 
@@ -472,37 +494,74 @@ public class SecFleet extends Sector {
         //position child
         Label posLab = new Label("Dst", skin, "small", Color.GRAY);
         posLab.setFontScale(0.8f);
-        posLab.setX(90);
+        posLab.setX(PANEL_NAME_WID);
         headerBar.addActor(posLab);
 
         //velocity child
         Label spdLab = new Label("Spd", skin, "small", Color.GRAY);
         spdLab.setFontScale(0.8f);
-        spdLab.setX(135);
+        spdLab.setX(PANEL_NAME_WID + PANEL_DIST_WID);
         headerBar.addActor(spdLab);
     }
 
     /**
-     * TODO make more detailed
+     * Creates the container objects to be placed in the group for the row.
      */
     private HorizontalGroup createShipRow(Ship ship, TabType type){
         HorizontalGroup group = new HorizontalGroup();
 
-        //actors
+        //grid tag
         if(type == TabType.Fleet){
-            Label tagLabel = new Label("[X]", skin, "small", Color.LIGHT_GRAY);
-            group.addActor(tagLabel);
+            Label gridTagLabel = new Label("[X]", skin, "small", Color.LIGHT_GRAY);
+            group.addActor(new FleetContainer<Label>(gridTagLabel, GRID_TAG_WID) {
+                @Override
+                public void updateValuesFromEntity(Entity entity) {
+                    if(entity.grid != -1) actor().setText("[" + state.grids[entity.grid].nickname  + "]");
+                    else actor().setText("[W]");
+                }
+            });
         }
-        Label nameLabel = new Label(ship.getType().toString(), skin, "small", Color.WHITE);
-        group.addActor(nameLabel);
 
-        //listeners
-        nameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
+        //name label
+        Label nameLabel = new Label(ship.getType().toString(), skin, "small", Color.WHITE);
+        group.addActor(new FleetContainer<Label>(nameLabel, type==TabType.Fleet ? SHIP_NAME_WID : PANEL_NAME_WID,
+                true, false) {
             @Override
-            public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
+            public void updateValuesFromEntity(Entity entity) {
+                actor().setColor(state.findColorForOwner(entity.owner));
+            }
+            @Override
+            public void eventLeftClick(){
                 entityClicked(Input.Buttons.LEFT, ship);
-                event.handle();
+            }
+        });
+
+        //position label
+        Label posLabel = new Label("", skin, "small", Color.LIGHT_GRAY);
+        group.addActor(new FleetContainer<Label>(posLabel, PANEL_DIST_WID){
+            @Override
+            public void updateValuesFromEntity(Entity entity){
+                if(entity.grid != -1){
+                    actor().setText(Main.df1.format(entity.pos.len()));
+                }
+                else {
+                    actor().setText("");
+                }
+            }
+        });
+
+        //speed label
+        Label spdLabel = new Label("", skin, "small", Color.LIGHT_GRAY);
+        group.addActor(new FleetContainer<Label>(spdLabel, PANEL_SPD_WID) {
+            @Override
+            public void updateValuesFromEntity(Entity entity){
+                if(entity.grid != -1){
+                    actor().setText(Main.df1.format(entity.vel.len()));
+                }
+                else {
+                    actor().setText("");
+                }
+
             }
         });
 
@@ -510,21 +569,23 @@ public class SecFleet extends Sector {
     }
 
     /**
-     * TODO make more detailed
+     * Creates the container objects to be placed in the group for the row.
      */
     private HorizontalGroup createStationRow(Station station, TabType type){
         HorizontalGroup group = new HorizontalGroup();
 
-        Label nameLabel = new Label(station.shortNickname, skin, "small", Color.WHITE);
-        group.addActor(nameLabel);
-
-        //listeners
-        nameLabel.addListener(new ClickListener(Input.Buttons.LEFT){
+        //name label
+        Label nameLabel = new Label(station.getFleetName(), skin, "small", Color.WHITE);
+        group.addActor(new FleetContainer<Label>(nameLabel, PANEL_NAME_WID,
+                true, false) {
             @Override
-            public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
+            public void updateValuesFromEntity(Entity entity) {
+                actor().setColor(state.findColorForOwner(entity.owner));
+            }
+
+            @Override
+            public void eventLeftClick(){
                 entityClicked(Input.Buttons.LEFT, station);
-                event.handle();
             }
         });
 

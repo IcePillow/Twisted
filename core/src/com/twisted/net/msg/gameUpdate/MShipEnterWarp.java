@@ -1,6 +1,6 @@
 package com.twisted.net.msg.gameUpdate;
 
-public class MShipEnterWarp implements MGameUpdate{
+public class MShipEnterWarp implements MGameUpd {
 
     public int shipId;
     public int originGridId;

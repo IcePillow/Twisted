@@ -1,10 +1,6 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.logic.descriptors.Grid;
 
 public abstract class Entity {
@@ -61,6 +57,10 @@ public abstract class Entity {
         }
     }
 
+    public boolean matches(Entity ent){
+        return (ent != null && ent.getId() == this.getId() && ent.getEntityType() == this.getEntityType());
+    }
+
 
     /* Graphics Methods */
 
@@ -76,14 +76,31 @@ public abstract class Entity {
     public abstract float getPaddedLogicalRadius();
 
 
+    /* Naming Methods */
+
+    public abstract String getFullName();
+    /**
+     * Name to be displayed in the fleet sector.
+     */
+    public abstract String getFleetName();
+
+
     /* Action Methods */
 
     public abstract void takeDamage(Grid grid, float amount);
 
     /* Enums */
+
     public enum Type {
         Station,
         Ship,
+    }
+
+    /**
+     * Should be implemented by Type enums in subclasses of Entity.
+     */
+    public interface Subtype {
+
     }
 
 }

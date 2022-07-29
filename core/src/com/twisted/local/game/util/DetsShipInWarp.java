@@ -12,13 +12,11 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 
-public class ShipInWarpDets extends DetailsSecGroup{
+public class DetsShipInWarp extends DetsGroup {
 
     //tree
 
@@ -34,7 +32,7 @@ public class ShipInWarpDets extends DetailsSecGroup{
 
     /* Construction */
 
-    public ShipInWarpDets(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
+    public DetsShipInWarp(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
         super(sector, skin, glyph, size);
 
         Group topTextGroup = createTopTextGroup();
@@ -158,8 +156,8 @@ public class ShipInWarpDets extends DetailsSecGroup{
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
                 weaponButtons[i].switchTextures(
-                        sector.retrieveWeaponTexture(sel.weapons[i].getType(), false),
-                        sector.retrieveWeaponTexture(sel.weapons[i].getType(), true));
+                        sector.retrieveWeaponTex(sel.weapons[i].getType(), false),
+                        sector.retrieveWeaponTex(sel.weapons[i].getType(), true));
             }
         }
 

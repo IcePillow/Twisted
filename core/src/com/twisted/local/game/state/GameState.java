@@ -9,7 +9,9 @@ import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Client side game state object.
@@ -27,7 +29,7 @@ public class GameState {
 
     //list of players
     public String[] playerNames;
-    public HashMap<Integer, GamePlayer> players;
+    public Map<Integer, GamePlayer> players; //sync
     public int myId;
 
 
@@ -39,8 +41,8 @@ public class GameState {
 
     //main state storage
     public Grid[] grids;
-    public HashMap<Integer, Ship> inWarp;
-    public HashMap<Integer, CurrentJob> jobs;
+    public final Map<Integer, Ship> inWarp; //sync
+    public final Map<Integer, CurrentJob> jobs; //sync
 
 
     /* Sprites */
@@ -57,7 +59,7 @@ public class GameState {
         this.playerNames = playerNames.values().toArray(new String[0]);
 
         //create and then fill the array
-        this.players = new HashMap<>();
+        this.players = Collections.synchronizedMap(new HashMap<>());
         for(Integer key : playerNames.keySet()){
             //create player
             GamePlayer gamePlayer = new GamePlayer(key, playerFiles.get(key).file, playerNames.get(key),
@@ -68,8 +70,8 @@ public class GameState {
         }
 
         //prepare state storage
-        inWarp = new HashMap<>();
-        jobs = new HashMap<>();
+        inWarp = Collections.synchronizedMap(new HashMap<>());
+        jobs = Collections.synchronizedMap(new HashMap<>());
     }
 
 

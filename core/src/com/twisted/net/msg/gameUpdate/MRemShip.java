@@ -5,7 +5,7 @@ import com.twisted.logic.entities.Ship;
 /**
  * Removing a ship.
  */
-public class MRemShip implements MGameUpdate {
+public class MRemShip implements MGameUpd {
 
     public int shipId;
     public int grid;

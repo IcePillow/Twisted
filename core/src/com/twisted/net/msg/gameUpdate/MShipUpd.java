@@ -4,12 +4,11 @@ import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.attach.Weapon;
 
-public class MShipUpd implements MGameUpdate {
+public class MShipUpd implements MGameUpd {
 
     //metadata
-    public final int shipId;
+    public int shipId;
 
     //state data
     public int grid; //-1 if in warp
@@ -36,15 +35,6 @@ public class MShipUpd implements MGameUpdate {
 
     //combat
     private float health;
-
-
-    /**
-     * Constructor
-     */
-    private MShipUpd(int shipId){
-        this.shipId = shipId;
-        this.grid = grid;
-    }
 
 
     /* Exterior Facing Methods */
@@ -87,7 +77,10 @@ public class MShipUpd implements MGameUpdate {
      * Creates a filled out MShipUpd from the passed in ship.
      */
     public static MShipUpd createFromShip(Ship s){
-        MShipUpd upd = new MShipUpd(s.id);
+        MShipUpd upd = new MShipUpd();
+
+        //id
+        upd.shipId = s.id;
 
         //physics
         upd.grid = s.grid;

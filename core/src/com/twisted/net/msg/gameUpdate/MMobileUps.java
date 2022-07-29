@@ -6,7 +6,7 @@ import com.twisted.logic.mobs.Mobile;
 /**
  * This class can be interpreted as update, insert, or delete;
  */
-public class MMobileUps implements MGameUpdate {
+public class MMobileUps implements MGameUpd {
 
     public boolean fizzle;
 

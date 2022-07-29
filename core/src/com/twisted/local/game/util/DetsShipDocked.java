@@ -13,7 +13,7 @@ import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 
-public class ShipDockedDets extends DetailsSecGroup {
+public class DetsShipDocked extends DetsGroup {
 
     //tree
     private Label shipName, shipGrid, healthLabel;
@@ -25,7 +25,7 @@ public class ShipDockedDets extends DetailsSecGroup {
 
     /* Construction */
 
-    public ShipDockedDets(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
+    public DetsShipDocked(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
         super(sector, skin, glyph, size);
 
         Group topTextGroup = createTopTextGroup();

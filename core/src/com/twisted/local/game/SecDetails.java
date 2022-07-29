@@ -37,7 +37,7 @@ public class SecDetails extends Sector {
     private Group parent;
 
     //graphics state
-    private final HashMap<Display, DetailsSecGroup> displayGroups;
+    private final HashMap<Display, DetsGroup> displayGroups;
     private Display activeDisplay;
 
     //input state
@@ -45,7 +45,8 @@ public class SecDetails extends Sector {
     private EntPtr storeEntClick;
 
     //assets
-    private HashMap<Weapon.Type, TextureRegionDrawable[]> weaponTextureMap; //arrays [off, on]
+    private HashMap<Weapon.Type, TextureRegionDrawable[]> weaponTexMap; //arrays [off, on]
+    private HashMap<Station.Stage, TextureRegionDrawable> stationStageTexMap;
 
 
     /**
@@ -70,10 +71,12 @@ public class SecDetails extends Sector {
         Vector2 size = new Vector2(300, 125); //TODO use this when creating groups
         parent.setBounds(0, 100, 300, 125);
 
+        //init assets
+        initAssets();
+
         //initialize stuff
         parent.addActor(initDecoration(size));
         initDisplayGroups(size);
-        initAssets();
 
         return parent;
     }
@@ -97,32 +100,44 @@ public class SecDetails extends Sector {
     private void initDisplayGroups(Vector2 size){
         //create the display groups
         displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_IN_SPACE, new ShipInSpaceDets(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_DOCKED, new ShipDockedDets(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_IN_WARP, new ShipInWarpDets(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_IN_SPACE, new DetsShipInSpace(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_DOCKED, new DetsShipDocked(this, skin, game.glyph, size));
+        displayGroups.put(Display.SHIP_IN_WARP, new DetsShipInWarp(this, skin, game.glyph, size));
+        displayGroups.put(Display.STATION_BASIC, new DetsStation(this, skin, game.glyph, size));
 
         //add the default actor
         parent.addActor(displayGroups.get(Display.EMPTY));
     }
 
     private void initAssets(){
-        weaponTextureMap = new HashMap<>();
-
+        //weapons
+        weaponTexMap = new HashMap<>();
         for(Weapon.Type t : Weapon.Type.values()){
             TextureRegionDrawable[] arr = new TextureRegionDrawable[2];
 
+            //TODO load the correct image here
             arr[0] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-off.png")));
             arr[1] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-on.png")));
 
-            weaponTextureMap.put(t, arr);
+            weaponTexMap.put(t, arr);
         }
+
+        //station stages
+        stationStageTexMap = new HashMap<>();
+        for(Station.Stage s : Station.Stage.values()){
+            if(s != Station.Stage.RUBBLE){
+                stationStageTexMap.put(s, new TextureRegionDrawable(new Texture(Gdx.files.internal(
+                        "images/ui/icons/station-" + s.name().toLowerCase() + ".png"))));
+            }
+        }
+
     }
 
     @Override
     void setState(GameState state){
         this.state = state;
 
-        for(DetailsSecGroup d : displayGroups.values()){
+        for(DetsGroup d : displayGroups.values()){
             d.setState(state);
         }
     }
@@ -273,6 +288,7 @@ public class SecDetails extends Sector {
             //create the request
             MGameReq req = null;
             if(externalWait == ExternalWait.TARGET){
+                System.out.println(ptr.grid + "  " + ent.grid);
                 if(ptr.grid == ent.grid){
                     req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
                 }
@@ -319,10 +335,15 @@ public class SecDetails extends Sector {
      * @param on True to retrieve the on texture. False for the off one.
      * @return A pre-loaded texture region.
      */
-    public TextureRegionDrawable retrieveWeaponTexture(Weapon.Type type, boolean on){
-        if(on) return weaponTextureMap.get(type)[1];
-        else return weaponTextureMap.get(type)[0];
+    public TextureRegionDrawable retrieveWeaponTex(Weapon.Type type, boolean on){
+        if(on) return weaponTexMap.get(type)[1];
+        else return weaponTexMap.get(type)[0];
     }
+
+    public TextureRegionDrawable retrieveStationStageTex(Station.Stage stage){
+        return stationStageTexMap.get(stage);
+    }
+
 
 
     /* Entity Event Methods */
@@ -344,8 +365,7 @@ public class SecDetails extends Sector {
             else activeDisplay = Display.SHIP_DOCKED;
         }
         else if(entity instanceof Station){
-            //TODO fill this properly
-            activeDisplay = Display.EMPTY;
+            activeDisplay = Display.STATION_BASIC;
         }
 
         //stop any listening
@@ -377,6 +397,15 @@ public class SecDetails extends Sector {
     }
 
     /**
+     * Update the entity's ui to match its logical values.
+     */
+    void updateEntity(Entity ent){
+        if(ent.matches(displayGroups.get(activeDisplay).getSelectedEntity())){
+            displayGroups.get(activeDisplay).updateEntity();
+        }
+    }
+
+    /**
      * If this entity is the currently selected one, then it will be deselected and reselected.
      */
     void reloadEntity(Entity entity){
@@ -396,6 +425,7 @@ public class SecDetails extends Sector {
 
     public void input(Entity ent, Input input, int value){
         switch(input){
+            //ship click listeners
             case SHIP_STOP: {
                 game.sendGameRequest(new MShipStopReq(ent.getId(), ent.grid));
                 break;
@@ -446,22 +476,35 @@ public class SecDetails extends Sector {
                 break;
             }
 
+            //ship hover listeners
+            case SHIP_DOCK_HOVER_ON: {
+                if(ent.grid != -1 && !ent.isDocked()){
+                    //get the station and do ownership checks
+                    Station station = state.grids[ent.grid].station;
+                    if(station.owner != ent.owner) break;
+
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                            EntPtr.createFromEntity(station), Color.GREEN, station.getDockingRadius());
+                }
+                break;
+            }
             case SHIP_WEAPON_HOVER_ON: {
                 game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
                         EntPtr.createFromEntity(ent), Color.YELLOW,
                         ((Ship)ent).weapons[value].getMaxRange());
                 break;
             }
-            case SHIP_WEAPON_HOVER_OFF:
-            case SHIP_TARGET_HOVER_OFF: {
-                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
-                        null, null, 0);
-                break;
-            }
             case SHIP_TARGET_HOVER_ON: {
                 //TODO set this color based on weapon type
                 game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
                         EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).getTargetRange());
+                break;
+            }
+            case SHIP_DOCK_HOVER_OFF:
+            case SHIP_WEAPON_HOVER_OFF:
+            case SHIP_TARGET_HOVER_OFF: {
+                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                        null, null, 0);
                 break;
             }
         }
@@ -501,6 +544,8 @@ public class SecDetails extends Sector {
         SHIP_TARGET_HOVER_OFF,
         SHIP_WEAPON_HOVER_ON,
         SHIP_WEAPON_HOVER_OFF,
+        SHIP_DOCK_HOVER_ON,
+        SHIP_DOCK_HOVER_OFF,
     }
 
     public enum Display {
@@ -508,5 +553,6 @@ public class SecDetails extends Sector {
         SHIP_IN_SPACE,
         SHIP_DOCKED,
         SHIP_IN_WARP,
+        STATION_BASIC,
     }
 }

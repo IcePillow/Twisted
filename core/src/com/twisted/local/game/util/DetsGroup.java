@@ -8,7 +8,7 @@ import com.twisted.local.game.SecDetails;
 import com.twisted.local.game.state.GameState;
 import com.twisted.logic.entities.Entity;
 
-public abstract class DetailsSecGroup extends Group {
+public abstract class DetsGroup extends Group {
 
     /* Fields */
 
@@ -22,7 +22,7 @@ public abstract class DetailsSecGroup extends Group {
 
     /* Construction */
 
-    protected DetailsSecGroup(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
+    protected DetsGroup(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
         this.sector = sector;
         this.skin = skin;
         this.glyph = glyph;

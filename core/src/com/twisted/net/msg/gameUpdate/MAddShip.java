@@ -4,7 +4,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.entities.Frigate;
 import com.twisted.logic.entities.Ship;
 
-public class MAddShip implements MGameUpdate{
+public class MAddShip implements MGameUpd {
 
     //meta data
     public Ship.Type type;

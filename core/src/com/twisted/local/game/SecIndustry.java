@@ -24,6 +24,7 @@ import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameReq.MShipUndockReq;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class SecIndustry extends Sector{
 
@@ -41,7 +42,9 @@ public class SecIndustry extends Sector{
     private VerticalGroup vertical;
     private VerticalGroup jobQueue; //should only have JobRow children
     private VerticalGroup dockGroup; //should only have DockedShipRow children
-    private Label focusStation;
+    private Label focusStationName;
+    private HashMap<Integer, VerticalGroup> stationGroups;
+    private HashMap<Integer, Label[]> resourceLabels; //indices in label are for each resource
 
     //graphics state
     private int focusStationId = -1;
@@ -105,16 +108,16 @@ public class SecIndustry extends Sector{
         focusGroup.addActor(focusBackground);
 
         //name of the station currently in focus
-        focusStation = new Label("[Station]", skin, "small", Color.WHITE);
-        focusStation.setPosition(3, FOCUS_HEIGHT- focusStation.getHeight()-3);
-        focusGroup.addActor(focusStation);
+        focusStationName = new Label("[Station]", skin, "small", Color.WHITE);
+        focusStationName.setPosition(3, FOCUS_HEIGHT- focusStationName.getHeight()-3);
+        focusGroup.addActor(focusStationName);
 
         //title of scroll panes
         Label jobQueueTitle = new Label("Job Queue", skin, "small", Color.GRAY);
-        jobQueueTitle.setPosition(focusGroup.getWidth()-3-QUEUE_WIDTHS, focusStation.getY()-jobQueueTitle.getHeight());
+        jobQueueTitle.setPosition(focusGroup.getWidth()-3-QUEUE_WIDTHS, focusStationName.getY()-jobQueueTitle.getHeight());
         focusGroup.addActor(jobQueueTitle);
         Label dockedShipsTitle = new Label("Docked", skin, "small", Color.GRAY);
-        dockedShipsTitle.setPosition(3, focusStation.getY()-dockedShipsTitle.getHeight());
+        dockedShipsTitle.setPosition(3, focusStationName.getY()-dockedShipsTitle.getHeight());
         focusGroup.addActor(dockedShipsTitle);
 
         //cosmetic squares
@@ -159,6 +162,9 @@ public class SecIndustry extends Sector{
 
     @Override
     void load() {
+        stationGroups = new HashMap<>();
+        resourceLabels = new HashMap<>();
+
         //loop through the grids
         for(Grid g : state.grids){
 
@@ -166,6 +172,7 @@ public class SecIndustry extends Sector{
             VerticalGroup stationGroup = new VerticalGroup();
             stationGroup.columnAlign(Align.left);
             vertical.addActor(stationGroup);
+            stationGroups.put(g.station.getId(), stationGroup);
 
             // Title bar for station \\
             HorizontalGroup stationTitleBar = new HorizontalGroup();
@@ -176,7 +183,7 @@ public class SecIndustry extends Sector{
             stationTitleBar.addActor(dropdown);
 
             //create and add the name label
-            Label stationNameLabel = new Label(g.station.nickname, skin, "small", Color.LIGHT_GRAY);
+            Label stationNameLabel = new Label(g.station.getFullName(), skin, "small", Color.LIGHT_GRAY);
             stationNameLabel.setAlignment(Align.left);
             stationTitleBar.addActor(stationNameLabel);
 
@@ -195,10 +202,10 @@ public class SecIndustry extends Sector{
             int allowedLabelWidth = (int) Math.floor((vertical.getWidth()-10-16-18*4)/4);
 
             //loop through gem files
-            g.station.industryResourceLabels = new Label[4];
+            Label[] arr = new Label[4];
+            resourceLabels.put(g.station.getId(), arr);
             int index=0;
             for(String filename : new String[]{"calcite", "kernite", "pyrene", "crystal"}){
-
                 Image image = new Image(new Texture(Gdx.files.internal("images/gems/" + filename + ".png")));
                 Label label = new Label("0", skin, "small");
 
@@ -206,7 +213,7 @@ public class SecIndustry extends Sector{
                 resourceBar.add(label).minWidth(allowedLabelWidth);
 
                 //add to the station object
-                g.station.industryResourceLabels[index] = label;
+                arr[index] = label;
                 index++;
             }
             child.addActor(resourceBar);
@@ -219,7 +226,6 @@ public class SecIndustry extends Sector{
 
             //loop through all the jobs
             for(Station.Job job : g.station.getPossibleJobs()){
-
                 Label nameLabel = new Label(job.name(), skin, "small", Color.WHITE);
                 nameLabel.setColor(Color.GRAY);
                 jobTable.add(nameLabel).align(Align.left).padRight(10);
@@ -323,7 +329,6 @@ public class SecIndustry extends Sector{
 
                 //TODO add them back to the parent when ownership is regained
             }
-
         }
     }
 
@@ -336,28 +341,41 @@ public class SecIndustry extends Sector{
     }
 
 
-    /* External Event Methods */
+    /* Event Methods */
 
     /**
      * Called when the user clicks on a station in the industry menu.
+     * @param station Set to null to unfocus a station without focusing another station.
      */
-    void industryFocusStation(Station station){
-        focusStationId = station.grid;
+    private void industryFocusStation(Station station){
+        if(station == null){
+            focusStationId = -1;
 
-        //top text
-        focusStation.setText(station.nickname);
+            //reset actors
+            focusStationName.setText("[Station]");
+            dockGroup.clearChildren();
+            jobQueue.clearChildren();
+            jobMappings.clear();
 
-        //docked hips
-        dockGroup.clearChildren();
-        for(Ship s : station.dockedShips.values()){
-            addDockedShip(s);
         }
+        else {
+            focusStationId = station.grid;
 
-        //job queue
-        jobQueue.clearChildren();
-        jobMappings.clear();
-        for(int i=0; i<station.currentJobs.size(); i++){
-            upsertStationJob(station.getId(), station.currentJobs.get(i), i);
+            //top text
+            focusStationName.setText(station.getFullName());
+
+            //docked ships
+            dockGroup.clearChildren();
+            for(Ship s : station.dockedShips.values()){
+                addDockedShip(s);
+            }
+
+            //job queue
+            jobQueue.clearChildren();
+            jobMappings.clear();
+            for(int i=0; i<station.currentJobs.size(); i++){
+                upsertStationJob(station.getId(), station.currentJobs.get(i), i);
+            }
         }
     }
 
@@ -414,8 +432,8 @@ public class SecIndustry extends Sector{
      * Update the resources in a given station.
      */
     void stationResourceUpdate(Station s){
-        for(int i=0; i<s.industryResourceLabels.length; i++){
-            s.industryResourceLabels[i].setText(s.resources[i]);
+        for(int i=0; i<4; i++){
+            resourceLabels.get(s.getId())[i].setText(s.resources[i]);
         }
     }
 
@@ -446,6 +464,25 @@ public class SecIndustry extends Sector{
         if(index != -1){
             dockedShips.remove(ship);
             dockGroup.removeActorAt(index, true);
+        }
+    }
+
+    /**
+     * Called when a station's stage changes.
+     */
+    void stationStageUpdate(Station s){
+        VerticalGroup g = stationGroups.get(s.getId());
+
+        if(s.owner == state.myId && !g.hasParent()){
+            vertical.addActor(g);
+        }
+        else if(s.owner != state.myId && g.hasParent()){
+            vertical.removeActor(g);
+
+            //deselecting
+            if(focusStationId == s.getId()){
+                industryFocusStation(null);
+            }
         }
     }
 

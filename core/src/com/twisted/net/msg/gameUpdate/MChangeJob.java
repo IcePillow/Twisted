@@ -5,7 +5,7 @@ import com.twisted.logic.descriptors.CurrentJob;
 /**
  * Adding or removing a CurrentJob to a given station.
  */
-public class MChangeJob implements MGameUpdate{
+public class MChangeJob implements MGameUpd {
 
     public final Action action;
     public final int jobId;

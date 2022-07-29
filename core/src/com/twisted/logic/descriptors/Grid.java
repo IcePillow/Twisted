@@ -8,7 +8,9 @@ import com.twisted.logic.mobs.Mobile;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Client and serverside representation of a particular part of space in game.
@@ -25,8 +27,8 @@ public class Grid implements Serializable {
     /* State */
 
     public Station station;
-    public final HashMap<Integer, Ship> ships;
-    public final HashMap<Integer, Mobile> mobiles;
+    public final Map<Integer, Ship> ships; //sync
+    public final Map<Integer, Mobile> mobiles; //sync
 
 
     /* Methods */
@@ -39,8 +41,8 @@ public class Grid implements Serializable {
         this.pos = pos;
         this.nickname = nickname;
 
-        this.ships = new HashMap<>();
-        this.mobiles = new HashMap<>();
+        this.ships = Collections.synchronizedMap(new HashMap<>());
+        this.mobiles = Collections.synchronizedMap(new HashMap<>());
     }
 
 

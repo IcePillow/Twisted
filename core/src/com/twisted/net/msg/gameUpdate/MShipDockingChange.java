@@ -1,6 +1,6 @@
 package com.twisted.net.msg.gameUpdate;
 
-public class MShipDockingChange implements MGameUpdate{
+public class MShipDockingChange implements MGameUpd {
 
     public int shipId;
     public int grid;

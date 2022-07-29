@@ -1,20 +1,16 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.host.GameHost;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 
@@ -25,12 +21,12 @@ public abstract class Station extends Entity implements Serializable {
 
     /* Graphics (clientside) */
 
-    public Image minimapSprite;
-    public Label minimapLabel;
-
-    public Label[] industryResourceLabels; //{calcite, kernite, pyrene, crystal}
-
     public Polygon polygon;
+
+
+    /* Logic (serverside) */
+
+    public GameHost host;
 
 
     /* Variables */
@@ -40,16 +36,20 @@ public abstract class Station extends Entity implements Serializable {
     public int getId(){
         return grid;
     }
-    public final String nickname;
-    public final String shortNickname;
+    public final String gridNick;
 
-    //high level state variables
+    //stage tracking
     public Stage stage;
+    public float stageTimer; //seconds
 
     //lower level state variables
     public final ArrayList<CurrentJob> currentJobs;
     public final int[] resources;
     public final LinkedHashMap<Integer, Ship> dockedShips;
+
+    //health
+    public float shieldHealth;
+    public float hullHealth;
 
 
     /**
@@ -61,28 +61,19 @@ public abstract class Station extends Entity implements Serializable {
         this.stage = stage;
 
         //set nicknames
-        this.nickname = this.getType().toString() + " " + gridNick;
-        switch(this.getType()){
-            case Extractor:
-                this.shortNickname = "Extrac " + gridNick;
-                break;
-            case Harvester:
-                this.shortNickname = "Harves " + gridNick;
-                break;
-            case Liquidator:
-                this.shortNickname = "Liquid " + gridNick;
-                break;
-            default:
-                System.out.println("Unexpected Station type in Station()");
-                this.shortNickname = "[???]";
-        }
+        this.gridNick = gridNick;
 
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
         dockedShips = new LinkedHashMap<>();
 
+        //physics
         this.pos = new Vector2(0, 0);
         this.rot = 0;
+
+        //battle
+        this.shieldHealth = getMaxShield();
+        this.hullHealth = getMaxHull();
     }
 
 
@@ -90,10 +81,50 @@ public abstract class Station extends Entity implements Serializable {
 
     public abstract Job[] getPossibleJobs();
     public abstract float[] getVertices();
-
     @Override
     public float getPaddedLogicalRadius(){
         return (1.28f * 1.1f);
+    }
+    public float getDockingRadius(){
+        return 1f;
+    }
+    public int getMaxShield(){
+        return 10;
+    }
+    public int getMaxHull(){
+        return 8;
+    }
+    public int getArmoredDuration(){
+        return 5;
+    }
+    public int getVulnerableDuration(){
+        return 5;
+    }
+    public int getDeploymentDuration(){
+        return 5;
+    }
+
+
+    /* Naming Methods */
+
+    public String getFullName(){
+        return this.getType().name() + " " + gridNick;
+    }
+
+    @Override
+    public String getFleetName(){
+        switch(this.getType()){
+            case Extractor:
+                return "Extrac " + gridNick;
+            case Liquidator:
+                return "Liquid " + gridNick;
+            case Harvester:
+                return "Harves " + gridNick;
+            default:
+                System.out.println("Unexpected type");
+                new Exception().printStackTrace();
+                return null;
+        }
     }
 
 
@@ -101,7 +132,24 @@ public abstract class Station extends Entity implements Serializable {
 
     @Override
     public void takeDamage(Grid grid, float amount){
-        //TODO
+
+        switch(stage){
+            case SHIELDED:{
+                shieldHealth -= amount;
+                break;
+            }
+            case VULNERABLE:{
+                hullHealth -= amount;
+                break;
+            }
+            //cases where nothing happens
+            case DEPLOYMENT:
+                //TODO change this case
+            case ARMORED:
+            case RUBBLE:{
+                break;
+            }
+        }
     }
 
 
@@ -145,7 +193,7 @@ public abstract class Station extends Entity implements Serializable {
      *
      * Lowercase of type is filename.
      */
-    public enum Type {
+    public enum Type implements Subtype {
         Extractor,
         Harvester,
         Liquidator
@@ -155,11 +203,11 @@ public abstract class Station extends Entity implements Serializable {
      * The stage that the station is currently in.
      */
     public enum Stage {
-        NONE,
         DEPLOYMENT,
+        SHIELDED,
         ARMORED,
-        REINFORCED,
-        VULNERABLE
+        VULNERABLE,
+        RUBBLE,
     }
 
     /**

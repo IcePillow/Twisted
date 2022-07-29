@@ -36,7 +36,7 @@ public class GameHost implements ServerContact {
 
     /* Exterior Reference Variables */
 
-    private Server server;
+    private final Server server;
 
 
     /* Storage Variables */
@@ -84,7 +84,6 @@ public class GameHost implements ServerContact {
      * @param players The array of players. Should not exceed the max number for the map.
      */
     public GameHost(Server server, HashMap<Integer, Player> players, int hostId){
-
         //initialize
         this.requests = new HashMap<>();
         this.hotRequests = Collections.synchronizedMap(new HashMap<>());
@@ -158,20 +157,24 @@ public class GameHost implements ServerContact {
                 new Grid(6, new Vector2(400, 500), "G"),
                 new Grid(7, new Vector2(500, 400), "H"),
         };
-        grids[0].station = new Extractor(0, grids[0].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[1].station = new Extractor(1, grids[1].nickname, players[0].getId(), Station.Stage.ARMORED, false);
+        grids[0].station = new Extractor(0, grids[0].nickname, players[0].getId(), Station.Stage.SHIELDED, false);
+        grids[1].station = new Extractor(1, grids[1].nickname, players[0].getId(), Station.Stage.SHIELDED, false);
         grids[2].station = new Harvester(2, grids[2].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[3].station = new Extractor(3, grids[3].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[4].station = new Extractor(4, grids[4].nickname, players[1].getId(), Station.Stage.ARMORED, false);
+        grids[3].station = new Extractor(3, grids[3].nickname, players[1].getId(), Station.Stage.SHIELDED, false);
+        grids[4].station = new Extractor(4, grids[4].nickname, players[1].getId(), Station.Stage.SHIELDED, false);
         grids[5].station = new Harvester(5, grids[5].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.NONE, false);
-        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.NONE, false);
+        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.RUBBLE, false);
+        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.RUBBLE, false);
 
         //add initial resources
         grids[0].station.resources[0] += 20;
         grids[0].station.resources[1] += 6;
         grids[3].station.resources[0] += 20;
         grids[3].station.resources[1] += 6;
+
+        //set initial timers
+        grids[2].station.stageTimer = 60;
+        grids[5].station.stageTimer = 60;
 
         //warp
         shipsInWarp = new HashMap<>();
@@ -215,7 +218,6 @@ public class GameHost implements ServerContact {
             msg.gridPositions[j] = g.pos;
             msg.gridNicknames[j] = g.nickname;
             msg.stationTypes[j] = g.station.getType();
-            msg.stationNames[j] = g.station.nickname;
             msg.stationOwners[j] = g.station.owner;
             msg.stationStages[j] = g.station.stage;
             msg.stationResources[j] = g.station.resources;
@@ -331,19 +333,19 @@ public class GameHost implements ServerContact {
      */
     private void loop(){
         //handle requests
-        for(MGameReq req : requests.keySet()){
-            int userId = requests.get(req);
+        for(MGameReq r : requests.keySet()){
+            int id = requests.get(r);
 
-            if(req instanceof MJobReq) handleJobRequest(userId, (MJobReq) req);
-            else if(req instanceof MShipMoveReq) handleShipMoveRequest(userId, (MShipMoveReq) req);
-            else if(req instanceof MShipAlignReq) handleShipAlignRequest(userId, (MShipAlignReq) req);
-            else if(req instanceof MShipWarpReq) handleShipWarpRequest(userId, (MShipWarpReq) req);
-            else if(req instanceof MTargetReq) handleShipTargetRequest(userId, (MTargetReq) req);
-            else if(req instanceof MShipOrbitReq) handleShipOrbitRequest(userId, (MShipOrbitReq) req);
-            else if(req instanceof MWeaponActiveReq) handleWeaponActiveRequest(userId, (MWeaponActiveReq) req);
-            else if(req instanceof MShipStopReq) handleShipStopRequest(userId, (MShipStopReq) req);
-            else if(req instanceof MShipUndockReq) handleShipUndockRequest(userId, (MShipUndockReq) req);
-            else if(req instanceof MShipDockReq) handleShipDockReq(userId, (MShipDockReq) req);
+            if(r instanceof MJobReq) handleJobRequest(id, (MJobReq) r);
+            else if(r instanceof MShipMoveReq) handleShipMoveRequest(id, (MShipMoveReq) r);
+            else if(r instanceof MShipAlignReq) handleShipAlignRequest(id, (MShipAlignReq) r);
+            else if(r instanceof MShipWarpReq) handleShipWarpRequest(id, (MShipWarpReq) r);
+            else if(r instanceof MTargetReq) handleShipTargetRequest(id, (MTargetReq) r);
+            else if(r instanceof MShipOrbitReq) handleShipOrbitRequest(id, (MShipOrbitReq) r);
+            else if(r instanceof MWeaponActiveReq) handleWeaponActiveRequest(id, (MWeaponActiveReq) r);
+            else if(r instanceof MShipStopReq) handleShipStopRequest(id, (MShipStopReq) r);
+            else if(r instanceof MShipUndockReq) handleShipUndockRequest(id, (MShipUndockReq) r);
+            else if(r instanceof MShipDockReq) handleShipDockReq(id, (MShipDockReq) r);
         }
 
         //updating
@@ -376,17 +378,21 @@ public class GameHost implements ServerContact {
             overviews.put(player.getId(), new MGameOverview());
         }
 
-        //fill station timers
         for(Grid g : grids){
+            //fill station timers
             for(CurrentJob j : g.station.currentJobs){
                 overviews.get(j.owner).jobToTimeLeft.put(j.jobId, j.timeLeft);
             }
-        }
-        //fill station resources
-        for(Grid g : grids){
+
+            //fill station resources
             Station s = g.station;
             if(s.owner > 0){ //check there is an owner
                 overviews.get(s.owner).stationToResources.put(s.grid, s.resources.clone());
+            }
+
+            //fill station stage timer
+            for(MGameOverview o : overviews.values()){
+                o.stationStageTimer.put(s.getId(), s.stageTimer);
             }
         }
 
@@ -406,15 +412,17 @@ public class GameHost implements ServerContact {
      */
     private void updateStationTimers(){
         for(Grid grid : grids){
-            //skip if no jobs
-            if(grid.station.currentJobs.size() > 0) {
+            Station s = grid.station;
+
+            //job updates
+            if(s.currentJobs.size() > 0) {
                 //otherwise, grab the first job
-                CurrentJob job = grid.station.currentJobs.get(0);
+                CurrentJob job = s.currentJobs.get(0);
                 job.timeLeft -= FRAC;
 
                 if(job.timeLeft <= 0){
                     //end the job and tell the user
-                    grid.station.currentJobs.remove(0);
+                    s.currentJobs.remove(0);
                     server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
                             job.jobId, job.grid, null));
 
@@ -445,6 +453,35 @@ public class GameHost implements ServerContact {
                         //tell users
                         server.broadcastMessage(MAddShip.createFromShipBody(sh));
                     }
+                }
+            }
+
+            //stage timer
+            s.stageTimer -= FRAC;
+            if(s.stageTimer <= 0){
+                s.stageTimer = 0;
+
+                //stage updates
+                switch(s.stage){
+                    case VULNERABLE:
+                        s.stage = Station.Stage.SHIELDED;
+                        s.shieldHealth = (float) Math.ceil(0.25f * s.getMaxShield());
+
+                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        break;
+                    case ARMORED:
+                        s.stage = Station.Stage.VULNERABLE;
+                        s.stageTimer = s.getVulnerableDuration();
+
+                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        break;
+                    case DEPLOYMENT:
+                        s.stage = Station.Stage.SHIELDED;
+                        s.shieldHealth = s.getMaxShield();
+                        s.hullHealth = s.getMaxHull();
+
+                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        break;
                 }
             }
         }
@@ -478,7 +515,7 @@ public class GameHost implements ServerContact {
                     }
                     else {
                         //set the targetVel to the correct direction and normalize
-                        s.trajectoryVel = new Vector2(s.moveTargetPos.x - s.pos.x,
+                        s.trajectoryVel.set(s.moveTargetPos.x - s.pos.x,
                                 s.moveTargetPos.y - s.pos.y).nor();
 
                         //find the effective max speed (compare speed can stop from to actual max speed)
@@ -496,7 +533,7 @@ public class GameHost implements ServerContact {
                 else if(s.movement == Ship.Movement.ORBIT_ENT){
                     Entity tar = g.retrieveEntity(s.moveTargetEntType, s.moveTargetEntId);
 
-                    //TODO fix orbiting calculations
+                    //TODO handle orbiting better at smaller radii
                     if(tar == null){
                         s.movement = Ship.Movement.STOPPING;
                         s.moveCommand = "Stationary";
@@ -529,6 +566,9 @@ public class GameHost implements ServerContact {
                         s.trajectoryVel.set(oPoint.x-s.pos.x+oPath.x, oPoint.y-s.pos.y+oPath.y);
                     }
                 }
+                else if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
+                    s.trajectoryVel.set(s.moveTargetPos.x-s.pos.x, s.moveTargetPos.y-s.pos.y);
+                }
 
                 //accelerate the ship
                 if(s.trajectoryVel != null){
@@ -553,7 +593,6 @@ public class GameHost implements ServerContact {
      * Updates the physics of each grid.
      */
     private void updatePhysics(){
-
         //utility objects
         ArrayList<Ship> shipsToRemove = new ArrayList<>();
         ArrayList<Integer> mobilesToRemove = new ArrayList<>(); //mobile id
@@ -562,10 +601,18 @@ public class GameHost implements ServerContact {
         for(Grid g : grids){
             //loop through ships on the grid
             for(Ship s : g.ships.values()){
+                //move the ship
+                s.pos.x += s.vel.x * FRAC;
+                s.pos.y += s.vel.y * FRAC;
+
+                //set the rotation
+                if(s.vel.len() != 0){
+                    s.rot = (float) Math.atan2(s.vel.y, s.vel.x);
+                }
 
                 //check if it should enter warp
                 if(s.movement == Ship.Movement.ALIGN_FOR_WARP
-                        && s.alignedForWarp(g, grids[s.warpTargetGridId])){
+                    && s.alignedForWarp(g, grids[s.warpTargetGridId])){
                     //remove the ship at the end of the loop
                     shipsToRemove.add(s);
 
@@ -589,13 +636,18 @@ public class GameHost implements ServerContact {
                     server.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
                 }
 
-                //move the ship
-                s.pos.x += s.vel.x * FRAC;
-                s.pos.y += s.vel.y * FRAC;
-
-                //set the rotation
-                if(s.vel.len() != 0){
-                    s.rot = (float) Math.atan2(s.vel.y, s.vel.x);
+                //check if the ship should dock
+                if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
+                    Station st = g.station;
+                    //dock
+                    if(s.pos.dst(st.pos) <= st.getDockingRadius() && st.owner == s.owner){
+                        dockShipAtStation(s, st, g);
+                    }
+                    //owner changed
+                    else if(st.owner != s.owner) {
+                        s.movement = Ship.Movement.STOPPING;
+                        s.moveCommand = "Stopping";
+                    }
                 }
             }
 
@@ -693,7 +745,7 @@ public class GameHost implements ServerContact {
                 }
             }
 
-            //health checks
+            //ship health checks
             for(Ship s : g.ships.values()){
                 if(s.health <= 0){
                     server.broadcastMessage(new MRemShip(s.id, g.id, Ship.Removal.EXPLOSION, false));
@@ -703,6 +755,26 @@ public class GameHost implements ServerContact {
             //remove ships
             for(Ship s : toBeRemoved){
                 g.ships.remove(s.id);
+            }
+
+            //station health checks
+            Station st = g.station;
+            if(st.stage == Station.Stage.SHIELDED && st.shieldHealth <= 0){
+                st.shieldHealth = 0;
+                st.stageTimer = st.getArmoredDuration();
+                st.stage = Station.Stage.ARMORED;
+                server.broadcastMessage(MStationStage.createFromStation(st));
+            }
+            if(st.stage == Station.Stage.VULNERABLE && st.hullHealth <= 0){
+                //change to rubble
+                g.station.hullHealth = 0;
+                g.station.stage = Station.Stage.RUBBLE;
+                g.station.owner = 0;
+                server.broadcastMessage(MStationStage.createFromStation(st));
+
+                //other updates
+                st.currentJobs.clear();
+                st.dockedShips.clear();
             }
         }
     }
@@ -719,6 +791,11 @@ public class GameHost implements ServerContact {
         }
         for(Ship s : shipsInWarp.values()){
             server.broadcastMessage(MShipUpd.createFromShip(s));
+        }
+
+        //station data
+        for(Grid g : grids){
+            server.broadcastMessage(MStationUpd.createFromStation(g.station));
         }
 
         //mobile data
@@ -741,15 +818,15 @@ public class GameHost implements ServerContact {
         }
 
         //reject if conditions not met
-        if(s.owner != userId || !s.enoughForJob(j) || s.stage == Station.Stage.NONE ||
+        if(s.owner != userId || !s.enoughForJob(j) || s.stage == null ||
                 s.stage == Station.Stage.DEPLOYMENT){
 
             MDenyRequest deny = new MDenyRequest(msg);
             if(!s.enoughForJob(j)){
                 deny.reason = "Not enough resources for job: " + j.name();
             }
-            else if(s.stage == Station.Stage.NONE || s.stage == Station.Stage.DEPLOYMENT) {
-                deny.reason = s.nickname + " cannot build right now";
+            else if(s.stage == null || s.stage == Station.Stage.DEPLOYMENT) {
+                deny.reason = s.getFullName() + " cannot build right now";
             }
             else {
                 deny.reason = "Job denied for unexpected reason";
@@ -1048,14 +1125,14 @@ public class GameHost implements ServerContact {
         }
 
         //check permissions
-        if(s.owner != userId || s.grid == -1 || s.docked){
+        if(s.owner != userId || s.grid == -1 || !s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
             if(s.grid == -1){
                 deny.reason = "Cannot undock a ship in warp";
             }
-            else if(s.docked){
-                deny.reason = "Cannot command a docked ship";
+            else if(!s.docked){
+                deny.reason = "Cannot undock an undocked ship";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -1115,28 +1192,9 @@ public class GameHost implements ServerContact {
             server.sendMessage(userId, deny);
         }
         else {
-            //dock the ship TODO range checks
-            grids[msg.grid].ships.remove(s.id);
-            Station station = grids[msg.grid].station;
-            station.dockedShips.put(s.id, s);
-
-            //set physics
-            s.rot = 0;
-            s.pos.set(station.pos);
-            s.vel.set(0, 0);
-            s.docked = true;
-
-            //reset other values
-            for(Weapon w : s.weapons){
-                w.active = false;
-            }
-            s.targetTimeToLock = -1;
-            s.targetingState = null;
-            s.warpTimeToLand = 0;
-
-            //send to clients
-            server.broadcastMessage(new MShipDockingChange(s.id, station.grid, true,
-                    MShipUpd.createFromShip(s)));
+            s.movement = Ship.Movement.MOVE_FOR_DOCK;
+            s.moveCommand = "Taxiing to dock";
+            s.moveTargetPos = grids[msg.grid].station.pos;
         }
 
     }
@@ -1157,6 +1215,30 @@ public class GameHost implements ServerContact {
         else {
             return null;
         }
+    }
+
+    private void dockShipAtStation(Ship ship, Station station, Grid grid){
+        //dock the ship
+        grid.ships.remove(ship.id);
+        station.dockedShips.put(ship.id, ship);
+
+        //set physics
+        ship.rot = 0;
+        ship.pos.set(station.pos);
+        ship.vel.set(0, 0);
+        ship.docked = true;
+
+        //reset other values
+        for(Weapon w : ship.weapons){
+            w.active = false;
+        }
+        ship.targetTimeToLock = -1;
+        ship.targetingState = null;
+        ship.warpTimeToLand = 0;
+
+        //send to clients
+        server.broadcastMessage(new MShipDockingChange(ship.id, station.grid, true,
+                MShipUpd.createFromShip(ship)));
     }
 
 }

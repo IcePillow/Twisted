@@ -29,10 +29,11 @@ public abstract class Ship extends Entity implements Serializable {
     //command movement description
     public Movement movement;
     public Vector2 moveTargetPos;
-    public Entity.Type moveTargetEntType; //used for orbiting
+    public Entity.Type moveTargetEntType; //used for orbiting TODO refactor to EntPtr
     public int moveTargetEntId; //used for orbiting
     public float moveRelativeDist; //used for orbit radius
     public int warpTargetGridId; //used if movement = ALIGN_FOR_WARP
+    public int dockStationId; //used if movement = MOVE_FOR_DOCK TODO refactor to EntPtr
 
     /* State */
 
@@ -106,6 +107,26 @@ public abstract class Ship extends Entity implements Serializable {
     public abstract float getTargetRange();
     public abstract int getMaxHealth();
     public abstract Weapon.Type[] getWeaponSlots();
+
+
+    /* Naming Methods */
+
+    @Override
+    public String getFullName(){
+        return this.getType().name();
+    }
+
+    @Override
+    public String getFleetName(){
+        switch(this.getType()){
+            case Frigate:
+                return this.getType().name();
+            default:
+                System.out.println("Unexpected type");
+                new Exception().printStackTrace();
+                return null;
+        }
+    }
 
 
     /* Action Methods */
@@ -191,7 +212,7 @@ public abstract class Ship extends Entity implements Serializable {
     /**
      * Type of ship.
      */
-    public enum Type {
+    public enum Type implements Subtype {
         Frigate
     }
 
@@ -208,6 +229,8 @@ public abstract class Ship extends Entity implements Serializable {
         WARPING,
 
         ORBIT_ENT,
+
+        MOVE_FOR_DOCK,
     }
 
     /**

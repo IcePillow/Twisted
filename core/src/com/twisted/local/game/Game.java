@@ -29,7 +29,8 @@ import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
 
-import java.util.Map;
+import java.util.*;
+import java.util.List;
 
 
 /**
@@ -41,7 +42,7 @@ public class Game implements Screen, ClientContact {
     public static final float LTR = 100; //logical to rendered
 
     //exterior references
-    private Main main;
+    private final Main main;
     private GameHost host;
     public void setHost(GameHost host){
         this.host = host;
@@ -83,11 +84,12 @@ public class Game implements Screen, ClientContact {
     /* Constructor */
 
     public Game(Main main) {
+        //copy references
         this.main = main;
 
+        //graphics
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
         Gdx.input.setInputProcessor(stage);
-
         initSectors();
     }
 
@@ -192,6 +194,8 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MMobileUps) receiveMobileUps((MMobileUps) m);
         else if(m instanceof MRemShip) receiveRemShip((MRemShip) m);
         else if(m instanceof MShipDockingChange) receiveShipDockingChange((MShipDockingChange) m);
+        else if(m instanceof MStationStage) receiveStationStage((MStationStage) m);
+        else if(m instanceof MStationUpd) receiveStationUpd((MStationUpd) m);
     }
 
     @Override
@@ -255,7 +259,7 @@ public class Game implements Screen, ClientContact {
     }
 
     private void receiveGameOverview(MGameOverview m){
-        //update each timer
+        //update each job timer
         for(Map.Entry<Integer, Float> e : m.jobToTimeLeft.entrySet()){
             CurrentJob job = state.jobs.get(e.getKey());
             job.timeLeft = e.getValue();
@@ -271,6 +275,13 @@ public class Game implements Screen, ClientContact {
 
             //tell sectors
             industrySec.stationResourceUpdate(state.grids[e.getKey()].station);
+        }
+        //update station stage timer
+        for(Map.Entry<Integer, Float> e : m.stationStageTimer.entrySet()){
+            state.grids[e.getKey()].station.stageTimer = e.getValue();
+
+            //tell sectors
+            detailsSec.updateEntity(state.grids[e.getKey()].station);
         }
     }
 
@@ -448,7 +459,6 @@ public class Game implements Screen, ClientContact {
 
             //tell the sectors
             industrySec.addDockedShip(s);
-            viewportSec.removeSelectionsOfEntity(ptr);
             detailsSec.reloadEntity(s);
             fleetSec.checkRemoveEntity(s);
         }
@@ -466,6 +476,30 @@ public class Game implements Screen, ClientContact {
             detailsSec.reloadEntity(s);
             fleetSec.checkAddEntity(s);
         }
+    }
+
+    private void receiveStationStage(MStationStage m){
+        Station s = state.grids[m.stationId].station;
+
+        s.owner = m.owner;
+        s.stage = m.stage;
+
+        //update sectors
+        minimapSec.updateStation(s);
+        detailsSec.updateEntity(s);
+        fleetSec.checkRemoveEntity(s);
+        fleetSec.updEntityValues(s);
+        industrySec.stationStageUpdate(s);
+    }
+
+    private void receiveStationUpd(MStationUpd m){
+        Station s = state.grids[m.stationId].station;
+
+        //copy data
+        m.copyDataToStation(s);
+
+        //update sectors
+        detailsSec.updateEntity(s);
     }
 
 
@@ -570,16 +604,13 @@ public class Game implements Screen, ClientContact {
      * Called when an entity is selected from the fleet window.
      */
     void fleetClickEvent(Entity entity){
-        int gridId = state.findShipGridId(entity.getId());
-
         //normal behavior
         if(crossSectorListener == null){
             entitySelectedForDetails(entity);
         }
         //responding to listeners
         else {
-            crossSectorListener.fleetClickEvent(new EntPtr(entity.getEntityType(), entity.getId(),
-                    gridId, entity.isDocked()));
+            crossSectorListener.fleetClickEvent(EntPtr.createFromEntity(entity));
         }
     }
 
