@@ -1,6 +1,5 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.entities.attach.Blaster;
 import com.twisted.logic.entities.attach.Weapon;
 
@@ -14,9 +13,8 @@ public class Frigate extends Ship {
     /**
      * Constructor
      */
-    public Frigate(int shipId, int gridId, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand, boolean docked){
-        super(shipId, gridId, owner, position, velocity, rotation, warpTimeToLand, docked);
+    public Frigate(int shipId, int gridId, int owner, boolean docked){
+        super(shipId, gridId, owner, docked);
 
         weapons[0] = new Blaster(3, 2, 1.4f, 2);
         weapons[1] = new Blaster(3, 2, 1.4f, 2);
@@ -47,7 +45,7 @@ public class Frigate extends Ship {
     }
     @Override
     public float getPaddedLogicalRadius() {
-        return 0.16f;
+        return 1.4f * 0.113f;
     }
     @Override
     public Weapon.Type[] getWeaponSlots(){

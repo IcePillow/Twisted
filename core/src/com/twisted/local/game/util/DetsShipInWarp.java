@@ -12,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.Asset;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
@@ -40,7 +41,7 @@ public class DetsShipInWarp extends DetsGroup {
         this.addActor(topTextGroup);
 
         Group healthGroup = createHealthGroup();
-        healthGroup.setPosition(6, 87);
+        healthGroup.setPosition(6, 89);
         this.addActor(healthGroup);
 
         shipWeaponGroup = createShipWeaponGroup();
@@ -146,7 +147,7 @@ public class DetsShipInWarp extends DetsGroup {
 
         //update the name
         shipName.setText(sel.getType().toString());
-        shipName.setColor(state.players.get(sel.owner).getColor());
+        shipName.setColor(state.players.get(sel.owner).getFile().color);
 
         //update the weapon button visibility
         for(int i=0; i<weaponButtons.length; i++){
@@ -156,8 +157,8 @@ public class DetsShipInWarp extends DetsGroup {
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
                 weaponButtons[i].switchTextures(
-                        sector.retrieveWeaponTex(sel.weapons[i].getType(), false),
-                        sector.retrieveWeaponTex(sel.weapons[i].getType(), true));
+                        Asset.retrieve(sel.weapons[i].getOffButtonAsset()),
+                        Asset.retrieve(sel.weapons[i].getOnButtonAsset()));
             }
         }
 

@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
@@ -44,10 +45,6 @@ public class SecDetails extends Sector {
     private ExternalWait externalWait;
     private EntPtr storeEntClick;
 
-    //assets
-    private HashMap<Weapon.Type, TextureRegionDrawable[]> weaponTexMap; //arrays [off, on]
-    private HashMap<Station.Stage, TextureRegionDrawable> stationStageTexMap;
-
 
     /**
      * Constructor
@@ -70,9 +67,6 @@ public class SecDetails extends Sector {
         parent = super.init();
         Vector2 size = new Vector2(300, 125); //TODO use this when creating groups
         parent.setBounds(0, 100, 300, 125);
-
-        //init assets
-        initAssets();
 
         //initialize stuff
         parent.addActor(initDecoration(size));
@@ -107,30 +101,6 @@ public class SecDetails extends Sector {
 
         //add the default actor
         parent.addActor(displayGroups.get(Display.EMPTY));
-    }
-
-    private void initAssets(){
-        //weapons
-        weaponTexMap = new HashMap<>();
-        for(Weapon.Type t : Weapon.Type.values()){
-            TextureRegionDrawable[] arr = new TextureRegionDrawable[2];
-
-            //TODO load the correct image here
-            arr[0] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-off.png")));
-            arr[1] = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/blaster-on.png")));
-
-            weaponTexMap.put(t, arr);
-        }
-
-        //station stages
-        stationStageTexMap = new HashMap<>();
-        for(Station.Stage s : Station.Stage.values()){
-            if(s != Station.Stage.RUBBLE){
-                stationStageTexMap.put(s, new TextureRegionDrawable(new Texture(Gdx.files.internal(
-                        "images/ui/icons/station-" + s.name().toLowerCase() + ".png"))));
-            }
-        }
-
     }
 
     @Override
@@ -328,24 +298,6 @@ public class SecDetails extends Sector {
     }
 
 
-    /* Asset Access */
-
-    /**
-     * For accessing weapon button textures.
-     * @param on True to retrieve the on texture. False for the off one.
-     * @return A pre-loaded texture region.
-     */
-    public TextureRegionDrawable retrieveWeaponTex(Weapon.Type type, boolean on){
-        if(on) return weaponTexMap.get(type)[1];
-        else return weaponTexMap.get(type)[0];
-    }
-
-    public TextureRegionDrawable retrieveStationStageTex(Station.Stage stage){
-        return stationStageTexMap.get(stage);
-    }
-
-
-
     /* Entity Event Methods */
 
     /**
@@ -508,6 +460,14 @@ public class SecDetails extends Sector {
                 break;
             }
         }
+    }
+
+    public void input(MGameReq request){
+        game.sendGameRequest(request);
+    }
+
+    public void scrollFocus(Actor actor){
+        game.scrollFocus(actor);
     }
 
 

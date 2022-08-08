@@ -8,11 +8,11 @@ public enum PlayerFile {
     BLUE("blue", new Color(0x42a5f5ff)),
     ORANGE("orange", new Color(0xfb8c00ff));
 
-    public final String file;
+    public final String filepath;
     public final Color color;
 
-    PlayerFile(String file, Color color){
-        this.file = file;
+    PlayerFile(String filepath, Color color){
+        this.filepath = filepath;
         this.color = color;
     };
 

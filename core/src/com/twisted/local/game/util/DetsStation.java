@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.twisted.Asset;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Station;
@@ -57,7 +58,7 @@ public class DetsStation extends DetsGroup {
         stageTimer.setPosition(260, 8);
         group.addActor(stageTimer);
 
-        stageImage = new Image(sector.retrieveStationStageTex(Station.Stage.SHIELDED));
+        stageImage = new Image(Asset.retrieve(Asset.UiIcon.STATION_SHIELDED));
         stageImage.setX(270);
         group.addActor(stageImage);
 
@@ -122,7 +123,7 @@ public class DetsStation extends DetsGroup {
         }
         else {
             stageImage.setVisible(true);
-            stageImage.setDrawable(sector.retrieveStationStageTex(sel.stage));
+            stageImage.setDrawable(Asset.retrieve(sel.getStageIcon(sel.stage)));
         }
 
         //update stage timer

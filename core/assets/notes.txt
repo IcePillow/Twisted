@@ -1,7 +1,8 @@
 Work
     Current
-        - Fleet sector
-            - Filling out the fleet sector with info/input
+        - Making barge
+            - Station to barge inventory
+            - Station deployment from barge
 Colors
     Light blue - 0x42a5f5ff
     Orange - 0xfb8c00ff
@@ -18,6 +19,10 @@ Skins & Fonts
 
         SGX UI can be used under the CC BY license.
         http://creativecommons.org/licenses/by/4.0/
+    Modifications to sgx
+        sgx-ui.atlas
+            [508]  size: 19, 19
+            [526]  size: 19, 28
     Don't currently know where Andale credits are
     Play Font downloaded from https://www.1001freefonts.com/play.font
 

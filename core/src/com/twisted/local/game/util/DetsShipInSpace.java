@@ -16,10 +16,16 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
+import com.twisted.logic.entities.Barge;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.attach.Blaster;
+import com.twisted.logic.entities.attach.StationTransport;
+import com.twisted.logic.entities.attach.Weapon;
 
 public class DetsShipInSpace extends DetsGroup {
 
@@ -34,6 +40,9 @@ public class DetsShipInSpace extends DetsGroup {
 
     //selection
     private Ship sel;
+
+    //display state tracking
+    private Station.Type[] packedStationDisplays; //used when (sel instanceof Barge)
 
 
     /* Construction */
@@ -50,7 +59,7 @@ public class DetsShipInSpace extends DetsGroup {
         this.addActor(locationGroup);
 
         Group healthGroup = createHealthGroup();
-        healthGroup.setPosition(6, 87);
+        healthGroup.setPosition(6, 89);
         this.addActor(healthGroup);
 
         shipButtonGroup = createShipButtonGroup();
@@ -121,28 +130,22 @@ public class DetsShipInSpace extends DetsGroup {
         shipButtonGroup = new Group();
 
         //create the image buttons
-        ImageButton stopButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/stop.png"))));
+        ImageButton stopButton = new ImageButton(Asset.retrieve(Asset.UiButton.STOP));
         stopButton.setBounds(0, 0, 24, 24);
         shipButtonGroup.addActor(stopButton);
-        ImageButton moveButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/move.png"))));
+        ImageButton moveButton = new ImageButton(Asset.retrieve(Asset.UiButton.MOVE));
         moveButton.setBounds(28, 0, 24, 24);
         shipButtonGroup.addActor(moveButton);
-        ImageButton orbitButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/orbit.png"))));
+        ImageButton orbitButton = new ImageButton(Asset.retrieve(Asset.UiButton.ORBIT));
         orbitButton.setBounds(56, 0, 24, 24);
         shipButtonGroup.addActor(orbitButton);
-        ImageButton alignButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/align.png"))));
+        ImageButton alignButton = new ImageButton(Asset.retrieve(Asset.UiButton.ALIGN));
         alignButton.setBounds(84, 0, 24, 24);
         shipButtonGroup.addActor(alignButton);
-        ImageButton warpButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/warp.png"))));
+        ImageButton warpButton = new ImageButton(Asset.retrieve(Asset.UiButton.WARP));
         warpButton.setBounds(112, 0, 24, 24);
         shipButtonGroup.addActor(warpButton);
-        ImageButton dockButton = new ImageButton(new TextureRegionDrawable(
-                new Texture(Gdx.files.internal("images/ui/buttons/dock.png"))));
+        ImageButton dockButton = new ImageButton(Asset.retrieve(Asset.UiButton.DOCK));
         dockButton.setBounds(140, 0, 24, 24);
         shipButtonGroup.addActor(dockButton);
 
@@ -240,9 +243,7 @@ public class DetsShipInSpace extends DetsGroup {
             @Override
             public void clicked(InputEvent event, float x, float y){
                 if(event.isHandled()) return;
-
                 sector.input(sel, SecDetails.Input.SHIP_TARGET);
-
                 event.handle();
             }
         });
@@ -265,7 +266,16 @@ public class DetsShipInSpace extends DetsGroup {
                 @Override
                 public void clicked(InputEvent event, float x, float y){
                     if(event.isHandled()) return;
-                    sector.input(sel, SecDetails.Input.SHIP_WEAPON_TOGGLE, weaponId);
+
+                    switch(sel.getWeaponSlots()[weaponId]){
+                        case Blaster:
+                            sector.input(sel, SecDetails.Input.SHIP_WEAPON_TOGGLE, weaponId);
+                            break;
+                        case StationTransport:
+                            //TODO fill this in
+                            break;
+                    }
+
                     event.handle();
                 }
             });
@@ -307,15 +317,28 @@ public class DetsShipInSpace extends DetsGroup {
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
 
         //update the weapon button visibility
+        if(sel.getType() == Ship.Type.Barge){
+            packedStationDisplays = new Station.Type[sel.getWeaponSlots().length];
+        }
+        else{
+            packedStationDisplays = null;
+        }
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
             weaponButtons[i].setVisible(i < sel.getWeaponSlots().length);
 
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
-                weaponButtons[i].switchTextures(
-                        sector.retrieveWeaponTex(sel.weapons[i].getType(), false),
-                        sector.retrieveWeaponTex(sel.weapons[i].getType(), true));
+                int iSave = i;
+                Gdx.app.postRunnable(() -> {
+                    weaponButtons[iSave].switchTextures(
+                            Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
+                            Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
+
+                    if(sel.getType() == Ship.Type.Barge) {
+                        packedStationDisplays[iSave] = ((StationTransport) sel.weapons[iSave]).cargo;
+                    }
+                });
             }
         }
 
@@ -356,8 +379,26 @@ public class DetsShipInSpace extends DetsGroup {
         //targeting button
         targetButton.updateVisible(sel.targetingState==null);
 
+        //update which button sprites are being used
+        if(packedStationDisplays != null){
+            for(int i=0; i< packedStationDisplays.length; i++){
+                //check that we need to update the sprite
+                if(sel.weapons[i] instanceof StationTransport &&
+                        ((StationTransport) sel.weapons[i]).cargo != packedStationDisplays[i]){
+
+                    int iSave = i;
+                    Gdx.app.postRunnable(() -> {
+                        weaponButtons[iSave].switchTextures(
+                                Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
+                                Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
+                        packedStationDisplays[iSave] = ((StationTransport) sel.weapons[iSave]).cargo;
+                    });
+                }
+            }
+        }
+
         //update active weapons
-        for(int i = 0; i< sel.weapons.length; i++){
+        for(int i = 0; i<sel.weapons.length; i++){
             weaponButtons[i].updateVisible(!sel.weapons[i].active);
         }
 

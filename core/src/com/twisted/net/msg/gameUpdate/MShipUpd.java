@@ -4,6 +4,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.attach.StationTransport;
 
 public class MShipUpd implements MGameUpd {
 
@@ -29,6 +31,7 @@ public class MShipUpd implements MGameUpd {
 
     //weapons
     private boolean[] weaponsActive;
+    private Station.Type[] weaponsCargo; //only used if a weapon StationTransport
 
     //warping
     private float warpTimeToLand;
@@ -70,6 +73,10 @@ public class MShipUpd implements MGameUpd {
         //weapons
         for(int i=0; i<s.weapons.length; i++){
             s.weapons[i].active = weaponsActive[i];
+
+            if(s.weapons[i] instanceof StationTransport){
+                ((StationTransport) s.weapons[i]).cargo = weaponsCargo[i];
+            }
         }
     }
 
@@ -110,8 +117,13 @@ public class MShipUpd implements MGameUpd {
 
         //weapons
         upd.weaponsActive = new boolean[s.weapons.length];
+        upd.weaponsCargo = new Station.Type[s.weapons.length];
         for(int i=0; i<s.weapons.length; i++){
             upd.weaponsActive[i] = s.weapons[i].active;
+
+            if(s.weapons[i] instanceof StationTransport) {
+                upd.weaponsCargo[i] = ((StationTransport) s.weapons[i]).cargo;
+            }
         }
 
         return upd;

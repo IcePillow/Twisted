@@ -49,9 +49,9 @@ public class SecViewport extends Sector{
     private ArrayList<Cosmetic> cosmetics;
 
     //selected
-    private HashMap<Select, EntPtr> selections;
-    private HashMap<Select, Color> selectionColors;
-    private HashMap<Select, Float> selectionValues;
+    private Map<Select, EntPtr> selections;
+    private Map<Select, Color> selectionColors;
+    private Map<Select, Float> selectionValues;
 
 
     /**
@@ -73,18 +73,15 @@ public class SecViewport extends Sector{
 
         cosmetics = new ArrayList<>();
 
-        selections = new HashMap<>();
-        selectionColors = new HashMap<>();
-        selectionValues = new HashMap<>();
+        selections = Collections.synchronizedMap(new HashMap<>());
+        selectionColors = Collections.synchronizedMap(new HashMap<>());
+        selectionValues = Collections.synchronizedMap(new HashMap<>());
 
         return null;
     }
 
     @Override
     void load() {
-
-        //load the background
-        state.viewportBackground = new Texture(Gdx.files.internal("images/pixels/navy.png"));
 
         //position listener
         cursor = new Vector2(0, 0);
@@ -142,7 +139,7 @@ public class SecViewport extends Sector{
             shape.setColor(NEUTRAL_COL);
         }
         else {
-            shape.setColor(state.players.get(g.station.owner).getColor());
+            shape.setColor(state.players.get(g.station.owner).getFile().color);
         }
         Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
         stationDrawable.scale(LTR);
@@ -166,7 +163,7 @@ public class SecViewport extends Sector{
                 shape.setColor(NEUTRAL_COL);
             }
             else {
-                shape.setColor(state.players.get(s.owner).getColor());
+                shape.setColor(state.players.get(s.owner).getFile().color);
             }
 
             //draw the ship

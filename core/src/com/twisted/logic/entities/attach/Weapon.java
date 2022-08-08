@@ -1,5 +1,6 @@
 package com.twisted.logic.entities.attach;
 
+import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
@@ -24,9 +25,12 @@ public abstract class Weapon {
 
     public abstract void putOnFullCooldown();
 
+
     /* Data Methods */
 
     public abstract float getMaxRange();
+    public abstract Asset.UiButton getOffButtonAsset();
+    public abstract Asset.UiButton getOnButtonAsset();
 
     public Type getType(){
         if(this instanceof Blaster) return Type.Blaster;
@@ -37,6 +41,7 @@ public abstract class Weapon {
     //enums
     public enum Type {
         Blaster,
+        StationTransport,
         //TODO add other weapon types
     }
 

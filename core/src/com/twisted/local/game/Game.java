@@ -11,10 +11,12 @@ import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
+import com.twisted.Asset;
 import com.twisted.local.game.cosmetic.Explosion;
 import com.twisted.local.game.state.GameState;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
+import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.host.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
@@ -30,7 +32,6 @@ import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.remaining.MGameStart;
 
 import java.util.*;
-import java.util.List;
 
 
 /**
@@ -79,6 +80,7 @@ public class Game implements Screen, ClientContact {
     private final Stage stage;
     public Skin skin;
     public GlyphLayout glyph;
+    private Asset asset;
 
 
     /* Constructor */
@@ -89,6 +91,7 @@ public class Game implements Screen, ClientContact {
 
         //graphics
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
+        asset = new Asset();
         Gdx.input.setInputProcessor(stage);
         initSectors();
     }
@@ -148,9 +151,6 @@ public class Game implements Screen, ClientContact {
         //top level
         skin.dispose();
 
-        //high level sprites
-        state.viewportBackground.dispose();
-
         //sectors
         for(Sector s : sectors){
             s.dispose();
@@ -196,6 +196,7 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MShipDockingChange) receiveShipDockingChange((MShipDockingChange) m);
         else if(m instanceof MStationStage) receiveStationStage((MStationStage) m);
         else if(m instanceof MStationUpd) receiveStationUpd((MStationUpd) m);
+        else if(m instanceof MPackedStationMove) receivePackedStationMove((MPackedStationMove) m);
     }
 
     @Override
@@ -300,6 +301,12 @@ public class Game implements Screen, ClientContact {
             //tell sectors
             industrySec.removeStationJob(m.gridId, job);
         }
+        else if(m.action == MChangeJob.Action.BLOCKING){
+            state.jobs.get(m.jobId).blocking = true;
+
+            String nick = state.grids[m.gridId].nickname;
+            addToLog("Your job at grid " + nick + " is blocking", SecLog.LogColor.RED);
+        }
         else if(m.action == MChangeJob.Action.CANCELING){
             //TODO
         }
@@ -315,58 +322,45 @@ public class Game implements Screen, ClientContact {
     }
 
     private void receiveAddShip(MAddShip m){
-        //create the ship TODO other types of ships
-        Ship ship = null;
-        if(m.type == Ship.Type.Frigate){
-            //create the ship, add the ship, then retrieve it
-            ship = m.createDrawableShip();
-            if(!ship.docked){
-                state.grids[m.grid].ships.put(m.shipId, ship);
-            }
-            else {
-                state.grids[m.grid].station.dockedShips.put(m.shipId, ship);
-
-                //tell sectors
-                industrySec.addDockedShip(ship);
-            }
+        //create the ship, add the ship, then retrieve it
+        Ship ship = m.createDrawableShip();
+        if(!ship.docked){
+            state.grids[m.grid].ships.put(m.shipId, ship);
+        }
+        else {
+            state.grids[m.grid].station.dockedShips.put(m.shipId, ship);
         }
 
-        //set things in the ship and tell sectors
-        if(ship != null) {
-            //physics
-            ship.polygon.setPosition(ship.pos.x, ship.pos.y);
-            ship.polygon.rotate(ship.rot);
-
-            //tell sectors
-            fleetSec.checkAddEntity(ship);
-        }
+        //tell sectors
+        fleetSec.checkAddEntity(ship);
+        if(ship.docked) industrySec.addDockedShip(ship);
     }
 
     private void receiveShipUpd(MShipUpd m){
-        Ship ship;
+        Ship s;
         //not in warp
         if(m.grid != -1){
             //not docked
             if(!m.docked) {
-                ship = state.grids[m.grid].ships.get(m.shipId);
+                s = state.grids[m.grid].ships.get(m.shipId);
             }
             else {
-                ship = state.grids[m.grid].station.dockedShips.get(m.shipId);
+                s = state.grids[m.grid].station.dockedShips.get(m.shipId);
             }
         }
         else {
-            ship = state.inWarp.get(m.shipId);
+            s = state.inWarp.get(m.shipId);
         }
 
-        m.copyDataToShip(ship);
+        m.copyDataToShip(s);
 
         //update visuals if not in warp
-        if(m.grid != -1) ship.updatePolygon();
+        if(m.grid != -1) s.updatePolygon();
 
         //update the sectors if needed
-        detailsSec.updateEntity(EntPtr.createFromEntity(ship));
-        viewportSec.updateSelectionGridsAsNeeded(ship, m.grid);
-        fleetSec.updEntityValues(ship);
+        detailsSec.updateEntity(EntPtr.createFromEntity(s));
+        viewportSec.updateSelectionGridsAsNeeded(s, m.grid);
+        fleetSec.updEntityValues(s);
     }
 
     private void receiveShipEnterWarp(MShipEnterWarp m){
@@ -450,7 +444,6 @@ public class Game implements Screen, ClientContact {
         if(m.docked){
             //get ship and update values
             Ship s = state.grids[m.grid].ships.get(m.shipId);
-            EntPtr ptr = EntPtr.createFromEntity(s);
             m.update.copyDataToShip(s);
 
             //move the ship
@@ -461,6 +454,7 @@ public class Game implements Screen, ClientContact {
             industrySec.addDockedShip(s);
             detailsSec.reloadEntity(s);
             fleetSec.checkRemoveEntity(s);
+            fleetSec.updEntityValues(s);
         }
         else {
             //get the ship and update values
@@ -480,6 +474,7 @@ public class Game implements Screen, ClientContact {
 
     private void receiveStationStage(MStationStage m){
         Station s = state.grids[m.stationId].station;
+        //TODO update state of station upon change to rubble (i.e. clearing docked ships)
 
         s.owner = m.owner;
         s.stage = m.stage;
@@ -500,6 +495,52 @@ public class Game implements Screen, ClientContact {
 
         //update sectors
         detailsSec.updateEntity(s);
+    }
+
+    private void receivePackedStationMove(MPackedStationMove m){
+        //remove
+        Entity entity = state.findEntity(m.removeFrom);
+        if(entity instanceof Station){
+            ((Station) entity).packedStations[m.idxRemoveFrom] = null;
+
+            //tell sectors
+            industrySec.checkRemovePackedStation(m.removeFrom.id, m.type);
+            for(Ship s : ((Station) entity).dockedShips.values()){
+                if(s instanceof Barge) detailsSec.updateEntity(s);
+            }
+        }
+        else if(entity instanceof Barge){
+            ((StationTransport) ((Barge) entity).weapons[m.idxRemoveFrom]).cargo = null;
+
+            detailsSec.updateEntity(entity);
+        }
+
+        //add
+        entity = state.findEntity(m.addTo);
+        if(entity instanceof Station){
+            Station st = (Station) entity;
+            for(int i=0; i<st.packedStations.length; i++){
+                if(st.packedStations[i] == null){
+                    st.packedStations[i] = m.type;
+                    break;
+                }
+                else if(i == st.packedStations.length-1){
+                    System.out.println("Trying to add packed station when there are no slots");
+                    new Exception().printStackTrace();
+                }
+            }
+
+            //tell sectors
+            industrySec.checkAddPackedStation(m.addTo.id, m.type);
+            for(Ship s : st.dockedShips.values()){
+                if(s instanceof Barge) detailsSec.updateEntity(s);
+            }
+        }
+        else if(entity instanceof Barge){
+            ((StationTransport) ((Barge) entity).weapons[m.idxAddTo]).cargo = m.type;
+
+            detailsSec.updateEntity(entity);
+        }
     }
 
 

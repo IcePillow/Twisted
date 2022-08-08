@@ -505,7 +505,7 @@ scroll-bar-back-horizontal
 scroll-bar-back-vertical
   rotate: false
   xy: 252, 539
-  size: 19, 19
+  size: 1, 1
   split: 0, 0, 3, 3
   pad: 0, 0, 0, 0
   orig: 19, 19
@@ -523,7 +523,7 @@ scroll-bar-horizontal
 scroll-bar-vertical
   rotate: false
   xy: 392, 807
-  size: 19, 28
+  size: 1, 1
   split: 0, 0, 8, 7
   pad: 0, 0, 0, 0
   orig: 19, 28

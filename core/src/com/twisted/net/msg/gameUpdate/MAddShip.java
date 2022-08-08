@@ -1,6 +1,6 @@
 package com.twisted.net.msg.gameUpdate;
 
-import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.entities.Barge;
 import com.twisted.logic.entities.Frigate;
 import com.twisted.logic.entities.Ship;
 
@@ -13,10 +13,6 @@ public class MAddShip implements MGameUpd {
 
     //data
     private int ownerId;
-    private Vector2 position;
-    private Vector2 velocity;
-    private float rotation;
-    private float warpTimeToLand;
     private boolean docked;
 
     /**
@@ -35,10 +31,6 @@ public class MAddShip implements MGameUpd {
 
         m.grid = s.grid;
         m.ownerId = s.owner;
-        m.position = s.pos.cpy();
-        m.velocity = s.vel.cpy();
-        m.rotation = s.rot;
-        m.warpTimeToLand = s.warpTimeToLand;
         m.docked = s.docked;
 
         return m;
@@ -48,12 +40,14 @@ public class MAddShip implements MGameUpd {
      * Creates a ship based on the contained data.
      */
     public Ship createDrawableShip(){
-
         //create the object
         Ship s = null;
         switch(type){
             case Frigate:
-                s = new Frigate(shipId, grid, ownerId, position, velocity, rotation, warpTimeToLand, docked);
+                s = new Frigate(shipId, grid, ownerId, docked);
+                break;
+            case Barge:
+                s = new Barge(shipId, grid, ownerId, docked);
                 break;
             default:
                 System.out.println("Unexpected ship type in MAddShip.createDrawableShip()");

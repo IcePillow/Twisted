@@ -9,4 +9,6 @@ public enum Gem {
 
     public final static Gem[] orderedGems = new Gem[]{Calcite, Kernite, Pyrene, Crystal};
 
+    public final static int NUMBER_OF_GEMS = 4;
+
 }

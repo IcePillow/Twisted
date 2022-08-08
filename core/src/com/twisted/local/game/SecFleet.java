@@ -1,9 +1,7 @@
 package com.twisted.local.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -13,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Main;
+import com.twisted.Asset;
 import com.twisted.local.game.util.FleetContainer;
 import com.twisted.local.game.util.FleetTab;
 import com.twisted.logic.descriptors.EntPtr;
@@ -20,7 +19,6 @@ import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
-import com.twisted.logic.entities.attach.Weapon;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -47,13 +45,10 @@ public class SecFleet extends Sector {
 
     //row tracking
     private final ArrayList<Entity> entities;
-    private final HashMap<Entity, HorizontalGroup> entityToRow; //caches created rows
+    private final HashMap<Entity, HorizontalGroup> entityToRow; //stores created rows
 
     //state
     private float timeWithoutSorting;
-
-    //assets
-    private HashMap<Entity.Subtype, TextureRegionDrawable> entityTextureMap;
 
 
     /* Creation */
@@ -81,25 +76,20 @@ public class SecFleet extends Sector {
         parent.addActor(initHeaderBar());
         parent.addActor(initPane());
 
-        //assets
-        initAssets();
-
         return parent;
     }
 
     private Group initDecoration(){
-        //set variables
-
         //create the group
         Group decoration = new Group();
         decoration.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(decoration);
 
         //load texture
-        Texture blackPixel = new Texture(Gdx.files.internal("images/pixels/black.png"));
+        TextureRegionDrawable blackPixel = Asset.retrieve(Asset.Shape.PIXEL_BLACK);
 
         //create the images
-        Image ribbon = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
+        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
 
@@ -179,20 +169,6 @@ public class SecFleet extends Sector {
         return pane;
     }
 
-    private void initAssets(){
-        //entity icon textures
-        entityTextureMap = new HashMap<>();
-        for(Ship.Type t : Ship.Type.values()){
-            entityTextureMap.put(t, new TextureRegionDrawable(new Texture(Gdx.files.internal(
-                    "images/entities/" + t.name().toLowerCase() + "-icon.png"))));
-        }
-        TextureRegionDrawable stationTexture = new TextureRegionDrawable(new Texture(Gdx.files.internal(
-                "images/entities/station-icon.png")));
-        for(Station.Type t : Station.Type.values()){
-            entityTextureMap.put(t, stationTexture);
-        }
-    }
-
     @Override
     void load() {
     }
@@ -241,6 +217,9 @@ public class SecFleet extends Sector {
                     (entity instanceof Ship && ((Ship) entity).warpTimeToLand != 0)) return;
         }
 
+        //remove it if it already exists
+        forceRemoveEntity(entity);
+
         //find the correct position
         int index = 0;
         for(Entity e : entities){
@@ -282,15 +261,7 @@ public class SecFleet extends Sector {
             }
         }
 
-        //find index
-        int index = entities.indexOf(entity);
-
-        //remove it
-        if(index > -1){
-            entities.remove(entity);
-            vertical.removeActorAt(index, true);
-            entityToRow.remove(entity);
-        }
+        forceRemoveEntity(entity);
     }
 
     /**
@@ -392,6 +363,22 @@ public class SecFleet extends Sector {
     /* Utility Methods */
 
     /**
+     * Same as checkRemoveEntity except it doesn't do the checks to see if the entity should be
+     * removed.
+     */
+    private void forceRemoveEntity(Entity entity){
+        //find index
+        int index = entities.indexOf(entity);
+
+        //remove it
+        if(index > -1){
+            entities.remove(entity);
+            vertical.removeActorAt(index, true);
+            entityToRow.remove(entity);
+        }
+    }
+
+    /**
      * Used to decide the ordering of two entities.
      * @return -1 if entOne belongs higher up. 1 if entTwo belongs higher up. 0 if indifferent.
      */
@@ -423,6 +410,7 @@ public class SecFleet extends Sector {
      */
     private HorizontalGroup getEntityRow(Entity entity, TabType type){
 
+        //TODO cap the size of the caching hashmap
         HorizontalGroup actor = entityToRow.get(entity);
 
         if(actor == null){
@@ -541,10 +529,18 @@ public class SecFleet extends Sector {
         group.addActor(new FleetContainer<Label>(posLabel, PANEL_DIST_WID){
             @Override
             public void updateValuesFromEntity(Entity entity){
-                if(entity.grid != -1){
+                //default
+                if(entity.grid != -1 && !entity.isDocked()){
                     actor().setText(Main.df1.format(entity.pos.len()));
+                    actor().setFontScale(1);
                 }
-                else {
+                //docked
+                else if(entity.isDocked()){
+                    actor().setText("(Docked)");
+                    actor().setFontScale(0.75f);
+                }
+                //in warp
+                else if(entity.grid == -1) {
                     actor().setText("");
                 }
             }
@@ -555,9 +551,11 @@ public class SecFleet extends Sector {
         group.addActor(new FleetContainer<Label>(spdLabel, PANEL_SPD_WID) {
             @Override
             public void updateValuesFromEntity(Entity entity){
-                if(entity.grid != -1){
+                //default
+                if(entity.grid != -1 && !entity.isDocked()){
                     actor().setText(Main.df1.format(entity.vel.len()));
                 }
+                //in warp or docked
                 else {
                     actor().setText("");
                 }

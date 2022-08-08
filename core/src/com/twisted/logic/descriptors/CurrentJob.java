@@ -14,6 +14,7 @@ public class CurrentJob implements Serializable {
     public final int grid;
 
     public float timeLeft;
+    public boolean blocking;
 
     public CurrentJob(int jobId, int owner, Station.Job jobType, int grid, float timeLeft){
         this.jobId = jobId;

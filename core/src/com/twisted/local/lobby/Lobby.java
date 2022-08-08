@@ -660,6 +660,15 @@ public class Lobby implements Screen, ClientContact {
             }
             return false;
         });
+        terminalPane.addListener(event -> {
+            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                stage.setScrollFocus(terminalPane);
+            }
+            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
+                stage.setScrollFocus(null);
+            }
+            return true;
+        });
 
         //add everything to the group
         group.addActor(terminateButton);

@@ -7,6 +7,7 @@ import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
+import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.*;
@@ -169,8 +170,10 @@ public class GameHost implements ServerContact {
         //add initial resources
         grids[0].station.resources[0] += 20;
         grids[0].station.resources[1] += 6;
+        grids[0].station.resources[2] += 2;
         grids[3].station.resources[0] += 20;
         grids[3].station.resources[1] += 6;
+        grids[3].station.resources[2] += 2;
 
         //set initial timers
         grids[2].station.stageTimer = 60;
@@ -240,13 +243,15 @@ public class GameHost implements ServerContact {
     private void preLoopCalls(){
 
         //dev ships
-        Ship s1 = new Frigate(useNextShipId(), 0, 2, new Vector2(1, 1),
-                new Vector2(0,0), (float) Math.PI/2, 0, false);
+        Ship s1 = new Frigate(useNextShipId(), 0, 2, false);
+        s1.pos.set(1, 1);
+        s1.rot = (float) Math.PI/2;
         grids[0].ships.put(s1.id, s1);
         server.broadcastMessage(MAddShip.createFromShipBody(s1));
 
-        Ship s2 = new Frigate(useNextShipId(), 0, 1, new Vector2(-0.9f, 0.9f),
-                new Vector2(0,0), (float) -Math.PI/2, 0, false);
+        Ship s2 = new Frigate(useNextShipId(), 0, 1, false);
+        s2.pos.set(-0.9f, 0.9f);
+        s2.rot = (float) -Math.PI/2;
         grids[0].ships.put(s2.id, s2);
         server.broadcastMessage(MAddShip.createFromShipBody(s2));
     }
@@ -336,16 +341,17 @@ public class GameHost implements ServerContact {
         for(MGameReq r : requests.keySet()){
             int id = requests.get(r);
 
-            if(r instanceof MJobReq) handleJobRequest(id, (MJobReq) r);
-            else if(r instanceof MShipMoveReq) handleShipMoveRequest(id, (MShipMoveReq) r);
-            else if(r instanceof MShipAlignReq) handleShipAlignRequest(id, (MShipAlignReq) r);
-            else if(r instanceof MShipWarpReq) handleShipWarpRequest(id, (MShipWarpReq) r);
-            else if(r instanceof MTargetReq) handleShipTargetRequest(id, (MTargetReq) r);
-            else if(r instanceof MShipOrbitReq) handleShipOrbitRequest(id, (MShipOrbitReq) r);
-            else if(r instanceof MWeaponActiveReq) handleWeaponActiveRequest(id, (MWeaponActiveReq) r);
-            else if(r instanceof MShipStopReq) handleShipStopRequest(id, (MShipStopReq) r);
-            else if(r instanceof MShipUndockReq) handleShipUndockRequest(id, (MShipUndockReq) r);
+            if(r instanceof MJobReq) handleJobReq(id, (MJobReq) r);
+            else if(r instanceof MShipMoveReq) handleShipMoveReq(id, (MShipMoveReq) r);
+            else if(r instanceof MShipAlignReq) handleShipAlignReq(id, (MShipAlignReq) r);
+            else if(r instanceof MShipWarpReq) handleShipWarpReq(id, (MShipWarpReq) r);
+            else if(r instanceof MTargetReq) handleShipTargetReq(id, (MTargetReq) r);
+            else if(r instanceof MShipOrbitReq) handleShipOrbitReq(id, (MShipOrbitReq) r);
+            else if(r instanceof MWeaponActiveReq) handleWeaponActiveReq(id, (MWeaponActiveReq) r);
+            else if(r instanceof MShipStopReq) handleShipStopReq(id, (MShipStopReq) r);
+            else if(r instanceof MShipUndockReq) handleShipUndockReq(id, (MShipUndockReq) r);
             else if(r instanceof MShipDockReq) handleShipDockReq(id, (MShipDockReq) r);
+            else if(r instanceof MPackedStationMoveReq) handlePackedStationMoveReq(id, (MPackedStationMoveReq) r);
         }
 
         //updating
@@ -412,35 +418,57 @@ public class GameHost implements ServerContact {
      */
     private void updateStationTimers(){
         for(Grid grid : grids){
-            Station s = grid.station;
+            Station st = grid.station;
 
             //job updates
-            if(s.currentJobs.size() > 0) {
+            if(st.currentJobs.size() > 0) {
                 //otherwise, grab the first job
-                CurrentJob job = s.currentJobs.get(0);
-                job.timeLeft -= FRAC;
+                CurrentJob job = st.currentJobs.get(0);
+                if(!job.blocking) job.timeLeft -= FRAC;
 
                 if(job.timeLeft <= 0){
-                    //end the job and tell the user
-                    s.currentJobs.remove(0);
-                    server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
-                            job.jobId, job.grid, null));
+                    boolean jobBlocking = false;
 
-                    //create the ship
+                    //create the ship or the packaged station
                     Ship sh = null;
                     switch(job.jobType){
                         case Frigate:
-                            sh = new Frigate(useNextShipId(), grid.id, job.owner, new Vector2(1, 0),
-                                    new Vector2(0, 0), (float) Math.PI/2, 0,
-                                    true);
-
+                            sh = new Frigate(useNextShipId(), grid.id, job.owner,true);
+                            break;
+                        case Barge:
+                            sh = new Barge(useNextShipId(), grid.id, job.owner, true);
                             break;
                         //TODO add the rest of the ship cases
+                        case Extractor:
+                        case Harvester:
+                        case Liquidator:
+                            //add the packed station to the inventory
+                            int idx;
+                            for(idx=0; idx<st.packedStations.length; idx++){
+                                if(st.packedStations[idx] == null){
+                                    st.packedStations[idx] = job.jobType.getPackedStationType();
+                                    break;
+                                }
+                                else if(idx == st.packedStations.length-1){
+                                    jobBlocking = true;
+                                    break;
+                                }
+                            }
+
+                            //was successfully able to add it
+                            if(!jobBlocking){
+                                //tell players
+                                server.broadcastMessage(new MPackedStationMove(null,
+                                        -1, EntPtr.createFromEntity(st), idx,
+                                        job.jobType.getPackedStationType()));
+                            }
+                            break;
                         default:
                             System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                             break;
                     }
 
+                    //deal with a created ship
                     if(sh != null){
                         //add ship to world
                         if(!sh.docked){
@@ -453,34 +481,47 @@ public class GameHost implements ServerContact {
                         //tell users
                         server.broadcastMessage(MAddShip.createFromShipBody(sh));
                     }
+
+                    //end the job and tell the user
+                    if(!jobBlocking){
+                        st.currentJobs.remove(0);
+                        server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
+                                job.jobId, job.grid, null));
+                    }
+                    //tell the user the job is blocking
+                    else if(!job.blocking){
+                        job.blocking = true;
+                        server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.BLOCKING,
+                                job.jobId, job.grid, null));
+                    }
                 }
             }
 
             //stage timer
-            s.stageTimer -= FRAC;
-            if(s.stageTimer <= 0){
-                s.stageTimer = 0;
+            st.stageTimer -= FRAC;
+            if(st.stageTimer <= 0){
+                st.stageTimer = 0;
 
                 //stage updates
-                switch(s.stage){
+                switch(st.stage){
                     case VULNERABLE:
-                        s.stage = Station.Stage.SHIELDED;
-                        s.shieldHealth = (float) Math.ceil(0.25f * s.getMaxShield());
+                        st.stage = Station.Stage.SHIELDED;
+                        st.shieldHealth = (float) Math.ceil(0.25f * st.getMaxShield());
 
-                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                     case ARMORED:
-                        s.stage = Station.Stage.VULNERABLE;
-                        s.stageTimer = s.getVulnerableDuration();
+                        st.stage = Station.Stage.VULNERABLE;
+                        st.stageTimer = st.getVulnerableDuration();
 
-                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                     case DEPLOYMENT:
-                        s.stage = Station.Stage.SHIELDED;
-                        s.shieldHealth = s.getMaxShield();
-                        s.hullHealth = s.getMaxHull();
+                        st.stage = Station.Stage.SHIELDED;
+                        st.shieldHealth = st.getMaxShield();
+                        st.hullHealth = st.getMaxHull();
 
-                        server.broadcastMessage(MStationStage.createFromStation(s));
+                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                 }
             }
@@ -681,7 +722,7 @@ public class GameHost implements ServerContact {
                 s.movement = Ship.Movement.STOPPING;
 
                 //placing with correct physics
-                Vector2 warpVel = s.vel.cpy().nor().scl(2f);
+                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.getMaxSpeed());
                 s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
 
                 warpVel.nor().scl(s.getMaxSpeed()*0.75f);
@@ -774,6 +815,7 @@ public class GameHost implements ServerContact {
 
                 //other updates
                 st.currentJobs.clear();
+                Arrays.fill(st.packedStations, null);
                 st.dockedShips.clear();
             }
         }
@@ -809,7 +851,7 @@ public class GameHost implements ServerContact {
 
     /* Client Request Handling */
 
-    private void handleJobRequest(int userId, MJobReq msg){
+    private void handleJobReq(int userId, MJobReq msg){
         Station s = (Station) findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
         Station.Job j = msg.job;
         if(s == null) {
@@ -847,7 +889,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipMoveRequest(int userId, MShipMoveReq msg){
+    private void handleShipMoveReq(int userId, MShipMoveReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -883,7 +925,7 @@ public class GameHost implements ServerContact {
 
     }
 
-    private void handleShipOrbitRequest(int userId, MShipOrbitReq msg){
+    private void handleShipOrbitReq(int userId, MShipOrbitReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -930,7 +972,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipAlignRequest(int userId, MShipAlignReq msg){
+    private void handleShipAlignReq(int userId, MShipAlignReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -968,7 +1010,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipWarpRequest(int userId, MShipWarpReq msg){
+    private void handleShipWarpReq(int userId, MShipWarpReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -1007,7 +1049,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipTargetRequest(int userId, MTargetReq msg){
+    private void handleShipTargetReq(int userId, MTargetReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -1057,7 +1099,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleWeaponActiveRequest(int userId, MWeaponActiveReq msg){
+    private void handleWeaponActiveReq(int userId, MWeaponActiveReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -1084,7 +1126,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipStopRequest(int userId, MShipStopReq msg){
+    private void handleShipStopReq(int userId, MShipStopReq msg){
         //get the ship
         Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
@@ -1117,7 +1159,7 @@ public class GameHost implements ServerContact {
         }
     }
 
-    private void handleShipUndockRequest(int userId, MShipUndockReq msg){
+    private void handleShipUndockReq(int userId, MShipUndockReq msg){
         Ship s = grids[msg.stationId].station.dockedShips.get(msg.shipId);
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleShipUndockRequest()");
@@ -1197,6 +1239,122 @@ public class GameHost implements ServerContact {
             s.moveTargetPos = grids[msg.grid].station.pos;
         }
 
+    }
+
+    private void handlePackedStationMoveReq(int userId, MPackedStationMoveReq msg){
+        Entity removeFrom = msg.removeFrom.retrieveFromGrid(grids[msg.removeFrom.grid]);
+        Entity addTo = msg.addTo.retrieveFromGrid(grids[msg.addTo.grid]);
+
+        //check permissions
+        if(removeFrom.owner != userId || addTo.owner != userId || removeFrom.grid != addTo.grid ||
+                (!removeFrom.isDocked() && !addTo.isDocked())){
+            MDenyRequest deny = new MDenyRequest(msg);
+
+            if(removeFrom.owner != userId || addTo.owner != userId){
+                deny.reason = "Cannot complete move due to ownership";
+            }
+            else if(removeFrom.grid != addTo.grid){
+                deny.reason = "Cannot complete move due to dif grids";
+            }
+            else if(!removeFrom.isDocked() && !addTo.isDocked()){
+                deny.reason = "Neither participant is docked to complete move";
+            }
+
+            server.sendMessage(userId, deny);
+        }
+        else {
+            Station st;
+            Barge sh;
+
+            //move station to barge
+            if(removeFrom instanceof Station && addTo instanceof Barge){
+                st = (Station) removeFrom;
+                sh = (Barge) addTo;
+
+                //final checks
+                Station.Type packedStationType = st.packedStations[msg.idxRemoveFrom];
+                int destIdx = -1;
+                for(int i=0; i<Barge.weaponSlots.length; i++) {
+                    if(((StationTransport) sh.weapons[i]).cargo == null){
+                        destIdx = i;
+                        break;
+                    }
+                }
+
+                //errors
+                if(packedStationType == null){
+                    System.out.println("Unexpected error while transferring");
+                    new Exception().printStackTrace();
+
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Unexpectedly unable to transfer";
+                    server.sendMessage(userId, deny);
+                    return;
+                }
+                else if(destIdx == -1){
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Can't move packed station due to space";
+                    server.sendMessage(userId, deny);
+                    return;
+                }
+
+                //make the swap
+                st.packedStations[msg.idxRemoveFrom] = null;
+                ((StationTransport) sh.weapons[destIdx]).cargo = packedStationType;
+
+                //tell players
+                server.broadcastMessage(new MPackedStationMove(
+                        EntPtr.createFromEntity(st), msg.idxRemoveFrom,
+                        EntPtr.createFromEntity(sh), destIdx,
+                        packedStationType));
+            }
+            //move barge to station
+            else if(removeFrom instanceof Barge && addTo instanceof Station){
+                st = (Station) addTo;
+                sh = (Barge) removeFrom;
+
+                //final checks
+                Station.Type packedStationType = ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo;
+                int destIdx = -1;
+                for(int i=0; i<Station.PACKED_STATION_SLOTS; i++) {
+                    if(st.packedStations[i] == null){
+                        destIdx = i;
+                        break;
+                    }
+                }
+
+                //errors
+                if(packedStationType == null){
+                    System.out.println("Unexpected error while transferring");
+                    new Exception().printStackTrace();
+
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Unexpectedly unable to transfer";
+                    server.sendMessage(userId, deny);
+                    return;
+                }
+                else if(destIdx == -1){
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Can't move packed station due to space";
+                    server.sendMessage(userId, deny);
+                    return;
+                }
+
+                //make the swap
+                ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo = null;
+                st.packedStations[destIdx] = packedStationType;
+
+                //tell players
+                server.broadcastMessage(new MPackedStationMove(
+                        EntPtr.createFromEntity(sh), msg.idxRemoveFrom,
+                        EntPtr.createFromEntity(st), destIdx,
+                        packedStationType));
+            }
+            else {
+                System.out.println("Unexpected requested inventory move");
+                new Exception().printStackTrace();
+            }
+        }
     }
 
 

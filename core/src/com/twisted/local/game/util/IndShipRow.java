@@ -5,10 +5,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.Event;
-import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
@@ -16,35 +13,23 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.Ship;
 
-public class DockedShipRow extends HorizontalGroup {
+public class IndShipRow extends IndustryRow {
 
     //reference
-    private final SecIndustry sector;
     private final Ship ship;
 
-    //ui tools
-    private final float width;
-    private final GlyphLayout glyph;
-    private final Skin skin;
-
     //ui tree
-    private Label name;
-    private Actor filler1;
     private Image undockImage;
 
 
     /**
      * Constructor
      */
-    public DockedShipRow(SecIndustry sector, Skin skin, GlyphLayout glyph, float width, Ship ship){
-        super();
+    public IndShipRow(SecIndustry sector, Skin skin, GlyphLayout glyph, float width, Ship ship){
+        super(sector, skin, glyph, width);
 
         //copy values
-        this.sector = sector;
         this.ship = ship;
-        this.width = width;
-        this.skin = skin;
-        this.glyph = glyph;
 
         //initialize
         initGraphics(skin);
@@ -52,11 +37,13 @@ public class DockedShipRow extends HorizontalGroup {
     }
 
     private void initGraphics(Skin skin){
-        name = new Label("X", skin, "small", Color.LIGHT_GRAY);
-        this.addActor(name);
+        Label nameLabel = new Label(ship.getFullName(), skin, "small", Color.LIGHT_GRAY);
+        this.addActor(nameLabel);
 
-        filler1 = new Actor();
-        this.addActor(filler1);
+        Actor filler = new Actor();
+        glyph.setText(skin.getFont("small"), nameLabel.getText());
+        filler.setWidth(width-glyph.width-19);
+        this.addActor(filler);
 
         undockImage = new Image(new Texture(Gdx.files.internal("images/ui/icons/undock.png")));
         this.addActor(undockImage);
@@ -72,11 +59,12 @@ public class DockedShipRow extends HorizontalGroup {
         });
     }
 
-    public void updateName(String text){
-        name.setText(text);
-
-        glyph.setText(skin.getFont("small"), text);
-        filler1.setWidth(width-glyph.width-19);
+    @Override
+    public boolean matches(Ship ship){
+        return this.ship.matches(ship);
     }
+
+    @Override
+    public void update(){}
 
 }

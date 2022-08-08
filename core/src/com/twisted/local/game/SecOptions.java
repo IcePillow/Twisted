@@ -8,6 +8,7 @@ import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.twisted.Asset;
 
 class SecOptions extends Sector{
 
@@ -41,7 +42,7 @@ class SecOptions extends Sector{
         parent.setBounds(420, 150, 600, 500);
 
         //set the background
-        Image main = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         main.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(main);
 

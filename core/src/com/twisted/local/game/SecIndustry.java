@@ -3,7 +3,6 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -13,7 +12,10 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
 import com.twisted.Main;
-import com.twisted.local.game.util.DockedShipRow;
+import com.twisted.Asset;
+import com.twisted.local.game.util.IndPackedStationRow;
+import com.twisted.local.game.util.IndShipRow;
+import com.twisted.local.game.util.IndustryRow;
 import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Gem;
@@ -41,7 +43,7 @@ public class SecIndustry extends Sector{
     private Group parent;
     private VerticalGroup vertical;
     private VerticalGroup jobQueue; //should only have JobRow children
-    private VerticalGroup dockGroup; //should only have DockedShipRow children
+    private VerticalGroup dockInvGroup; //should only have IndustryRow children
     private Label focusStationName;
     private HashMap<Integer, VerticalGroup> stationGroups;
     private HashMap<Integer, Label[]> resourceLabels; //indices in label are for each resource
@@ -51,7 +53,6 @@ public class SecIndustry extends Sector{
 
     //jobs
     private final ArrayList<CurrentJob> jobMappings; //should stay in sync with children of jobQueue
-    private final ArrayList<Ship> dockedShips; //should stay in sync with dockGroup
 
 
     /**
@@ -62,7 +63,6 @@ public class SecIndustry extends Sector{
         this.skin = game.skin;
 
         jobMappings = new ArrayList<>();
-        dockedShips = new ArrayList<>();
     }
 
     @Override
@@ -74,7 +74,7 @@ public class SecIndustry extends Sector{
         parent.setBounds(Main.WIDTH-275, 260, 275, 410); //original height=395
 
         //main background
-        Image main = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
+        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
         main.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(main);
 
@@ -89,7 +89,7 @@ public class SecIndustry extends Sector{
         pane.setBounds(3, 3 + FOCUS_HEIGHT+3, parent.getWidth()-6,
                 parent.getHeight()-6 - (3+FOCUS_HEIGHT));
         pane.setScrollingDisabled(true, false);
-        pane.setupFadeScrollBars(0.2f, 0.2f);
+        pane.setScrollbarsVisible(false);
         pane.setSmoothScrolling(false);
         pane.setColor(Color.BLACK);
 
@@ -103,7 +103,7 @@ public class SecIndustry extends Sector{
         parent.addActor(focusGroup);
 
         //make the background image
-        Image focusBackground = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        Image focusBackground = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         focusBackground.setSize(focusGroup.getWidth(), focusGroup.getHeight());
         focusGroup.addActor(focusBackground);
 
@@ -121,17 +121,18 @@ public class SecIndustry extends Sector{
         focusGroup.addActor(dockedShipsTitle);
 
         //cosmetic squares
-        Image dockingBox = new Image(new Texture(Gdx.files.internal("images/pixels/darkgray.png")));
+        Image dockingBox = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
         dockingBox.setBounds(2, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(dockingBox);
-        Image jobBox = new Image(new Texture(Gdx.files.internal("images/pixels/darkgray.png")));
+        Image jobBox = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
         jobBox.setBounds(focusGroup.getWidth()-3-QUEUE_WIDTHS-1, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(jobBox);
 
         //docking pane
-        dockGroup = new VerticalGroup();
-        dockGroup.left();
-        ScrollPane dockPane = new ScrollPane(dockGroup, skin);
+        dockInvGroup = new VerticalGroup();
+        dockInvGroup.left();
+        dockInvGroup.columnAlign(Align.left);
+        ScrollPane dockPane = new ScrollPane(dockInvGroup, skin);
         dockPane.setBounds(3, 3, QUEUE_WIDTHS, dockedShipsTitle.getY()-3);
         dockPane.setColor(Color.BLACK);
         focusGroup.addActor(dockPane);
@@ -139,6 +140,7 @@ public class SecIndustry extends Sector{
         //job queue pane
         jobQueue = new VerticalGroup();
         jobQueue.left();
+        jobQueue.columnAlign(Align.left);
         ScrollPane queuePane = new ScrollPane(jobQueue, skin);
         queuePane.setBounds(focusGroup.getWidth()-3-QUEUE_WIDTHS, 3, QUEUE_WIDTHS, jobQueueTitle.getY()-3);
         queuePane.setColor(Color.BLACK);
@@ -151,6 +153,24 @@ public class SecIndustry extends Sector{
             }
             else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
                 game.scrollFocus(null);
+            }
+            return true;
+        });
+        dockPane.addListener(event -> {
+            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                game.scrollFocus(dockPane);
+            }
+            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
+                game.scrollFocus(null);
+            }
+            return true;
+        });
+        queuePane.addListener(event -> {
+            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                game.scrollFocus(queuePane);
+            }
+            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
+                game.scrollFocus(queuePane);
             }
             return true;
         });
@@ -178,7 +198,7 @@ public class SecIndustry extends Sector{
             HorizontalGroup stationTitleBar = new HorizontalGroup();
 
             //create and add the dropdown icon
-            Image dropdown = new Image(new Texture(Gdx.files.internal("images/ui/gray-arrow-3.png")));
+            Image dropdown = new Image(Asset.retrieve(Asset.UiBasic.GRAY_ARROW_3));
             dropdown.setOrigin(dropdown.getWidth()/2f, dropdown.getHeight()/2f);
             stationTitleBar.addActor(dropdown);
 
@@ -205,8 +225,8 @@ public class SecIndustry extends Sector{
             Label[] arr = new Label[4];
             resourceLabels.put(g.station.getId(), arr);
             int index=0;
-            for(String filename : new String[]{"calcite", "kernite", "pyrene", "crystal"}){
-                Image image = new Image(new Texture(Gdx.files.internal("images/gems/" + filename + ".png")));
+            for(Asset.Gem asset : Asset.Gem.values()){
+                Image image = new Image(Asset.retrieve(asset));
                 Label label = new Label("0", skin, "small");
 
                 resourceBar.add(image).minWidth(allowedImageWidth);
@@ -233,7 +253,7 @@ public class SecIndustry extends Sector{
                 //create the cost labels
                 Label[] costLabels = new Label[4];
                 int i=0;
-                for(Gem gem : Gem.orderedGems){
+                for(Gem gem : com.twisted.logic.descriptors.Gem.orderedGems){
                     costLabels[i] = new Label(""+job.getGemCost(gem), skin, "small", Color.WHITE);
                     costLabels[i].setColor(Color.GRAY);
                     jobTable.add(costLabels[i]).width(40);
@@ -341,50 +361,38 @@ public class SecIndustry extends Sector{
     }
 
 
-    /* Event Methods */
+    /* Updates */
 
     /**
-     * Called when the user clicks on a station in the industry menu.
-     * @param station Set to null to unfocus a station without focusing another station.
+     * Update the resources in a given station.
      */
-    private void industryFocusStation(Station station){
-        if(station == null){
-            focusStationId = -1;
-
-            //reset actors
-            focusStationName.setText("[Station]");
-            dockGroup.clearChildren();
-            jobQueue.clearChildren();
-            jobMappings.clear();
-
-        }
-        else {
-            focusStationId = station.grid;
-
-            //top text
-            focusStationName.setText(station.getFullName());
-
-            //docked ships
-            dockGroup.clearChildren();
-            for(Ship s : station.dockedShips.values()){
-                addDockedShip(s);
-            }
-
-            //job queue
-            jobQueue.clearChildren();
-            jobMappings.clear();
-            for(int i=0; i<station.currentJobs.size(); i++){
-                upsertStationJob(station.getId(), station.currentJobs.get(i), i);
-            }
+    void stationResourceUpdate(Station s){
+        for(int i=0; i<4; i++){
+            resourceLabels.get(s.getId())[i].setText(s.resources[i]);
         }
     }
 
     /**
-     * Called when the user attempts to start a job at a station.
+     * Called when a station's stage changes.
      */
-    void industryJobRequest(Station station, Station.Job job){
-        game.client.send(new MJobReq(station.grid, job));
+    void stationStageUpdate(Station s){
+        VerticalGroup g = stationGroups.get(s.getId());
+
+        if(s.owner == state.myId && !g.hasParent()){
+            vertical.addActor(g);
+        }
+        else if(s.owner != state.myId && g.hasParent()){
+            vertical.removeActor(g);
+
+            //deselecting
+            if(focusStationId == s.getId()){
+                industryFocusStation(null);
+            }
+        }
     }
+
+
+    /* Adding and Removing */
 
     /**
      * Update or insert a job into the job queue for the given station if that station is the focused
@@ -429,26 +437,14 @@ public class SecIndustry extends Sector{
     }
 
     /**
-     * Update the resources in a given station.
-     */
-    void stationResourceUpdate(Station s){
-        for(int i=0; i<4; i++){
-            resourceLabels.get(s.getId())[i].setText(s.resources[i]);
-        }
-    }
-
-    /**
      * Add a docked ship.
      */
     void addDockedShip(Ship ship){
         if(!ship.docked || ship.grid != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
-            DockedShipRow row = new DockedShipRow(this, skin, game.glyph, QUEUE_WIDTHS, ship);
-            row.updateName(ship.getType().toString());
-
-            dockGroup.addActor(row);
-            dockedShips.add(ship);
+            IndShipRow row = new IndShipRow(this, skin, game.glyph, QUEUE_WIDTHS, ship);
+            dockInvGroup.addActor(row);
         });
     }
 
@@ -458,31 +454,46 @@ public class SecIndustry extends Sector{
     void removeDockedShip(int stationId, Ship ship){
         if(stationId != focusStationId) return;
 
-        int index = dockedShips.indexOf(ship);
-
         //remove it if it exists
-        if(index != -1){
-            dockedShips.remove(ship);
-            dockGroup.removeActorAt(index, true);
+        Actor toRemove = null;
+        for(Actor child : dockInvGroup.getChildren()){
+            if(((IndustryRow) child).matches(ship)){
+                toRemove = child;
+            }
+        }
+        if(toRemove != null){
+            dockInvGroup.removeActor(toRemove);
         }
     }
 
     /**
-     * Called when a station's stage changes.
+     * Adds a packed station.
      */
-    void stationStageUpdate(Station s){
-        VerticalGroup g = stationGroups.get(s.getId());
+    void checkAddPackedStation(int stationId, Station.Type type){
+        if(stationId != focusStationId) return;
 
-        if(s.owner == state.myId && !g.hasParent()){
-            vertical.addActor(g);
-        }
-        else if(s.owner != state.myId && g.hasParent()){
-            vertical.removeActor(g);
+        Gdx.app.postRunnable(() -> {
+            IndPackedStationRow row = new IndPackedStationRow(this, skin, game.glyph, QUEUE_WIDTHS,
+                    type);
+            dockInvGroup.addActor(row);
+        });
+    }
 
-            //deselecting
-            if(focusStationId == s.getId()){
-                industryFocusStation(null);
+    /**
+     * Removes a packed station
+     */
+    void checkRemovePackedStation(int stationId, Station.Type type){
+        if(stationId != focusStationId) return;
+
+        //remove it if it exists
+        Actor toRemove = null;
+        for(Actor child : dockInvGroup.getChildren()){
+            if(((IndustryRow) child).matches(type)){
+                toRemove = child;
             }
+        }
+        if(toRemove != null){
+            dockInvGroup.removeActor(toRemove);
         }
     }
 
@@ -497,5 +508,51 @@ public class SecIndustry extends Sector{
             System.out.println("Unexpected non-docked ship in SecIndustry.undockButtonClicked()");
             new Exception().printStackTrace();
         }
+    }
+
+    /**
+     * Called when the user clicks on a station in the industry menu.
+     * @param station Set to null to unfocus a station without focusing another station.
+     */
+    private void industryFocusStation(Station station){
+        if(station == null){
+            focusStationId = -1;
+
+            //reset actors
+            focusStationName.setText("[Station]");
+            dockInvGroup.clearChildren();
+            jobQueue.clearChildren();
+            jobMappings.clear();
+
+        }
+        else {
+            focusStationId = station.grid;
+
+            //top text
+            focusStationName.setText(station.getFullName());
+
+            //docked ships
+            dockInvGroup.clearChildren();
+            for(Ship s : station.dockedShips.values()){
+                addDockedShip(s);
+            }
+            for(Station.Type t : station.packedStations){
+                if(t != null) checkAddPackedStation(focusStationId, t);
+            }
+
+            //job queue
+            jobQueue.clearChildren();
+            jobMappings.clear();
+            for(int i=0; i<station.currentJobs.size(); i++){
+                upsertStationJob(station.getId(), station.currentJobs.get(i), i);
+            }
+        }
+    }
+
+    /**
+     * Called when the user attempts to start a job at a station.
+     */
+    private void industryJobRequest(Station station, Station.Job job){
+        game.client.send(new MJobReq(station.grid, job));
     }
 }

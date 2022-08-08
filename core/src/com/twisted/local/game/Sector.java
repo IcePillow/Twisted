@@ -16,6 +16,8 @@ abstract class Sector {
         this.state = state;
     }
 
+    /* Cross Sector Events */
+
     /**
      * Result from listening on the viewport.
      */
@@ -36,6 +38,8 @@ abstract class Sector {
      */
     void crossSectorListeningCancelled(){}
 
+
+    /* Standard Graphics Methods */
 
     /**
      * Called upon construction of the Game class.

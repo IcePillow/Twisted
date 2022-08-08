@@ -2,17 +2,22 @@ package com.twisted.logic.descriptors;
 
 import com.twisted.logic.entities.Entity;
 
+import java.io.Serializable;
+
 /**
  * Describes an entity without referencing it directly.
  *
  * TODO refactor to use this elsewhere
  */
-public class EntPtr {
+public class EntPtr implements Serializable {
 
     public int grid;
     public boolean docked;
     public final int id;
     public final Entity.Type type;
+
+
+    /* Constructing */
 
     /**
      * Base constructor.
@@ -33,6 +38,16 @@ public class EntPtr {
     }
 
     /**
+     * Returns a copy of this pointer.
+     */
+    public EntPtr cpy(){
+        return new EntPtr(type, id, grid, docked);
+    }
+
+
+    /* Accessing */
+
+    /**
      * Gets the entity from the grid. Returns null if not found.
      */
     public Entity retrieveFromGrid(Grid grid){
@@ -51,10 +66,6 @@ public class EntPtr {
         else {
             return null;
         }
-    }
-
-    public EntPtr cpy(){
-        return new EntPtr(type, id, grid, docked);
     }
 
     /**

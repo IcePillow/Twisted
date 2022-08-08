@@ -1,18 +1,12 @@
 package com.twisted.logic.entities;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.local.game.util.JobRow;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.attach.Weapon;
 
 import java.io.Serializable;
-import java.util.ArrayList;
 
 public abstract class Ship extends Entity implements Serializable {
 
@@ -47,7 +41,7 @@ public abstract class Ship extends Entity implements Serializable {
 
     public float health;
 
-    public boolean docked; //-1 for not docked, otherwise, stationId
+    public boolean docked;
 
     //ui and movement
     public String moveCommand;
@@ -64,17 +58,16 @@ public abstract class Ship extends Entity implements Serializable {
     /**
      * Constructor
      */
-    protected Ship(int id, int grid, int owner, Vector2 position, Vector2 velocity, float rotation,
-                   float warpTimeToLand, boolean docked){
+    protected Ship(int id, int grid, int owner,  boolean docked){
         //meta data
         this.id = id;
         this.grid = grid;
         this.owner = owner;
 
         //physics
-        this.pos = position;
-        this.vel = velocity;
-        this.rot = rotation;
+        this.pos = new Vector2(0, 0);
+        this.vel = new Vector2(0, 0);
+        this.rot = 0;
         this.docked = docked;
 
         //command data
@@ -83,7 +76,7 @@ public abstract class Ship extends Entity implements Serializable {
         this.targetEntity = null;
 
         //warping
-        this.warpTimeToLand = warpTimeToLand;
+        this.warpTimeToLand = 0;
 
         //battle
         this.health = getMaxHealth();
@@ -147,6 +140,7 @@ public abstract class Ship extends Entity implements Serializable {
 
     public Type getType(){
         if(this instanceof Frigate) return Type.Frigate;
+        else if(this instanceof Barge) return Type.Barge;
         else return null;
     }
 
@@ -213,7 +207,8 @@ public abstract class Ship extends Entity implements Serializable {
      * Type of ship.
      */
     public enum Type implements Subtype {
-        Frigate
+        Frigate,
+        Barge,
     }
 
     /**

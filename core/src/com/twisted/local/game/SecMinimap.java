@@ -1,10 +1,7 @@
 package com.twisted.local.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -12,9 +9,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.twisted.Asset;
 import com.twisted.Main;
-import com.twisted.local.game.state.GamePlayer;
-import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Station;
 
@@ -31,9 +27,6 @@ class SecMinimap extends Sector {
     //tree
     private Group parent;
     private final HashMap<Integer, Image> stationSprites;
-
-    //assets
-    private HashMap<Integer, TextureRegionDrawable> ownerToIcon;
 
 
     /**
@@ -54,15 +47,15 @@ class SecMinimap extends Sector {
         parent = super.init();
         parent.setBounds(Main.WIDTH-256, 0, 256, 256);
 
-        Image main = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
+        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
         main.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(main);
 
-        Image embedded = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
         parent.addActor(embedded);
 
-        Image activeSquare = new Image(new Texture(Gdx.files.internal("images/ui/white-square-1.png")));
+        Image activeSquare = new Image(Asset.retrieve(Asset.UiBasic.WHITE_SQUARE_1));
         activeSquare.setPosition(parent.getWidth()/2, parent.getHeight()/2);
         activeSquare.setSize(20, 20);
         parent.addActor(activeSquare);
@@ -72,12 +65,17 @@ class SecMinimap extends Sector {
 
     @Override
     void load(){
-        loadAssets();
-
         //load the grids
         for(Grid g : state.grids){
             //load the minimap icon
-            Image image = new Image(ownerToIcon.get(g.station.owner));
+            Image image;
+
+            if(state.players.get(g.station.owner) == null){
+                image = new Image(Asset.retrieve(Asset.Shape.CIRCLE_GRAY));
+            }
+            else {
+                image = new Image(Asset.retrieve(state.players.get(g.station.owner).getMinimapShapeAsset()));
+            }
             stationSprites.put(g.station.getId(), image);
 
             //position is (indent + scaled positioning - half the width)
@@ -132,16 +130,6 @@ class SecMinimap extends Sector {
         parent.getChild(2).setPosition(3 + g.pos.x*250f/1000f - 10, 3 + g.pos.y*250f/1000f - 10);
     }
 
-    void loadAssets(){
-        //station icons
-        ownerToIcon = new HashMap<>();
-        ownerToIcon.put(0, new TextureRegionDrawable(new Texture(Gdx.files.internal("images/circles/gray.png"))));
-        for(GamePlayer p : state.players.values()){
-            ownerToIcon.put(p.getId(), new TextureRegionDrawable(new Texture(
-                    Gdx.files.internal("images/circles/" + p.getFileCode() + ".png"))));
-        }
-    }
-
     @Override
     void render(float delta){
 
@@ -164,15 +152,17 @@ class SecMinimap extends Sector {
     }
 
     /**
-     * Updates the station image.
+     * Updates the station image. Does not check if the update is needed.
      */
     void updateStation(Station station){
-        stationSprites.get(station.getId());
-
-        if(!ownerToIcon.get(station.owner).equals(
-                stationSprites.get(station.getId()).getDrawable())){
-
-            stationSprites.get(station.getId()).setDrawable(ownerToIcon.get(station.owner));
+        TextureRegionDrawable drawable;
+        if(state.players.get(station.owner) == null){
+            drawable = Asset.retrieve(Asset.Shape.CIRCLE_GRAY);
         }
+        else {
+            drawable = Asset.retrieve(state.players.get(station.owner).getMinimapShapeAsset());
+        }
+
+        stationSprites.get(station.getId()).setDrawable(drawable);
     }
 }

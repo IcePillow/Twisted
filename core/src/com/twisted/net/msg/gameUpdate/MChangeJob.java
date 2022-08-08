@@ -26,7 +26,8 @@ public class MChangeJob implements MGameUpd {
     public enum Action {
         ADDING,
         CANCELING,
-        FINISHED
+        FINISHED,
+        BLOCKING,
     }
 
 }

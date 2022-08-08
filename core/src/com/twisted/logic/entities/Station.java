@@ -2,8 +2,7 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.badlogic.gdx.scenes.scene2d.ui.Image;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.twisted.Asset;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
@@ -11,6 +10,7 @@ import com.twisted.logic.host.GameHost;
 
 import java.io.Serializable;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 
@@ -19,14 +19,14 @@ import java.util.LinkedHashMap;
  */
 public abstract class Station extends Entity implements Serializable {
 
+    /* Constants */
+
+    public final static int PACKED_STATION_SLOTS = 3;
+
+
     /* Graphics (clientside) */
 
     public Polygon polygon;
-
-
-    /* Logic (serverside) */
-
-    public GameHost host;
 
 
     /* Variables */
@@ -46,6 +46,7 @@ public abstract class Station extends Entity implements Serializable {
     public final ArrayList<CurrentJob> currentJobs;
     public final int[] resources;
     public final LinkedHashMap<Integer, Ship> dockedShips;
+    public final Type[] packedStations;
 
     //health
     public float shieldHealth;
@@ -66,6 +67,7 @@ public abstract class Station extends Entity implements Serializable {
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
         dockedShips = new LinkedHashMap<>();
+        packedStations = new Type[PACKED_STATION_SLOTS];
 
         //physics
         this.pos = new Vector2(0, 0);
@@ -103,6 +105,23 @@ public abstract class Station extends Entity implements Serializable {
     public int getDeploymentDuration(){
         return 5;
     }
+    public Asset.UiIcon getStageIcon(Stage stage){
+        switch (stage){
+            case DEPLOYMENT:
+                return Asset.UiIcon.STATION_DEPLOYMENT;
+            case SHIELDED:
+                return Asset.UiIcon.STATION_SHIELDED;
+            case ARMORED:
+                return Asset.UiIcon.STATION_ARMORED;
+            case VULNERABLE:
+                return Asset.UiIcon.STATION_VULNERABLE;
+            case RUBBLE:
+            default:
+                System.out.println("Unexpected station stage");
+                new Exception().printStackTrace();
+                return null;
+        }
+    }
 
 
     /* Naming Methods */
@@ -110,7 +129,6 @@ public abstract class Station extends Entity implements Serializable {
     public String getFullName(){
         return this.getType().name() + " " + gridNick;
     }
-
     @Override
     public String getFleetName(){
         switch(this.getType()){
@@ -218,9 +236,11 @@ public abstract class Station extends Entity implements Serializable {
         Frigate(10, 2, 0, 0, 2),
         Cruiser(25, 5, 2, 0, 30),
         Battleship(100, 0, 10, 10, 90),
-        Barge(150, 50, 0, 0, 120),
+        Barge(1, 1, 0, 0, 1),
+//        Barge(150, 50, 0, 0, 120, JobType.SHIP),
         Titan(500, 80, 100, 50, 600),
-        Extractor(300, 15, 0, 0, 180),
+        Extractor(1, 1, 0, 0, 1),
+//        Extractor(300, 15, 0, 0, 180, JobType.PACKED_STATION),
         Harvester(200, 20, 5, 0, 180),
         Liquidator(200, 25, 10, 0, 180);
 
@@ -256,6 +276,24 @@ public abstract class Station extends Entity implements Serializable {
                     System.out.println("[Error] Unexpected gem type.");
                     new Exception().printStackTrace();
                     return 0;
+            }
+        }
+
+        /**
+         * Returns the type of station that this job creates.
+         */
+        public Type getPackedStationType(){
+            switch(this){
+                case Extractor:
+                    return Type.Extractor;
+                case Harvester:
+                    return Type.Harvester;
+                case Liquidator:
+                    return Type.Liquidator;
+                default:
+                    System.out.println("Unexpected request for station type");
+                    new Exception().printStackTrace();
+                    return null;
             }
         }
     }

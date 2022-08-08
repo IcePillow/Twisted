@@ -1,13 +1,11 @@
 package com.twisted.local.game.state;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -45,11 +43,6 @@ public class GameState {
     public final Map<Integer, CurrentJob> jobs; //sync
 
 
-    /* Sprites */
-
-    public Texture viewportBackground;
-
-
     /**
      * Basic constructor.
      */
@@ -62,8 +55,7 @@ public class GameState {
         this.players = Collections.synchronizedMap(new HashMap<>());
         for(Integer key : playerNames.keySet()){
             //create player
-            GamePlayer gamePlayer = new GamePlayer(key, playerFiles.get(key).file, playerNames.get(key),
-                    playerFiles.get(key).color);
+            GamePlayer gamePlayer = new GamePlayer(key, playerFiles.get(key), playerNames.get(key));
 
             //add it
             this.players.put(gamePlayer.getId(), gamePlayer);
@@ -78,26 +70,13 @@ public class GameState {
     /* Utility */
 
     /**
-     * Finds the grid id of a given ship. Not efficient to use this a lot.
-     * @return Returns -1 if in warp. Returns -99 if not found.
-     */
-    public int findShipGridId(int shipId){
-        if(inWarp.containsKey(shipId)){
-            return -1;
-        }
-
-        for(Grid g : grids){
-            if(g.ships.containsKey(shipId)) return g.id;
-        }
-
-        return -99;
-    }
-
-    /**
      * Finds an entity in the state given the pointer.
      */
     public Entity findEntity(EntPtr ptr){
-        if(ptr.type == Entity.Type.Station){
+        if(ptr == null){
+            return null;
+        }
+        else if(ptr.type == Entity.Type.Station){
             return grids[ptr.grid].station;
         }
         else if(ptr.type == Entity.Type.Ship){
@@ -125,7 +104,7 @@ public class GameState {
         GamePlayer player = players.get(owner);
 
         if(player != null){
-            return player.getColor();
+            return player.getFile().color;
         }
         else {
             return PlayerFile.GRAY.color;

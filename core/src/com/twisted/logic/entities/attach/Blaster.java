@@ -1,5 +1,6 @@
 package com.twisted.logic.entities.attach;
 
+import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
@@ -38,6 +39,14 @@ public class Blaster extends Weapon {
     @Override
     public float getMaxRange() {
         return range;
+    }
+    @Override
+    public Asset.UiButton getOffButtonAsset(){
+        return Asset.UiButton.BLASTER_OFF;
+    }
+    @Override
+    public Asset.UiButton getOnButtonAsset(){
+        return Asset.UiButton.BLASTER_ON;
     }
 
 
