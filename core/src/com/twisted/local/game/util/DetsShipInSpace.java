@@ -19,15 +19,15 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
-import com.twisted.logic.entities.Barge;
+import com.twisted.local.lib.ProgressButton;
+import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
-import com.twisted.logic.entities.attach.Blaster;
-import com.twisted.logic.entities.attach.StationTransport;
-import com.twisted.logic.entities.attach.Weapon;
 
 public class DetsShipInSpace extends DetsGroup {
+
+    //finals
+    private final Color PROGRESS_COLOR = new Color(0.9f, 0.9f, 0.9f, 0.5f);
 
     //tree
     private Group shipButtonGroup, shipWeaponGroup;
@@ -35,14 +35,26 @@ public class DetsShipInSpace extends DetsGroup {
     private Label shipPosition, shipVelocity, healthLabel;
     private Label targetLabel;
     private TogImgButton targetButton;
-    private Image healthFill;
-    private TogImgButton[] weaponButtons;
+    private Image healthFill, targetImage;
+    private ProgressButton[] weaponButtons;
 
     //selection
     private Ship sel;
 
-    //display state tracking
-    private Station.Type[] packedStationDisplays; //used when (sel instanceof Barge)
+    //caching, all cached values should be accessed through their methods
+    private Entity cacheStoreTargetEnt;
+    private Entity cacheTargetEnt(){
+        //update
+        if(sel.targetEntity == null ){
+            cacheStoreTargetEnt = null;
+        }
+        else if(!sel.targetEntity.matches(cacheStoreTargetEnt)) {
+            cacheStoreTargetEnt = sel.targetEntity.retrieveFromGrid(state.grids[sel.grid]);
+        }
+
+        //return
+        return cacheStoreTargetEnt;
+    }
 
 
     /* Construction */
@@ -220,7 +232,11 @@ public class DetsShipInSpace extends DetsGroup {
         shipWeaponGroup = new Group();
 
         //create actors
-        targetLabel = new Label("[firing]", skin, "small", Color.WHITE);
+        targetImage = new Image(Asset.retrieve(Asset.EntityIcon.STATION));
+        targetImage.setPosition(36, 3);
+        shipWeaponGroup.addActor(targetImage);
+
+        targetLabel = new Label("[none]", skin, "small", Color.WHITE);
         targetLabel.setPosition(28, 0);
         shipWeaponGroup.addActor(targetLabel);
 
@@ -231,9 +247,10 @@ public class DetsShipInSpace extends DetsGroup {
         targetButton.setBounds(0, 0, 24, 24);
         shipWeaponGroup.addActor(targetButton);
 
-        weaponButtons = new TogImgButton[3];
+        weaponButtons = new ProgressButton[3];
         for(int i=0; i<weaponButtons.length; i++){
-            weaponButtons[i] = new TogImgButton(null, null);
+            weaponButtons[i] = new ProgressButton(null, null, 1, 1);
+            weaponButtons[i].setProgressColor(PROGRESS_COLOR);
             weaponButtons[i].setBounds(i*28, 28, 24, 24);
             shipWeaponGroup.addActor(weaponButtons[i]);
         }
@@ -259,23 +276,14 @@ public class DetsShipInSpace extends DetsGroup {
             return false;
         });
         for(int i=0; i<weaponButtons.length; i++){
-            TogImgButton button = weaponButtons[i];
+            ProgressButton button = weaponButtons[i];
             int weaponId = i;
 
             button.changeClickListener(new ClickListener(Input.Buttons.LEFT){
                 @Override
                 public void clicked(InputEvent event, float x, float y){
                     if(event.isHandled()) return;
-
-                    switch(sel.getWeaponSlots()[weaponId]){
-                        case Blaster:
-                            sector.input(sel, SecDetails.Input.SHIP_WEAPON_TOGGLE, weaponId);
-                            break;
-                        case StationTransport:
-                            //TODO fill this in
-                            break;
-                    }
-
+                    sector.input(sel, SecDetails.Input.SHIP_WEAPON_TOGGLE, weaponId);
                     event.handle();
                 }
             });
@@ -316,13 +324,6 @@ public class DetsShipInSpace extends DetsGroup {
         //update the grid
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
 
-        //update the weapon button visibility
-        if(sel.getType() == Ship.Type.Barge){
-            packedStationDisplays = new Station.Type[sel.getWeaponSlots().length];
-        }
-        else{
-            packedStationDisplays = null;
-        }
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
             weaponButtons[i].setVisible(i < sel.getWeaponSlots().length);
@@ -331,13 +332,8 @@ public class DetsShipInSpace extends DetsGroup {
             if(weaponButtons[i].isVisible()){
                 int iSave = i;
                 Gdx.app.postRunnable(() -> {
-                    weaponButtons[iSave].switchTextures(
-                            Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
-                            Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
-
-                    if(sel.getType() == Ship.Type.Barge) {
-                        packedStationDisplays[iSave] = ((StationTransport) sel.weapons[iSave]).cargo;
-                    }
+                    Asset.UiButton key = sel.weapons[iSave].getCurrentButtonAsset();
+                    weaponButtons[iSave].switchTexture(Asset.retrieve(key), key);
                 });
             }
         }
@@ -359,47 +355,54 @@ public class DetsShipInSpace extends DetsGroup {
                 ((int) Math.ceil(sel.health)) + "/" + sel.getMaxHealth()));
         healthFill.setWidth(200 * sel.health / sel.getMaxHealth());
 
-        //update targeting text
+        //update targeting text and image
         if(sel.targetEntity != null){
             switch(sel.targetingState){
                 case Locking:
+                    targetImage.setVisible(false);
                     if(sel.targetTimeToLock > 0.95f) targetLabel.setText(Math.round(sel.targetTimeToLock) + "s");
                     else targetLabel.setText(Main.df1.format(sel.targetTimeToLock) + "s");
                     break;
                 case Locked:
-                    //TODO locked indicator with color
-                    targetLabel.setText("[X]");
+                    Gdx.app.postRunnable(() -> {
+                        targetImage.setDrawable(Asset.retrieve(cacheTargetEnt().getIconEnum()));
+                        targetImage.setColor(state.findColorForOwner(cacheTargetEnt().owner));
+                        targetImage.setVisible(true);
+                    });
+                    targetLabel.setText("[   ]");
                     break;
             }
         }
         else {
+            targetImage.setVisible(false);
             targetLabel.setText("");
         }
 
         //targeting button
         targetButton.updateVisible(sel.targetingState==null);
 
-        //update which button sprites are being used
-        if(packedStationDisplays != null){
-            for(int i=0; i< packedStationDisplays.length; i++){
-                //check that we need to update the sprite
-                if(sel.weapons[i] instanceof StationTransport &&
-                        ((StationTransport) sel.weapons[i]).cargo != packedStationDisplays[i]){
-
-                    int iSave = i;
-                    Gdx.app.postRunnable(() -> {
-                        weaponButtons[iSave].switchTextures(
-                                Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
-                                Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
-                        packedStationDisplays[iSave] = ((StationTransport) sel.weapons[iSave]).cargo;
-                    });
-                }
-            }
-        }
-
         //update active weapons
         for(int i = 0; i<sel.weapons.length; i++){
-            weaponButtons[i].updateVisible(!sel.weapons[i].active);
+            //update the texture
+            if(sel.weapons[i].getCurrentButtonAsset() != null &&
+                    !sel.weapons[i].getCurrentButtonAsset().equals(weaponButtons[i].getTextureKey())){
+                int iSave = i;
+                Gdx.app.postRunnable(() -> {
+                    Asset.UiButton key = sel.weapons[iSave].getCurrentButtonAsset();
+                    weaponButtons[iSave].switchTexture(Asset.retrieve(key), key);
+                });
+            }
+
+            //update the progress
+            if(!sel.weapons[i].active){
+                weaponButtons[i].setProgress(0);
+            }
+            else if(sel.weapons[i].getFullTimer() == 0) {
+                weaponButtons[i].setProgress(1);
+            }
+            else {
+                weaponButtons[i].setProgress(1 - sel.weapons[i].timer / sel.weapons[i].getFullTimer());
+            }
         }
 
         //warp dependent

@@ -1,6 +1,7 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
+import com.twisted.Asset;
 
 public class Extractor extends Station {
 
@@ -37,5 +38,9 @@ public class Extractor extends Station {
     @Override
     public float[] getVertices() {
         return vertices;
+    }
+    @Override
+    public Asset.EntityIcon getIconEnum(){
+        return Asset.EntityIcon.STATION;
     }
 }

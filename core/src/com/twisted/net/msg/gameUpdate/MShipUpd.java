@@ -31,6 +31,7 @@ public class MShipUpd implements MGameUpd {
 
     //weapons
     private boolean[] weaponsActive;
+    private float[] weaponsTimers;
     private Station.Type[] weaponsCargo; //only used if a weapon StationTransport
 
     //warping
@@ -73,6 +74,7 @@ public class MShipUpd implements MGameUpd {
         //weapons
         for(int i=0; i<s.weapons.length; i++){
             s.weapons[i].active = weaponsActive[i];
+            s.weapons[i].timer = weaponsTimers[i];
 
             if(s.weapons[i] instanceof StationTransport){
                 ((StationTransport) s.weapons[i]).cargo = weaponsCargo[i];
@@ -117,9 +119,11 @@ public class MShipUpd implements MGameUpd {
 
         //weapons
         upd.weaponsActive = new boolean[s.weapons.length];
+        upd.weaponsTimers = new float[s.weapons.length];
         upd.weaponsCargo = new Station.Type[s.weapons.length];
         for(int i=0; i<s.weapons.length; i++){
             upd.weaponsActive[i] = s.weapons[i].active;
+            upd.weaponsTimers[i] = s.weapons[i].timer;
 
             if(s.weapons[i] instanceof StationTransport) {
                 upd.weaponsCargo[i] = ((StationTransport) s.weapons[i]).cargo;

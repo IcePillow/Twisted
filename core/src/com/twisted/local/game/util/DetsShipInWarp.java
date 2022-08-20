@@ -14,6 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Asset;
 import com.twisted.local.game.SecDetails;
+import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 
@@ -156,9 +157,12 @@ public class DetsShipInWarp extends DetsGroup {
 
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
-                weaponButtons[i].switchTextures(
-                        Asset.retrieve(sel.weapons[i].getOffButtonAsset()),
-                        Asset.retrieve(sel.weapons[i].getOnButtonAsset()));
+                int iSave = i;
+                Gdx.app.postRunnable(() -> {
+                    weaponButtons[iSave].switchTextures(
+                            Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
+                            Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
+                });
             }
         }
 

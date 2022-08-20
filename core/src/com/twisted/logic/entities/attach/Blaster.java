@@ -15,9 +15,6 @@ public class Blaster extends Weapon {
     private final float range;
     private final float fullCooldown;
 
-    //state
-    private float cooling; //can only fire if cooling <= 0
-
 
     /**
      * Constructor
@@ -31,6 +28,29 @@ public class Blaster extends Weapon {
         this.fullCooldown = fullCooldown;
 
         this.active = false;
+    }
+
+
+    /* Action Methods */
+
+    @Override
+    public void tick(GameHost host, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
+                     float delta) {
+        if(timer > 0){
+            timer -= delta;
+        }
+        else if(target != null && targeting == Ship.Targeting.Locked
+                && ship.pos.dst(target.pos) <= range && active) {
+            BlasterBolt bolt = new BlasterBolt(host.useNextMobileId(), ship.pos.cpy(),
+                    this, target.getEntityType(), target.getId());
+            grid.mobiles.put(bolt.id, bolt);
+
+            timer = fullCooldown;
+        }
+    }
+    @Override
+    public void putOnFullCooldown(){
+        this.timer = fullCooldown;
     }
 
 
@@ -48,28 +68,9 @@ public class Blaster extends Weapon {
     public Asset.UiButton getOnButtonAsset(){
         return Asset.UiButton.BLASTER_ON;
     }
-
-
-    /* Action Methods */
-
     @Override
-    public void tick(GameHost host, Grid grid, Ship ship, Entity target,
-                     Ship.Targeting targeting, float delta) {
-        if(cooling > 0){
-            cooling -= delta;
-        }
-        else if(target != null && targeting == Ship.Targeting.Locked
-                && ship.pos.dst(target.pos) <= range && active) {
-            BlasterBolt bolt = new BlasterBolt(host.useNextMobileId(), ship.pos.cpy(),
-                    this, target.getEntityType(), target.getId());
-            grid.mobiles.put(bolt.id, bolt);
-
-            cooling = fullCooldown;
-        }
+    public float getFullTimer(){
+        return fullCooldown;
     }
 
-    @Override
-    public void putOnFullCooldown(){
-        this.cooling = fullCooldown;
-    }
 }

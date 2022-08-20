@@ -412,7 +412,7 @@ public class SecIndustry extends Sector{
         }
         //add the job
         else {
-            JobRow row = new JobRow(skin, game.glyph);
+            JobRow row = new JobRow(skin, Main.glyph);
             row.updateName(job.jobType.name());
             row.updateTimer(Integer.toString( Math.round(job.timeLeft) ));
 
@@ -443,7 +443,7 @@ public class SecIndustry extends Sector{
         if(!ship.docked || ship.grid != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
-            IndShipRow row = new IndShipRow(this, skin, game.glyph, QUEUE_WIDTHS, ship);
+            IndShipRow row = new IndShipRow(this, skin, Main.glyph, QUEUE_WIDTHS, ship);
             dockInvGroup.addActor(row);
         });
     }
@@ -473,7 +473,7 @@ public class SecIndustry extends Sector{
         if(stationId != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
-            IndPackedStationRow row = new IndPackedStationRow(this, skin, game.glyph, QUEUE_WIDTHS,
+            IndPackedStationRow row = new IndPackedStationRow(this, skin, Main.glyph, QUEUE_WIDTHS,
                     type);
             dockInvGroup.addActor(row);
         });
@@ -500,6 +500,9 @@ public class SecIndustry extends Sector{
 
     /* Internal Event Methods */
 
+    /**
+     * Called when a ship's undock button is clicked.
+     */
     public void undockButtonClicked(Ship ship){
         if(ship.docked){
             game.sendGameRequest(new MShipUndockReq(ship.id, ship.grid));
@@ -508,6 +511,13 @@ public class SecIndustry extends Sector{
             System.out.println("Unexpected non-docked ship in SecIndustry.undockButtonClicked()");
             new Exception().printStackTrace();
         }
+    }
+
+    /**
+     * Called when a ship is clicked on for focus.
+     */
+    public void focusShipRequest(Ship ship){
+        game.industryClickEvent(ship);
     }
 
     /**

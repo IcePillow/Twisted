@@ -21,7 +21,6 @@ class InventoryHorGroup extends Table {
     private boolean loaded = false;
 
     private final float parentWidth;
-    private final int parentIndex;
 
     private Label nameLabel = null;
     private Actor filler = null;
@@ -36,7 +35,6 @@ class InventoryHorGroup extends Table {
 
         //copy
         this.parentWidth = parentWidth;
-        this.parentIndex = parentIndex;
 
         //listeners
         InventoryHorGroup ihg = this;

@@ -69,7 +69,6 @@ public class LobbyHost implements ServerContact {
 
     @Override
     public void serverReceived(int clientId, Message message) {
-
         if(message instanceof MChat){
             String string = "[" + users.get(clientId).name + "] " + ((MChat) message).string;
 

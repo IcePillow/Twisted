@@ -122,8 +122,10 @@ public class DetsStation extends DetsGroup {
             stageImage.setVisible(false);
         }
         else {
-            stageImage.setVisible(true);
-            stageImage.setDrawable(Asset.retrieve(sel.getStageIcon(sel.stage)));
+            Gdx.app.postRunnable(() -> {
+                stageImage.setVisible(true);
+                stageImage.setDrawable(Asset.retrieve(sel.getStageIcon(sel.stage)));
+            });
         }
 
         //update stage timer

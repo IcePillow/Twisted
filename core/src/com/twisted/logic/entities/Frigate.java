@@ -1,5 +1,6 @@
 package com.twisted.logic.entities;
 
+import com.twisted.Asset;
 import com.twisted.logic.entities.attach.Blaster;
 import com.twisted.logic.entities.attach.Weapon;
 
@@ -50,6 +51,10 @@ public class Frigate extends Ship {
     @Override
     public Weapon.Type[] getWeaponSlots(){
         return weaponSlots;
+    }
+    @Override
+    public Asset.EntityIcon getIconEnum(){
+        return Asset.EntityIcon.FRIGATE;
     }
 
 }

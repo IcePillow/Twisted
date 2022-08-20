@@ -19,6 +19,7 @@ public class IndShipRow extends IndustryRow {
     private final Ship ship;
 
     //ui tree
+    private Label nameLabel;
     private Image undockImage;
 
 
@@ -37,7 +38,7 @@ public class IndShipRow extends IndustryRow {
     }
 
     private void initGraphics(Skin skin){
-        Label nameLabel = new Label(ship.getFullName(), skin, "small", Color.LIGHT_GRAY);
+        nameLabel = new Label(ship.getFullName(), skin, "small", Color.LIGHT_GRAY);
         this.addActor(nameLabel);
 
         Actor filler = new Actor();
@@ -50,7 +51,15 @@ public class IndShipRow extends IndustryRow {
     }
 
     private void initHandling(){
-        undockImage.addListener(new ClickListener() {
+        nameLabel.addListener(new ClickListener(){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                sector.focusShipRequest(ship);
+                event.handle();
+            }
+        });
+
+        undockImage.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y){
                 sector.undockButtonClicked(ship);

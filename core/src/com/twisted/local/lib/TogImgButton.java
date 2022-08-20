@@ -1,4 +1,4 @@
-package com.twisted.local.game.util;
+package com.twisted.local.lib;
 
 import com.badlogic.gdx.scenes.scene2d.EventListener;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -13,7 +13,7 @@ public class TogImgButton extends Group{
     private EventListener enterListener;
 
     /**
-     * Textures must have length at least one.
+     * This group can have other Actors added to it.
      */
     public TogImgButton(TextureRegionDrawable one, TextureRegionDrawable two){
         super();
@@ -30,6 +30,9 @@ public class TogImgButton extends Group{
         this.two.setVisible(false);
     }
 
+
+    /* Updating */
+
     /**
      * Switches to new two new textures for checked and unchecked.
      */
@@ -42,8 +45,8 @@ public class TogImgButton extends Group{
         this.two = new Image(two);
 
         //add images to the group
-        this.addActor(this.one);
-        this.addActor(this.two);
+        this.addActorAt(0, this.one);
+        this.addActorAt(1, this.two);
 
         //set visibility
         this.one.setVisible(true);
@@ -94,6 +97,9 @@ public class TogImgButton extends Group{
         one.setVisible(oneVisible);
         two.setVisible(!oneVisible);
     }
+
+
+    /* Data */
 
     /**
      * Whether it is currently drawing textureOne.

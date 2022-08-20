@@ -1,5 +1,6 @@
 package com.twisted.logic;
 
+import com.twisted.logic.descriptors.Tracking;
 import com.twisted.net.msg.Message;
 import com.twisted.net.server.Server;
 
@@ -8,7 +9,7 @@ import com.twisted.net.server.Server;
  */
 public class Player {
 
-    /* Meta Variables*/
+    /* Meta Variables */
 
     private final Server server;
 
@@ -24,7 +25,11 @@ public class Player {
 
     /* State Variables */
 
+    //cosmetic
     public String name;
+
+    //game tracking
+    public Tracking tracking;
 
 
     /* Constructor */
@@ -34,6 +39,8 @@ public class Player {
         this.id = id;
         this.name = name;
         this.ai = ai;
+
+        this.tracking = new Tracking();
     }
 
 

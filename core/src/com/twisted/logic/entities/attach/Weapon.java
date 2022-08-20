@@ -10,6 +10,7 @@ public abstract class Weapon {
 
     //state
     public boolean active;
+    public float timer;
 
 
     /* Action Methods */
@@ -31,10 +32,17 @@ public abstract class Weapon {
     public abstract float getMaxRange();
     public abstract Asset.UiButton getOffButtonAsset();
     public abstract Asset.UiButton getOnButtonAsset();
+    public abstract float getFullTimer();
 
     public Type getType(){
         if(this instanceof Blaster) return Type.Blaster;
+        else if(this instanceof StationTransport) return Type.StationTransport;
         else return null;
+    }
+
+    public Asset.UiButton getCurrentButtonAsset(){
+        if(active) return getOnButtonAsset();
+        else return getOffButtonAsset();
     }
 
 

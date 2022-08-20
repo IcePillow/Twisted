@@ -1,0 +1,19 @@
+Work
+    Large scale
+        TODO exterior target summaries for the current grid
+        TODO make a better lobby screen
+        TODO fill in the curtain screen
+    Contained ui changes
+        TODO lobby text fields match the new buttons
+    Combat
+        TODO station regen
+        TODO fix the orbiting for small radii at higher speeds
+        TODO ships stop shooting when a station changes state
+        TODO barges transporting resources
+    Graphics
+        TODO visual indicators (mobiles?) for station entering different stages
+        TODO graphics of victory or defeat continue panel
+    Refactoring
+    Other
+        TODO figure out where that one print statement "0, 0" is coming from
+        TODO make sure everything is being disposed of in each screen

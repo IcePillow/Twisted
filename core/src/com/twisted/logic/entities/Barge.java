@@ -1,5 +1,6 @@
 package com.twisted.logic.entities;
 
+import com.twisted.Asset;
 import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.entities.attach.Weapon;
 
@@ -41,7 +42,7 @@ public class Barge extends Ship {
     }
     @Override
     public float getTargetRange() {
-        return 1;
+        return 1.5f;
     }
     @Override
     public int getMaxHealth() {
@@ -50,5 +51,9 @@ public class Barge extends Ship {
     @Override
     public Weapon.Type[] getWeaponSlots() {
         return weaponSlots;
+    }
+    @Override
+    public Asset.EntityIcon getIconEnum(){
+        return Asset.EntityIcon.BARGE;
     }
 }

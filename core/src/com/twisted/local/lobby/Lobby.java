@@ -1,19 +1,22 @@
 package com.twisted.local.lobby;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.local.lib.RectTextButton;
 import com.twisted.logic.host.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
@@ -46,8 +49,8 @@ public class Lobby implements Screen, ClientContact {
     private Stage stage;
     private Skin skin;
     private Group initialGroup, clientGroup, serverGroup, terminalGroup;
-    private TextButton joinButton, hostButton, terminateButton; //large buttons outside the groups
-    private TextButton connectButton, launchButton; //buttons inside the groups
+    private RectTextButton joinButton, hostButton, terminateButton; //buttons outside groups
+    private RectTextButton connectButton, launchButton; //buttons inside the groups
     private Label attemptingJoin, attemptingLaunch, disconnectedLabel;
     private Table terminalWidget; //terminal display
     private ScrollPane terminalPane;
@@ -100,6 +103,7 @@ public class Lobby implements Screen, ClientContact {
     @Override
     public void dispose() {
         skin.dispose();
+        stage.dispose();
     }
 
 
@@ -172,19 +176,19 @@ public class Lobby implements Screen, ClientContact {
             if(((MSceneChange) message).getChange() == MSceneChange.Change.GAME){
                 //create game
                 Gdx.app.postRunnable(() -> {
-                        //create the new game
-                        Game game = new Game(main);
+                    //create the new game
+                    Game game = new Game(main);
 
-                        //set the client for the game, set the contact for the client
-                        game.setClient(client);
-                        client.setContact(game);
+                    //set the client for the game, set the contact for the client
+                    game.setClient(client);
+                    client.setContact(game);
 
-                        //set the host
-                        if(host != null) game.setHost(host.getGameHost());
+                    //set the host
+                    if(host != null) game.setHost(host.getGameHost());
 
-                        //change screen
-                        main.setScreen(game);
-                        this.dispose();
+                    //change screen
+                    main.setScreen(game);
+                    this.dispose();
                     }
                 );
             }
@@ -339,7 +343,6 @@ public class Lobby implements Screen, ClientContact {
     /* Loading the Stage */
 
     private void loadGui(){
-
         //load the skin
         skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
 
@@ -351,7 +354,7 @@ public class Lobby implements Screen, ClientContact {
         Gdx.input.setInputProcessor(stage);
 
         //set the background
-        Image image = new Image(new Texture(Gdx.files.internal("images/pixels/navy.png")));
+        Image image = new Image(Asset.retrieve(Asset.Shape.PIXEL_NAVY));
         image.setBounds(0, 0, Main.WIDTH, Main.HEIGHT);
         stage.addActor(image);
 
@@ -387,7 +390,8 @@ public class Lobby implements Screen, ClientContact {
         Group group = new Group();
 
         //title text
-        Label titleText = new Label("TWISTED", skin, "title");
+        Label titleText = new Label("TWISTED", skin, "title", Color.WHITE);
+        titleText.setColor(Color.LIGHT_GRAY);
         titleText.setPosition(-titleText.getWidth()/2 + 720, 600);
         group.addActor(titleText);
 
@@ -402,8 +406,9 @@ public class Lobby implements Screen, ClientContact {
         Group group = new Group();
 
         //join as a client
-        joinButton = new TextButton("Join", skin, "emphasis");
-        joinButton.setBounds(550, 500, 100, 50);
+        joinButton = new RectTextButton("Join", skin, "medium");
+        joinButton.setPadding(30, 24, 2);
+        joinButton.setPosition(600, 525);
         group.addActor(joinButton);
 
         clientGroup = createJoinGui();
@@ -411,8 +416,9 @@ public class Lobby implements Screen, ClientContact {
         clientGroup.setVisible(false);
 
         //create a server
-        hostButton = new TextButton("Host", skin, "emphasis");
-        hostButton.setBounds(790, 500, 100, 50);
+        hostButton = new RectTextButton("Host", skin, "medium");
+        hostButton.setPadding(30, 24, 2);
+        hostButton.setPosition(840, 525);
         group.addActor(hostButton);
 
         serverGroup = createHostGui();
@@ -426,25 +432,13 @@ public class Lobby implements Screen, ClientContact {
         group.addActor(disconnectedLabel);
 
         //listeners
-        joinButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
-                if(!hostButton.isDisabled()){
-                    hostButton.setDisabled(true);
-                    clientGroup.setVisible(true);
-                }
-                return true;
-            }
-            return false;
+        joinButton.setOnLeftClick(() -> {
+            hostButton.setDisabled(true);
+            clientGroup.setVisible(true);
         });
-        hostButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
-                if(!joinButton.isDisabled()){
-                    joinButton.setDisabled(true);
-                    serverGroup.setVisible(true);
-                }
-                return true;
-            }
-            return false;
+        hostButton.setOnLeftClick(() -> {
+            joinButton.setDisabled(true);
+            serverGroup.setVisible(true);
         });
 
         //return
@@ -472,12 +466,14 @@ public class Lobby implements Screen, ClientContact {
         userLabel.setPosition(650-userLabel.getWidth(), 400);
 
         //connect button
-        connectButton = new TextButton("Connect", skin, "small");
-        connectButton.setBounds(720-45+55, 335, 90, 40);
+        connectButton = new RectTextButton("Connect", skin, "small");
+        connectButton.setPosition(720+55, 355);
+        connectButton.setPadding(24, 16, 2);
 
         //cancel button
-        TextButton cancelButton = new TextButton("Cancel", skin, "small");
-        cancelButton.setBounds(720-45-55, 335, 90, 40);
+        RectTextButton cancelButton = new RectTextButton("Cancel", skin, "small");
+        cancelButton.setPosition(720-55, 355);
+        cancelButton.setPadding(24, 16, 2);
 
         //attempting label
         attemptingJoin = new Label("Attempting to connect", skin, "small");
@@ -485,35 +481,27 @@ public class Lobby implements Screen, ClientContact {
         attemptingJoin.setVisible(false);
 
         //listeners
-        connectButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
-                desiredUsername = userArea.getText();
-                String[] address = addressArea.getText().split(":");
+        Lobby thisSave = this;
+        connectButton.setOnLeftClick(() -> {
+            desiredUsername = userArea.getText();
+            String[] address = addressArea.getText().split(":");
 
-                if(address.length == 2){
-                    client = new Client(this, address[0], Integer.parseInt(address[1]));
-                    attemptingJoin.setVisible(true);
-                    connectButton.setDisabled(true);
-                }
-                return true;
+            if(address.length == 2){
+                client = new Client(thisSave, address[0], Integer.parseInt(address[1]));
+                attemptingJoin.setVisible(true);
+                connectButton.setDisabled(true);
             }
-            return false;
         });
-        cancelButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
-                clientGroup.setVisible(false);
-                attemptingJoin.setVisible(false);
-                connectButton.setDisabled(false);
-                hostButton.setDisabled(false);
+        cancelButton.setOnLeftClick(() -> {
+            clientGroup.setVisible(false);
+            attemptingJoin.setVisible(false);
+            connectButton.setDisabled(false);
+            hostButton.setDisabled(false);
 
-                if(client != null){
-                    client.shutdown();
-                    client = null;
-                }
-
-                return true;
+            if(client != null){
+                client.shutdown();
+                client = null;
             }
-            return false;
         });
 
         //add all the actors
@@ -542,12 +530,14 @@ public class Lobby implements Screen, ClientContact {
         userLabel.setPosition(650-userLabel.getWidth(), 450);
 
         //connect button
-        launchButton = new TextButton("Launch", skin, "small");
-        launchButton.setBounds(720-45+55, 385, 90, 40);
+        launchButton = new RectTextButton("Launch", skin, "small");
+        launchButton.setPosition(720+55, 405);
+        launchButton.setPadding(24, 16, 2);
 
         //cancel button
-        TextButton cancelButton = new TextButton("Cancel", skin, "small");
-        cancelButton.setBounds(720-45-55, 385, 90, 40);
+        RectTextButton cancelButton = new RectTextButton("Cancel", skin, "small");
+        cancelButton.setPosition(720-55, 405);
+        cancelButton.setPadding(24, 16, 2);
 
         //attempting label
         attemptingLaunch = new Label("Launching...", skin, "small");
@@ -555,34 +545,24 @@ public class Lobby implements Screen, ClientContact {
         attemptingLaunch.setVisible(false);
 
         //listeners
-        launchButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
+        Lobby thisSave = this;
+        launchButton.setOnLeftClick(() -> {
+            attemptingLaunch.setVisible(true);
+            launchButton.setDisabled(true);
 
-                attemptingLaunch.setVisible(true);
-                launchButton.setDisabled(true);
-
-                desiredUsername = userArea.getText();
-                if(desiredUsername.equals("")){
-                    desiredUsername = "Host";
-                }
-
-                //create the host
-                host = new LobbyHost(this);
-
-                return true;
+            desiredUsername = userArea.getText();
+            if(desiredUsername.equals("")){
+                desiredUsername = "Host";
             }
-            return false;
+
+            //create the host
+            host = new LobbyHost(thisSave);
         });
-        cancelButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent){
-                serverGroup.setVisible(false);
-                joinButton.setDisabled(false);
-                attemptingLaunch.setVisible(false);
-                launchButton.setDisabled(false);
-
-                return true;
-            }
-            return false;
+        cancelButton.setOnLeftClick(() -> {
+            serverGroup.setVisible(false);
+            joinButton.setDisabled(false);
+            attemptingLaunch.setVisible(false);
+            launchButton.setDisabled(false);
         });
 
         //add actors
@@ -603,8 +583,9 @@ public class Lobby implements Screen, ClientContact {
         Group group = new Group();
 
         //close the server button
-        terminateButton = new TextButton("", skin, "emphasis");
-        terminateButton.setBounds(670, 500, 100, 50);
+        terminateButton = new RectTextButton("", skin, "medium");
+        terminateButton.setPadding(16, 10, 2);
+        terminateButton.setPosition(720, 525);
 
         //create the widget
         terminalWidget = new Table();
@@ -622,34 +603,28 @@ public class Lobby implements Screen, ClientContact {
         textField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
 
         //listeners
-        terminateButton.addCaptureListener((Event event) -> {
-            if(event instanceof ChangeListener.ChangeEvent) {
+        terminateButton.setOnLeftClick(() -> {
+            //if you were hosting
+            if(host != null){
+                addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
 
-                //if you were hosting
-                if(host != null){
-                    addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
-
-                    host.shutdown();
-                    host = null;
-                }
-                //if you were a client
-                else {
-                    client.shutdown();
-                    client = null;
-
-                    addToTerminal(MChat.Type.LOGISTICAL, "> You left the server.");
-                }
-
-                addToTerminal(MChat.Type.LOGISTICAL," ");
-                addToTerminal(MChat.Type.LOGISTICAL," ");
-
-                textField.setText("");
-                terminalGroup.setVisible(false);
-                initialGroup.setVisible(true);
-
-                return true;
+                host.shutdown();
+                host = null;
             }
-            return false;
+            //if you were a client
+            else {
+                client.shutdown();
+                client = null;
+
+                addToTerminal(MChat.Type.LOGISTICAL, "> You left the server.");
+            }
+
+            addToTerminal(MChat.Type.LOGISTICAL," ");
+            addToTerminal(MChat.Type.LOGISTICAL," ");
+
+            textField.setText("");
+            terminalGroup.setVisible(false);
+            initialGroup.setVisible(true);
         });
         textField.addCaptureListener((Event event) -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType() == InputEvent.Type.keyUp){

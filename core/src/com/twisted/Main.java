@@ -5,6 +5,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.twisted.local.lobby.Lobby;
 
 import java.text.DecimalFormat;
@@ -15,6 +16,7 @@ public class Main extends Game {
 	public static final int HEIGHT = 800;
 
 	public static final DecimalFormat df1 = new DecimalFormat("0.0");
+	public static final GlyphLayout glyph = new GlyphLayout();
 
 	private Screen scene;
 	@Override

@@ -12,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
 import com.twisted.Asset;
+import com.twisted.local.curtain.Curtain;
 import com.twisted.local.game.cosmetic.Explosion;
 import com.twisted.local.game.state.GameState;
 import com.twisted.logic.descriptors.CurrentJob;
@@ -79,8 +80,6 @@ public class Game implements Screen, ClientContact {
     //graphics high level utilities
     private final Stage stage;
     public Skin skin;
-    public GlyphLayout glyph;
-    private Asset asset;
 
 
     /* Constructor */
@@ -91,7 +90,6 @@ public class Game implements Screen, ClientContact {
 
         //graphics
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
-        asset = new Asset();
         Gdx.input.setInputProcessor(stage);
         initSectors();
     }
@@ -150,6 +148,7 @@ public class Game implements Screen, ClientContact {
     public void dispose() {
         //top level
         skin.dispose();
+        stage.dispose();
 
         //sectors
         for(Sector s : sectors){
@@ -194,9 +193,9 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MMobileUps) receiveMobileUps((MMobileUps) m);
         else if(m instanceof MRemShip) receiveRemShip((MRemShip) m);
         else if(m instanceof MShipDockingChange) receiveShipDockingChange((MShipDockingChange) m);
-        else if(m instanceof MStationStage) receiveStationStage((MStationStage) m);
         else if(m instanceof MStationUpd) receiveStationUpd((MStationUpd) m);
         else if(m instanceof MPackedStationMove) receivePackedStationMove((MPackedStationMove) m);
+        else if(m instanceof MGameEnd) receiveGameEnd((MGameEnd) m);
     }
 
     @Override
@@ -276,13 +275,6 @@ public class Game implements Screen, ClientContact {
 
             //tell sectors
             industrySec.stationResourceUpdate(state.grids[e.getKey()].station);
-        }
-        //update station stage timer
-        for(Map.Entry<Integer, Float> e : m.stationStageTimer.entrySet()){
-            state.grids[e.getKey()].station.stageTimer = e.getValue();
-
-            //tell sectors
-            detailsSec.updateEntity(state.grids[e.getKey()].station);
         }
     }
 
@@ -472,29 +464,30 @@ public class Game implements Screen, ClientContact {
         }
     }
 
-    private void receiveStationStage(MStationStage m){
-        Station s = state.grids[m.stationId].station;
-        //TODO update state of station upon change to rubble (i.e. clearing docked ships)
-
-        s.owner = m.owner;
-        s.stage = m.stage;
-
-        //update sectors
-        minimapSec.updateStation(s);
-        detailsSec.updateEntity(s);
-        fleetSec.checkRemoveEntity(s);
-        fleetSec.updEntityValues(s);
-        industrySec.stationStageUpdate(s);
-    }
-
     private void receiveStationUpd(MStationUpd m){
         Station s = state.grids[m.stationId].station;
+        Station.Stage oldStage = s.stage;
 
         //copy data
         m.copyDataToStation(s);
 
-        //update sectors
+        //if newly rubble
+        if(oldStage != Station.Stage.RUBBLE && s.stage == Station.Stage.RUBBLE){
+            s.dockedShips.clear();
+            s.currentJobs.clear();
+            Arrays.fill(s.resources, 0);
+        }
+
+        //update sectors generally
         detailsSec.updateEntity(s);
+
+        //update sectors on stage change
+        if(oldStage != s.stage){
+            minimapSec.updateStation(s);
+            fleetSec.checkRemoveEntity(s);
+            fleetSec.checkAddEntity(s);
+            industrySec.stationStageUpdate(s);
+        }
     }
 
     private void receivePackedStationMove(MPackedStationMove m){
@@ -543,6 +536,15 @@ public class Game implements Screen, ClientContact {
         }
     }
 
+    private void receiveGameEnd(MGameEnd m){
+        //end
+        state.ending = true;
+        optionsSec.ending(m);
+
+        //close the client
+        client.shutdown();
+    }
+
 
     /* High Level Input Handling */
 
@@ -550,21 +552,11 @@ public class Game implements Screen, ClientContact {
      * Called each tick to handle user input.
      */
     private void handleInput(){
+        if(state != null && state.ending) return;
 
-        //move the camera around
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
-            viewportSec.moveCamera(SecViewport.Direction.RIGHT);
+        for(Sector s : sectors){
+            s.keyboardInput();
         }
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
-            viewportSec.moveCamera(SecViewport.Direction.LEFT);
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
-            viewportSec.moveCamera(SecViewport.Direction.UP);
-        }
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
-            viewportSec.moveCamera(SecViewport.Direction.DOWN);
-        }
-
     }
 
     /**
@@ -575,7 +567,7 @@ public class Game implements Screen, ClientContact {
     }
 
 
-    /* Cross Sector Listening */
+    /* Listening to the Sectors */
 
     /**
      * Called by a sector to start listening to input on the viewport. New requests overwrite
@@ -585,6 +577,8 @@ public class Game implements Screen, ClientContact {
      * @param listenStatus A user-readable string describing what is being listened for.
      */
     void updateCrossSectorListening(Sector receiver, String listenStatus){
+        if(state.ending) return;
+
         //cancel the current listener
         if(crossSectorListener != null) {
             crossSectorListener.crossSectorListeningCancelled();
@@ -606,6 +600,8 @@ public class Game implements Screen, ClientContact {
      * Called when a viewport click event occurs.
      */
     void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, EntPtr ptr){
+        if(state.ending) return;
+
         //normal behavior
         if(crossSectorListener == null){
             //selecting a ship for details
@@ -629,6 +625,8 @@ public class Game implements Screen, ClientContact {
      * Called when a minimap click event occurs.
      */
     void minimapClickEvent(int button, int grid){
+        if(state.ending) return;
+
         //normal behavior
         if(crossSectorListener == null){
             if(button == Input.Buttons.LEFT){
@@ -645,6 +643,8 @@ public class Game implements Screen, ClientContact {
      * Called when an entity is selected from the fleet window.
      */
     void fleetClickEvent(Entity entity){
+        if(state.ending) return;
+
         //normal behavior
         if(crossSectorListener == null){
             entitySelectedForDetails(entity);
@@ -652,6 +652,31 @@ public class Game implements Screen, ClientContact {
         //responding to listeners
         else {
             crossSectorListener.fleetClickEvent(EntPtr.createFromEntity(entity));
+        }
+    }
+
+    /**
+     * Called when an entity is selected for external viewing in the industry window.
+     */
+    void industryClickEvent(Entity entity){
+        if(state.ending) return;
+
+        entitySelectedForDetails(entity);
+    }
+
+    /**
+     * Called when a click event occurs in the options sector.
+     */
+    void optionsClickEvent(SecOptions.OptionEvent event, Object obj){
+        if(event == SecOptions.OptionEvent.END_GAME){
+            Gdx.app.postRunnable(() -> {
+                //create the new curtain
+                Curtain curtain = new Curtain(main, (MGameEnd) obj, state);
+
+                //change screen
+                main.setScreen(curtain);
+                this.dispose();
+            }); //TODO fix this
         }
     }
 
@@ -669,12 +694,14 @@ public class Game implements Screen, ClientContact {
     }
 
 
-    /* External Facing Input Handling */
+    /* External Facing Direct Input */
 
     /**
      * A selection is made in the viewport
      */
     void viewportSelection(SecViewport.Select select, boolean toggle, EntPtr ptr, Color color, float value){
+        if(state.ending) return;
+
         viewportSec.updateSelection(select, toggle, ptr, color, value);
     }
 
@@ -682,6 +709,8 @@ public class Game implements Screen, ClientContact {
      * Called when the current grid being looked at in the viewport needs to be switched.
      */
     void switchGrid(int newGrid){
+        if(state.ending) return;
+
         grid = newGrid;
 
         viewportSec.switchFocusedGrid();
@@ -693,6 +722,8 @@ public class Game implements Screen, ClientContact {
      * Send a game request to the server.
      */
     void sendGameRequest(MGameReq request){
+        if(state.ending) return;
+
         client.send(request);
     }
 
@@ -716,7 +747,6 @@ public class Game implements Screen, ClientContact {
         skin.getFont("small").getData().markupEnabled = true;
         skin.getFont("medium").getData().markupEnabled = true;
         skin.getFont("title").getData().markupEnabled = true;
-        glyph = new GlyphLayout();
 
         //prepare the viewport
         viewportSec = new SecViewport(this, stage);

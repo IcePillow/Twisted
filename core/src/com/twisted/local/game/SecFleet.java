@@ -120,7 +120,7 @@ public class SecFleet extends Sector {
         //create the tabs
         TabType[] types = TabType.values();
         for(int i=0; i<types.length; i++){
-            tabs.put(types[i], new FleetTab(types[i].toString(), game.skin, game.glyph,
+            tabs.put(types[i], new FleetTab(types[i].toString(), game.skin, Main.glyph,
                     new Vector2(3+66*i, 2), new Vector2(64, 22)));
 
             //get the group, add it to the overall header group, add listener

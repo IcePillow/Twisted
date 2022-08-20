@@ -69,11 +69,18 @@ public class DetsShipDocked extends DetsGroup {
         shipName.setPosition(30, 0);
         group.addActor(shipName);
 
-        Label dockedLabel = new Label("Docked", skin, "small", Color.LIGHT_GRAY);
-        dockedLabel.setFontScale(0.9f);
-        glyph.setText(skin.getFont("small"), dockedLabel.getText());
-        dockedLabel.setPosition(288 - glyph.width*dockedLabel.getFontScaleX(), 0);
-        group.addActor(dockedLabel);
+        ImageButton undockButton = new ImageButton(Asset.retrieve(Asset.UiButton.UNDOCK));
+        undockButton.setBounds(265, -4, 24, 24);
+        group.addActor(undockButton);
+        undockButton.addCaptureListener((Event event) -> {
+            if(event.isHandled()) return true;
+
+            if(event instanceof ChangeListener.ChangeEvent){
+                sector.input(sel, SecDetails.Input.SHIP_UNDOCK);
+            }
+
+            return true;
+        });
 
         return group;
     }
@@ -316,7 +323,7 @@ public class DetsShipDocked extends DetsGroup {
             stationInvElements[invRowSelect].resetBackground();
         }
         else if(transferRight.isVisible()){
-            stationInvElements[invRowSelect].resetBackground();
+            shipInvElements[invRowSelect].resetBackground();
         }
 
         //make the selection

@@ -6,6 +6,7 @@ import com.twisted.logic.Player;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.descriptors.Tracking;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.entities.attach.Weapon;
@@ -369,6 +370,9 @@ public class GameHost implements ServerContact {
             millisSinceMajor -= 1000;
             majorLoop();
         }
+
+        //end condition
+        loopEndCondition();
     }
 
     /**
@@ -384,6 +388,7 @@ public class GameHost implements ServerContact {
             overviews.put(player.getId(), new MGameOverview());
         }
 
+        //fill messages
         for(Grid g : grids){
             //fill station timers
             for(CurrentJob j : g.station.currentJobs){
@@ -394,11 +399,6 @@ public class GameHost implements ServerContact {
             Station s = g.station;
             if(s.owner > 0){ //check there is an owner
                 overviews.get(s.owner).stationToResources.put(s.grid, s.resources.clone());
-            }
-
-            //fill station stage timer
-            for(MGameOverview o : overviews.values()){
-                o.stationStageTimer.put(s.getId(), s.stageTimer);
             }
         }
 
@@ -507,21 +507,15 @@ public class GameHost implements ServerContact {
                     case VULNERABLE:
                         st.stage = Station.Stage.SHIELDED;
                         st.shieldHealth = (float) Math.ceil(0.25f * st.getMaxShield());
-
-                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                     case ARMORED:
                         st.stage = Station.Stage.VULNERABLE;
                         st.stageTimer = st.getVulnerableDuration();
-
-                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                     case DEPLOYMENT:
                         st.stage = Station.Stage.SHIELDED;
                         st.shieldHealth = st.getMaxShield();
                         st.hullHealth = st.getMaxHull();
-
-                        server.broadcastMessage(MStationStage.createFromStation(st));
                         break;
                 }
             }
@@ -721,8 +715,8 @@ public class GameHost implements ServerContact {
                 s.moveCommand = "Stopping";
                 s.movement = Ship.Movement.STOPPING;
 
-                //placing with correct physics
-                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.getMaxSpeed());
+                //placing with correct physics (slightly varied)
+                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.getMaxSpeed()).rotateRad((float) Math.random()*0.15f);
                 s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
 
                 warpVel.nor().scl(s.getMaxSpeed()*0.75f);
@@ -798,20 +792,27 @@ public class GameHost implements ServerContact {
                 g.ships.remove(s.id);
             }
 
-            //station health checks
+            //station health checks TODO station gradual healing while shielded
             Station st = g.station;
             if(st.stage == Station.Stage.SHIELDED && st.shieldHealth <= 0){
                 st.shieldHealth = 0;
                 st.stageTimer = st.getArmoredDuration();
                 st.stage = Station.Stage.ARMORED;
-                server.broadcastMessage(MStationStage.createFromStation(st));
             }
             if(st.stage == Station.Stage.VULNERABLE && st.hullHealth <= 0){
                 //change to rubble
                 g.station.hullHealth = 0;
                 g.station.stage = Station.Stage.RUBBLE;
                 g.station.owner = 0;
-                server.broadcastMessage(MStationStage.createFromStation(st));
+
+                //stop all ships from targeting it
+                for(Ship s : g.ships.values()){
+                    if(s.targetEntity.matches(g.station) && !(s.getType() == Ship.Type.Barge)){
+                        s.targetingState = null;
+                        s.targetEntity = null;
+                        s.targetTimeToLock = 0;
+                    }
+                }
 
                 //other updates
                 st.currentJobs.clear();
@@ -846,6 +847,37 @@ public class GameHost implements ServerContact {
                 server.broadcastMessage(MMobileUps.createFromMobile(m, g.id, false));
             }
         }
+    }
+
+    /**
+     * Checks for end condition and ends the game if it is met.
+     */
+    private void loopEndCondition(){
+
+        //TODO make this an actual end condition
+//        boolean end = false;
+//        for(Ship s : grids[0].ships.values()){
+//            if(s.getType() == Ship.Type.Barge){
+//                end = true;
+//                break;
+//            }
+//        }
+//        if(!end) return;
+
+        //end the game
+        looping = false;
+
+        //create game end message
+        MGameEnd gameEnd = new MGameEnd(1);
+
+        //fill player tracking info
+        for(Map.Entry<Integer, Player> e : players.entrySet()){
+            gameEnd.tracking.put(e.getKey(), e.getValue().tracking);
+        }
+
+        //send last message then close the server
+        server.broadcastMessage(gameEnd);
+        server.closeServer();
     }
 
 
@@ -1111,7 +1143,6 @@ public class GameHost implements ServerContact {
         if(s.owner != userId || s.docked){
             MDenyRequest deny = new MDenyRequest(msg);
 
-
             if(s.docked){
                 deny.reason = "Cannot command a docked ship";
             }
@@ -1122,7 +1153,45 @@ public class GameHost implements ServerContact {
             server.sendMessage(userId, deny);
         }
         else {
-            s.weapons[msg.weaponId].active = msg.active;
+            switch(s.weapons[msg.weaponId].getType()){
+                case Blaster: {
+                    s.weapons[msg.weaponId].active = msg.active;
+                    break;
+                }
+                case StationTransport: {
+                    //check need to deny
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    if(s.grid == -1){
+                        deny.reason = "Cannot deploy station from warp";
+                    }
+                    else if (s.targetingState != Ship.Targeting.Locked || s.targetEntity.type != Entity.Type.Station) {
+                        deny.reason = "Must target station rubble to deploy";
+                    }
+                    else {
+                        //retrieve station
+                        Station st = (Station) s.targetEntity.retrieveFromGrid(grids[s.grid]);
+                        if(st.stage != Station.Stage.RUBBLE){
+                            deny.reason = "Station must be rubble to deploy";
+                        }
+                        else if(st.getType() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
+                            deny.reason = "Station type must match to be able to deploy";
+                        }
+                        else if(st.pos.dst(s.pos) > s.weapons[msg.weaponId].getMaxRange()){
+                            deny.reason = "Barge must be within range to deploy";
+                        }
+                    }
+                    //send deny
+                    if(!deny.reason.equals("")) {
+                        server.sendMessage(userId, deny);
+                        break;
+                    }
+
+                    //activate weapon if didn't deny
+                    s.weapons[msg.weaponId].active = msg.active;
+
+                    break;
+                }
+            }
         }
     }
 

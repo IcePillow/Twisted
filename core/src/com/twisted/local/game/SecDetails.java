@@ -3,11 +3,14 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.twisted.Asset;
+import com.twisted.Main;
 import com.twisted.local.game.state.GameState;
 import com.twisted.local.game.util.*;
 import com.twisted.logic.descriptors.EntPtr;
@@ -80,10 +83,10 @@ public class SecDetails extends Sector {
         Group decoration = new Group();
 
         //add the main window background
-        Image ribbon = new Image(new Texture(Gdx.files.internal("images/pixels/darkpurple.png")));
+        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
         ribbon.setSize(parent.getWidth(), parent.getHeight());
         decoration.addActor(ribbon);
-        Image embedded = new Image(new Texture(Gdx.files.internal("images/pixels/black.png")));
+        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
         decoration.addActor(embedded);
 
@@ -93,11 +96,11 @@ public class SecDetails extends Sector {
 
     private void initDisplayGroups(Vector2 size){
         //create the display groups
-        displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_IN_SPACE, new DetsShipInSpace(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_DOCKED, new DetsShipDocked(this, skin, game.glyph, size));
-        displayGroups.put(Display.SHIP_IN_WARP, new DetsShipInWarp(this, skin, game.glyph, size));
-        displayGroups.put(Display.STATION_BASIC, new DetsStation(this, skin, game.glyph, size));
+        displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, Main.glyph, size));
+        displayGroups.put(Display.SHIP_IN_SPACE, new DetsShipInSpace(this, skin, Main.glyph, size));
+        displayGroups.put(Display.SHIP_DOCKED, new DetsShipDocked(this, skin, Main.glyph, size));
+        displayGroups.put(Display.SHIP_IN_WARP, new DetsShipInWarp(this, skin, Main.glyph, size));
+        displayGroups.put(Display.STATION_BASIC, new DetsStation(this, skin, Main.glyph, size));
 
         //add the default actor
         parent.addActor(displayGroups.get(Display.EMPTY));
@@ -118,8 +121,7 @@ public class SecDetails extends Sector {
     }
 
     @Override
-    void render(float delta) {
-    }
+    void render(float delta) {}
 
     @Override
     void dispose() {
@@ -409,6 +411,10 @@ public class SecDetails extends Sector {
                 game.sendGameRequest(new MShipDockReq(ent.getId(), ent.grid));
                 break;
             }
+            case SHIP_UNDOCK: {
+                game.sendGameRequest(new MShipUndockReq(ent.getId(), ent.grid));
+                break;
+            }
             case SHIP_TARGET: {
                 //listen for an entity to select
                 if(ent.grid > -1 &&
@@ -497,6 +503,7 @@ public class SecDetails extends Sector {
         SHIP_ALIGN,
         SHIP_WARP,
         SHIP_DOCK,
+        SHIP_UNDOCK,
         SHIP_TARGET,
         SHIP_WEAPON_TOGGLE,
 

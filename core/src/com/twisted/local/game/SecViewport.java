@@ -388,6 +388,26 @@ public class SecViewport extends Sector{
     }
 
 
+    /* User Input */
+
+    @Override
+    void keyboardInput(){
+        //move the camera around
+        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
+            moveCamera(Direction.RIGHT);
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
+            moveCamera(Direction.LEFT);
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
+            moveCamera(Direction.UP);
+        }
+        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
+            moveCamera(Direction.DOWN);
+        }
+    }
+
+
     /* Cosmetic Methods */
 
     void addCosmetic(Cosmetic cosmetic){

@@ -19,6 +19,7 @@ public class GameState {
     /* General */
 
     public boolean readyToRender;
+    public boolean ending;
 
     public int serverTickDelay;
 
@@ -48,6 +49,7 @@ public class GameState {
      */
     public GameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayerFile> playerFiles){
         this.readyToRender = false;
+        this.ending = false;
 
         this.playerNames = playerNames.values().toArray(new String[0]);
 

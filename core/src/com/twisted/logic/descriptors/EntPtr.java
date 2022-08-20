@@ -72,8 +72,8 @@ public class EntPtr implements Serializable {
      * Checks if the entity id and type passed in match the ones stored here.
      * Will not match null, but no error will be thrown.
      */
-    public boolean matches(Entity entity){
-        return (entity != null && entity.getId() == id && entity.getEntityType() == type);
+    public boolean matches(Entity ent){
+        return (ent != null && ent.getId() == id && ent.getEntityType() == type);
     }
 
     /**

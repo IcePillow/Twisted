@@ -16,6 +16,7 @@ abstract class Sector {
         this.state = state;
     }
 
+
     /* Cross Sector Events */
 
     /**
@@ -80,5 +81,14 @@ abstract class Sector {
      * Called to clean up.
      */
     abstract void dispose();
+
+
+    /* Input Methods */
+
+    /**
+     * Should be overriden if continuous keyboard input is desired. Will be called each frame if
+     * keyboard input should be passed to this sector.
+     */
+    void keyboardInput(){}
 
 }

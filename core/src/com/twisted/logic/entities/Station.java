@@ -100,10 +100,7 @@ public abstract class Station extends Entity implements Serializable {
         return 5;
     }
     public int getVulnerableDuration(){
-        return 5;
-    }
-    public int getDeploymentDuration(){
-        return 5;
+        return 30;
     }
     public Asset.UiIcon getStageIcon(Stage stage){
         switch (stage){
@@ -212,16 +209,28 @@ public abstract class Station extends Entity implements Serializable {
      * Lowercase of type is filename.
      */
     public enum Type implements Subtype {
-        Extractor,
-        Harvester,
-        Liquidator
+        Extractor(4),
+//        Extractor(60),
+        Harvester(4),
+//        Harvester(75),
+//        Liquidator(90);
+        Liquidator(4);
+
+        private final float deployTime;
+        public float getDeployTime(){
+            return deployTime;
+        }
+
+        Type(float deployTime){
+            this.deployTime = deployTime;
+        }
     }
 
     /**
      * The stage that the station is currently in.
      */
     public enum Stage {
-        DEPLOYMENT,
+        DEPLOYMENT, //currently unused
         SHIELDED,
         ARMORED,
         VULNERABLE,
@@ -242,7 +251,8 @@ public abstract class Station extends Entity implements Serializable {
         Extractor(1, 1, 0, 0, 1),
 //        Extractor(300, 15, 0, 0, 180, JobType.PACKED_STATION),
         Harvester(200, 20, 5, 0, 180),
-        Liquidator(200, 25, 10, 0, 180);
+        Liquidator(1, 1, 1, 0, 1);
+//        Liquidator(200, 25, 10, 0, 180);
 
         public final int calcite;
         public final int kernite;

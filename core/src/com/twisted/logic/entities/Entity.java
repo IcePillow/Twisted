@@ -1,6 +1,8 @@
 package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.Asset;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 
 public abstract class Entity {
@@ -36,6 +38,10 @@ public abstract class Entity {
 
     /* Typing Methods */
 
+    /**
+     * This is distinct from the getType() that is defined in each child in that it specifies the
+     * child of Entity, not the grandchild.
+     */
     public Type getEntityType(){
         if(this instanceof Ship) return Type.Ship;
         else if(this instanceof Station) return Type.Station;
@@ -43,22 +49,29 @@ public abstract class Entity {
     }
 
     /**
-     * These ids are not unique across entities, but they should be unique across each subclass
+     * These ids are not unique across entities, but they are unique across each subclass
      * of entities.
      */
     public abstract int getId();
 
-    public boolean isDocked(){
-        switch(getEntityType()){
-            case Ship:
-                return ((Ship) this).docked;
-            default:
-                return false;
-        }
-    }
-
     public boolean matches(Entity ent){
         return (ent != null && ent.getId() == this.getId() && ent.getEntityType() == this.getEntityType());
+    }
+
+    public boolean matches(EntPtr ptr){
+        return (ptr != null && ptr.id == getId() && ptr.type == getEntityType());
+    }
+
+
+    /* State Methods */
+
+    public boolean isDocked(){
+        if(getEntityType() == Type.Ship){
+            return ((Ship) this).docked;
+        }
+        else {
+            return false;
+        }
     }
 
 
@@ -74,10 +87,17 @@ public abstract class Entity {
      * to display the selection circle on the viewport.
      */
     public abstract float getPaddedLogicalRadius();
+    /**
+     * The icon that represents this entity.
+     */
+    public abstract Asset.EntityIcon getIconEnum();
 
 
     /* Naming Methods */
 
+    /**
+     * The normal name for this entity.
+     */
     public abstract String getFullName();
     /**
      * Name to be displayed in the fleet sector.

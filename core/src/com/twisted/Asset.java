@@ -48,7 +48,7 @@ public class Asset {
         BARGE("barge"),
         STATION("station");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }
@@ -63,7 +63,7 @@ public class Asset {
         KERNITE("kernite"),
         PYRENE("pyrene");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }
@@ -84,10 +84,11 @@ public class Asset {
         PIXEL_DARKPURPLE("pixels/darkpurple"),
         PIXEL_GRAY("pixels/gray"),
         PIXEL_GREEN("pixels/green"),
+        PIXEL_LIGHTGRAY("pixels/lightgray"),
         PIXEL_MAGENTA("pixels/magenta"),
         PIXEL_NAVY("pixels/navy");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }
@@ -103,7 +104,7 @@ public class Asset {
         WHITE_ARROW("white-arrow"),
         WHITE_SQUARE_1("white-square-1");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }
@@ -120,7 +121,7 @@ public class Asset {
         STATION_SHIELDED("station-shielded"),
         STATION_VULNERABLE("station-vulnerable");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }
@@ -135,6 +136,7 @@ public class Asset {
         BLASTER_ON("blaster-on"),
         DEFAULT("default"),
         DOCK("dock"),
+        UNDOCK("undock"),
         EXTRACTOR_OFF("extractor-off"),
         EXTRACTOR_ON("extractor-on"),
         HARVESTER_ON("harvester-off"),
@@ -151,7 +153,7 @@ public class Asset {
         TRANSFER_RIGHT("transfer-right"),
         WARP("warp");
 
-        final String path;
+        private final String path;
         public String getPath(){
             return path;
         }

@@ -4,7 +4,7 @@ import com.twisted.net.msg.Message;
 
 public class MSceneChange implements Message {
 
-    private Change change;
+    private final Change change;
     public Change getChange() {
         return change;
     }
