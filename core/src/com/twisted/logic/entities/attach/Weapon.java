@@ -4,13 +4,23 @@ import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.host.GameHost;
+import com.twisted.logic.host.game.ServerGameState;
 
 public abstract class Weapon {
+
+    //meta
+    public final Entity attached;
 
     //state
     public boolean active;
     public float timer;
+
+
+    /* Constructor */
+
+    protected Weapon(Entity attached){
+        this.attached = attached;
+    }
 
 
     /* Action Methods */
@@ -21,7 +31,7 @@ public abstract class Weapon {
      * @param target The targeted entity, null is okay.
      * @param delta The amount of time that has passed since the last game loop.
      */
-    public abstract void tick(GameHost host, Grid grid, Ship ship, Entity target,
+    public abstract void tick(ServerGameState state, Grid grid, Ship ship, Entity target,
                               Ship.Targeting targeting, float delta);
 
     public abstract void putOnFullCooldown();

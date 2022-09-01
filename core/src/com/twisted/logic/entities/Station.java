@@ -6,11 +6,9 @@ import com.twisted.Asset;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Grid;
-import com.twisted.logic.host.GameHost;
 
 import java.io.Serializable;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 
 
@@ -102,10 +100,8 @@ public abstract class Station extends Entity implements Serializable {
     public int getVulnerableDuration(){
         return 30;
     }
-    public Asset.UiIcon getStageIcon(Stage stage){
+    public static Asset.UiIcon getStageIcon(Stage stage){
         switch (stage){
-            case DEPLOYMENT:
-                return Asset.UiIcon.STATION_DEPLOYMENT;
             case SHIELDED:
                 return Asset.UiIcon.STATION_SHIELDED;
             case ARMORED:
@@ -113,6 +109,7 @@ public abstract class Station extends Entity implements Serializable {
             case VULNERABLE:
                 return Asset.UiIcon.STATION_VULNERABLE;
             case RUBBLE:
+                return null;
             default:
                 System.out.println("Unexpected station stage");
                 new Exception().printStackTrace();
@@ -124,11 +121,11 @@ public abstract class Station extends Entity implements Serializable {
     /* Naming Methods */
 
     public String getFullName(){
-        return this.getType().name() + " " + gridNick;
+        return this.getSubtype().name() + " " + gridNick;
     }
     @Override
     public String getFleetName(){
-        switch(this.getType()){
+        switch(this.getSubtype()){
             case Extractor:
                 return "Extrac " + gridNick;
             case Liquidator:
@@ -146,7 +143,8 @@ public abstract class Station extends Entity implements Serializable {
     /* Action Methods */
 
     @Override
-    public void takeDamage(Grid grid, float amount){
+    public void takeDamage(Grid grid, int owner, float amount){
+        super.takeDamage(grid, owner, amount);
 
         switch(stage){
             case SHIELDED:{
@@ -158,8 +156,6 @@ public abstract class Station extends Entity implements Serializable {
                 break;
             }
             //cases where nothing happens
-            case DEPLOYMENT:
-                //TODO change this case
             case ARMORED:
             case RUBBLE:{
                 break;
@@ -194,7 +190,8 @@ public abstract class Station extends Entity implements Serializable {
     /**
      * Returns what kind of station this is.
      */
-    public Type getType(){
+    @Override
+    public Type getSubtype(){
         if(this instanceof Extractor) return Type.Extractor;
         else if(this instanceof Harvester) return Type.Harvester;
         else return Type.Liquidator;
@@ -209,20 +206,24 @@ public abstract class Station extends Entity implements Serializable {
      * Lowercase of type is filename.
      */
     public enum Type implements Subtype {
-        Extractor(4),
-//        Extractor(60),
-        Harvester(4),
-//        Harvester(75),
-//        Liquidator(90);
-        Liquidator(4);
+        Extractor(4, Asset.EntityIcon.EXTRACTOR),
+        Harvester(4, Asset.EntityIcon.HARVESTER),
+        Liquidator(4, Asset.EntityIcon.LIQUIDATOR);
 
         private final float deployTime;
         public float getDeployTime(){
             return deployTime;
         }
 
-        Type(float deployTime){
+        private final Asset.EntityIcon icon;
+        @Override
+        public Asset.EntityIcon getIcon(){
+            return icon;
+        }
+
+        Type(float deployTime, Asset.EntityIcon icon){
             this.deployTime = deployTime;
+            this.icon = icon;
         }
     }
 
@@ -230,7 +231,6 @@ public abstract class Station extends Entity implements Serializable {
      * The stage that the station is currently in.
      */
     public enum Stage {
-        DEPLOYMENT, //currently unused
         SHIELDED,
         ARMORED,
         VULNERABLE,

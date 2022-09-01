@@ -4,9 +4,9 @@ import com.twisted.logic.descriptors.EntPtr;
 
 public class MPackedStationMoveReq implements MGameReq{
 
-    public EntPtr removeFrom;
-    public int idxRemoveFrom;
-    public EntPtr addTo;
+    public final EntPtr removeFrom;
+    public final int idxRemoveFrom;
+    public final EntPtr addTo;
 
 
     public MPackedStationMoveReq(EntPtr removeFrom, int idxRemoveFrom, EntPtr addTo){

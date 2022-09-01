@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Client side game state object.
  */
-public class GameState {
+public class ClientGameState {
 
     /* General */
 
@@ -47,7 +47,7 @@ public class GameState {
     /**
      * Basic constructor.
      */
-    public GameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayerFile> playerFiles){
+    public ClientGameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayerFile> playerFiles){
         this.readyToRender = false;
         this.ending = false;
 

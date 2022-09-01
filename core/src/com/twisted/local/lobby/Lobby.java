@@ -1,23 +1,22 @@
 package com.twisted.local.lobby;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.lib.RectTextButton;
-import com.twisted.logic.host.LobbyHost;
+import com.twisted.logic.host.lobby.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
@@ -48,16 +47,23 @@ public class Lobby implements Screen, ClientContact {
     //graphics
     private Stage stage;
     private Skin skin;
+    private OrthographicCamera camera;
+    private ShapeRenderer shape;
+
+    //tree
     private Group initialGroup, clientGroup, serverGroup, terminalGroup;
     private RectTextButton joinButton, hostButton, terminateButton; //buttons outside groups
     private RectTextButton connectButton, launchButton; //buttons inside the groups
     private Label attemptingJoin, attemptingLaunch, disconnectedLabel;
     private Table terminalWidget; //terminal display
-    private ScrollPane terminalPane;
+    private ScrollPane pane;
 
     //styles
     private Label.LabelStyle terminalLabelStyle;
-    private TextField.TextFieldStyle terminalTextFieldStyle;
+    private TextField.TextFieldStyle textFieldStyle;
+
+    //rendering
+    private float[][] stars;
 
     //graphics details
     private final int TERMINAL_WIDTH = 480;
@@ -72,6 +78,7 @@ public class Lobby implements Screen, ClientContact {
         this.main = main;
 
         loadGui();
+        loadRender();
     }
 
 
@@ -84,6 +91,14 @@ public class Lobby implements Screen, ClientContact {
     public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
+
+        //rendering
+        camera.update();
+        shape.setProjectionMatrix(camera.combined);
+        frameRender(delta);
+
+        //scene2d
+        Main.glyph.reset();
         stage.act(delta);
         stage.draw();
     }
@@ -144,7 +159,7 @@ public class Lobby implements Screen, ClientContact {
         terminalGroup.setVisible(true);
 
         //scroll the terminal
-        terminalPane.setScrollPercentY(1);
+        pane.setScrollPercentY(1);
 
         //name change
         client.send(new MCommand(new String[]{"name", desiredUsername}));
@@ -205,10 +220,6 @@ public class Lobby implements Screen, ClientContact {
         terminalGroup.setVisible(false);
         initialGroup.setVisible(true);
 
-        //update terminal
-        addToTerminal(MChat.Type.LOGISTICAL,
-                "> You disconnected from the server.\n   Reason: " + reason);
-
         //tell user what happened
         disconnectedLabel.setText("Disconnected: " + reason);
         disconnectedLabel.setPosition(600, 200);
@@ -223,7 +234,7 @@ public class Lobby implements Screen, ClientContact {
         }).start();
 
         //logical stuff
-        client.shutdown();
+        if(client != null) client.shutdown();
         client = null;
     }
 
@@ -314,7 +325,7 @@ public class Lobby implements Screen, ClientContact {
         //set label color
         switch(type){
             case LOGISTICAL:
-                label.setColor(Color.LIGHT_GRAY);
+                label.setColor(Color.GRAY);
                 break;
             case WARNING_ERROR:
                 label.setColor(1, 0.5f, 0.5f, 1);
@@ -333,10 +344,44 @@ public class Lobby implements Screen, ClientContact {
             catch (InterruptedException e) {
                 e.printStackTrace();
             }
-            terminalPane.setScrollPercentY(1);
+            pane.setScrollPercentY(1);
 
         }).start();
 
+    }
+
+
+    /* Rendering */
+
+    private void loadRender(){
+        //create objects
+        camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
+        camera.translate(stage.getWidth()/2, stage.getHeight()/2);
+        shape = new ShapeRenderer();
+
+        //prepare stars
+        stars = new float[150][4];
+        for(float[] s : stars){
+            s[0] = (float) (Math.random()) * Main.WIDTH;
+            s[1] = (float) (Math.random()) * Main.HEIGHT;
+            s[2] = (float) Math.floor((Math.random()) * 1.99f) + 1;
+            s[3] = (float) (Math.random()*0.4f + 0.2f);
+        }
+    }
+
+    private void frameRender(float delta){
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+
+        //draw background
+        shape.setColor(Main.SPACE);
+        shape.rect(0, 0, stage.getWidth(), stage.getHeight());
+
+        for(float[] s : stars){
+            shape.setColor(s[3], s[3], s[3], 1f);
+            shape.circle(s[0], s[1], s[2]);
+        }
+
+        shape.end();
     }
 
 
@@ -352,11 +397,6 @@ public class Lobby implements Screen, ClientContact {
         //create the stage
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
         Gdx.input.setInputProcessor(stage);
-
-        //set the background
-        Image image = new Image(Asset.retrieve(Asset.Shape.PIXEL_NAVY));
-        image.setBounds(0, 0, Main.WIDTH, Main.HEIGHT);
-        stage.addActor(image);
 
         //groups
         Group decorationGroup = createDecoration();
@@ -379,8 +419,10 @@ public class Lobby implements Screen, ClientContact {
         terminalLabelStyle.fontColor = new Color(0.9f, 0.9f, 0.9f, 1);
 
         TextField textField = new TextField("", skin);
-        terminalTextFieldStyle = new TextField.TextFieldStyle(textField.getStyle());
-        terminalTextFieldStyle.fontColor = new Color(0.9f, 0.9f, 0.9f, 1);
+        textFieldStyle = new TextField.TextFieldStyle(textField.getStyle());
+        textFieldStyle.fontColor = new Color(0.9f, 0.9f, 0.9f, 1);
+        textFieldStyle.background = Asset.retrieve(Asset.Shape.PIXEL_BLACK);
+        textFieldStyle.cursor = Asset.retrieve(Asset.UiBasic.CURSOR_1);
     }
 
     /**
@@ -426,7 +468,8 @@ public class Lobby implements Screen, ClientContact {
         serverGroup.setVisible(false);
 
         //disconnected label, not shown initially
-        disconnectedLabel = new Label("[???]", skin, "small");
+        disconnectedLabel = new Label("[???]", skin, "small", Color.WHITE);
+        disconnectedLabel.setColor(Color.LIGHT_GRAY);
         disconnectedLabel.setPosition(640, 300);
         disconnectedLabel.setVisible(false);
         group.addActor(disconnectedLabel);
@@ -452,18 +495,28 @@ public class Lobby implements Screen, ClientContact {
         Group group = new Group();
 
         //address
-        TextArea addressArea = new TextArea("", skin);
-        addressArea.setBounds(650, 442, 200, 36);
-        addressArea.setAlignment(Align.bottom);
-        Label addressLabel = new Label("Address", skin, "small");
-        addressLabel.setPosition(650-addressLabel.getWidth(), 450);
+        TextField addressField = new TextField("", skin);
+        addressField.setStyle(textFieldStyle);
+        addressField.setBounds(650, 442, 200, 30);
+        addressField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
+        Image addressDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        addressDecor.setBounds(addressField.getX()-3, addressField.getY()-3,
+                addressField.getWidth()+6, addressField.getHeight()+6);
+        Label addressLabel = new Label("Address", skin, "small", Color.WHITE);
+        addressLabel.setColor(Color.GRAY);
+        addressLabel.setPosition(650-addressLabel.getWidth()-6, addressField.getY()+3);
 
         //username
-        TextArea userArea = new TextArea("", skin);
-        userArea.setBounds(650, 392, 200, 36);
-        userArea.setAlignment(Align.bottom);
-        Label userLabel = new Label("User", skin, "small");
-        userLabel.setPosition(650-userLabel.getWidth(), 400);
+        TextField userField = new TextField("", skin);
+        userField.setStyle(textFieldStyle);
+        userField.setBounds(650, 392, 200, 30);
+        userField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
+        Image userDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        userDecor.setBounds(userField.getX()-3, userField.getY()-3,
+                userField.getWidth()+6, userField.getHeight()+6);
+        Label userLabel = new Label("User", skin, "small", Color.WHITE);
+        userLabel.setColor(Color.GRAY);
+        userLabel.setPosition(650-userLabel.getWidth()-6, userField.getY()+3);
 
         //connect button
         connectButton = new RectTextButton("Connect", skin, "small");
@@ -483,8 +536,8 @@ public class Lobby implements Screen, ClientContact {
         //listeners
         Lobby thisSave = this;
         connectButton.setOnLeftClick(() -> {
-            desiredUsername = userArea.getText();
-            String[] address = addressArea.getText().split(":");
+            desiredUsername = userField.getText();
+            String[] address = addressField.getText().split(":");
 
             if(address.length == 2){
                 client = new Client(thisSave, address[0], Integer.parseInt(address[1]));
@@ -505,10 +558,12 @@ public class Lobby implements Screen, ClientContact {
         });
 
         //add all the actors
+        group.addActor(addressDecor);
         group.addActor(addressLabel);
-        group.addActor(addressArea);
+        group.addActor(addressField);
+        group.addActor(userDecor);
         group.addActor(userLabel);
-        group.addActor(userArea);
+        group.addActor(userField);
         group.addActor(connectButton);
         group.addActor(cancelButton);
         group.addActor(attemptingJoin);
@@ -523,11 +578,16 @@ public class Lobby implements Screen, ClientContact {
         Group group = new Group();
 
         //address
-        TextArea userArea = new TextArea("", skin);
-        userArea.setBounds(650, 442, 200, 36);
-        userArea.setAlignment(Align.bottom);
-        Label userLabel = new Label("User", skin, "small");
-        userLabel.setPosition(650-userLabel.getWidth(), 450);
+        TextField userField = new TextField("", skin);
+        userField.setStyle(textFieldStyle);
+        userField.setBounds(650, 442, 200, 30);
+        userField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
+        Image userDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        userDecor.setBounds(userField.getX()-3, userField.getY()-3,
+                userField.getWidth()+6, userField.getHeight()+6);
+        Label userLabel = new Label("User", skin, "small", Color.WHITE);
+        userLabel.setColor(Color.GRAY);
+        userLabel.setPosition(650-userLabel.getWidth()-6, userField.getY()+3);
 
         //connect button
         launchButton = new RectTextButton("Launch", skin, "small");
@@ -550,7 +610,7 @@ public class Lobby implements Screen, ClientContact {
             attemptingLaunch.setVisible(true);
             launchButton.setDisabled(true);
 
-            desiredUsername = userArea.getText();
+            desiredUsername = userField.getText();
             if(desiredUsername.equals("")){
                 desiredUsername = "Host";
             }
@@ -566,7 +626,8 @@ public class Lobby implements Screen, ClientContact {
         });
 
         //add actors
-        group.addActor(userArea);
+        group.addActor(userDecor);
+        group.addActor(userField);
         group.addActor(userLabel);
         group.addActor(launchButton);
         group.addActor(cancelButton);
@@ -581,35 +642,44 @@ public class Lobby implements Screen, ClientContact {
      */
     private Group createTerminalGui(){
         Group group = new Group();
+        group.setPosition(720-TERMINAL_WIDTH/2f-3, 138);
 
         //close the server button
         terminateButton = new RectTextButton("", skin, "medium");
         terminateButton.setPadding(16, 10, 2);
-        terminateButton.setPosition(720, 525);
+        terminateButton.setPosition(TERMINAL_WIDTH/2f, 387);
+
+        //ribbon of the terminal
+        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        ribbon.setSize(TERMINAL_WIDTH+6, 300+36+9);
+        group.addActor(ribbon);
 
         //create the widget
         terminalWidget = new Table();
         terminalWidget.left().bottom();
 
         //create the pane
-        terminalPane = new ScrollPane(terminalWidget, skin);
-        terminalPane.setBounds(720-TERMINAL_WIDTH/2f, 175, TERMINAL_WIDTH, 300);
-        terminalPane.setScrollingDisabled(true, false);
-        terminalPane.setFadeScrollBars(false);
+        pane = new ScrollPane(terminalWidget, skin);
+        pane.setBounds(3, 36+6, TERMINAL_WIDTH, 300);
+        pane.setColor(Color.BLACK);
+        pane.setScrollingDisabled(true, false);
+        pane.setFadeScrollBars(false);
 
         //text field input
-        TextField textField = new TextField("", terminalTextFieldStyle);
-        textField.setBounds(720-TERMINAL_WIDTH/2f-4, 135+6, TERMINAL_WIDTH+8, 40);
+        TextField textField = new TextField("", skin);
+        textField.setStyle(textFieldStyle);
+        textField.setBlinkTime(0.4f);
+        textField.setBounds(3, 3, TERMINAL_WIDTH, 36);
         textField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
 
         //listeners
         terminateButton.setOnLeftClick(() -> {
             //if you were hosting
             if(host != null){
-                addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
-
                 host.shutdown();
                 host = null;
+
+                addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
             }
             //if you were a client
             else {
@@ -619,12 +689,22 @@ public class Lobby implements Screen, ClientContact {
                 addToTerminal(MChat.Type.LOGISTICAL, "> You left the server.");
             }
 
-            addToTerminal(MChat.Type.LOGISTICAL," ");
-            addToTerminal(MChat.Type.LOGISTICAL," ");
+            addToTerminal(MChat.Type.LOGISTICAL,"--Connection Ended--\n\n");
 
+            //reset graphics
             textField.setText("");
             terminalGroup.setVisible(false);
             initialGroup.setVisible(true);
+
+            //shutdown the networking
+            if(host != null){
+                host.shutdown();
+                host = null;
+            }
+            else {
+                client.shutdown();
+                client = null;
+            }
         });
         textField.addCaptureListener((Event event) -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType() == InputEvent.Type.keyUp){
@@ -635,9 +715,9 @@ public class Lobby implements Screen, ClientContact {
             }
             return false;
         });
-        terminalPane.addListener(event -> {
+        pane.addListener(event -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
-                stage.setScrollFocus(terminalPane);
+                stage.setScrollFocus(pane);
             }
             else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
                 stage.setScrollFocus(null);
@@ -647,7 +727,7 @@ public class Lobby implements Screen, ClientContact {
 
         //add everything to the group
         group.addActor(terminateButton);
-        group.addActor(terminalPane);
+        group.addActor(pane);
         group.addActor(textField);
         return group;
     }

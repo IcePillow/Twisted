@@ -8,6 +8,7 @@ import com.twisted.logic.descriptors.Grid;
 public abstract class Entity {
 
     /* Metadata */
+
     /**
      * Owner. Use 0 for none.
      */
@@ -36,6 +37,14 @@ public abstract class Entity {
     public int grid;
 
 
+    /* Serverside Logic */
+
+    /**
+     * Last player to damage this entity.
+     */
+    public int lastHit;
+
+
     /* Typing Methods */
 
     /**
@@ -47,6 +56,8 @@ public abstract class Entity {
         else if(this instanceof Station) return Type.Station;
         else return null;
     }
+
+    public abstract Subtype getSubtype();
 
     /**
      * These ids are not unique across entities, but they are unique across each subclass
@@ -90,7 +101,9 @@ public abstract class Entity {
     /**
      * The icon that represents this entity.
      */
-    public abstract Asset.EntityIcon getIconEnum();
+    public Asset.EntityIcon getIconEnum(){
+        return this.getSubtype().getIcon();
+    }
 
 
     /* Naming Methods */
@@ -107,7 +120,10 @@ public abstract class Entity {
 
     /* Action Methods */
 
-    public abstract void takeDamage(Grid grid, float amount);
+    public void takeDamage(Grid grid, int owner, float amount){
+        this.lastHit = owner;
+    }
+
 
     /* Enums */
 
@@ -120,7 +136,7 @@ public abstract class Entity {
      * Should be implemented by Type enums in subclasses of Entity.
      */
     public interface Subtype {
-
+        Asset.EntityIcon getIcon();
     }
 
 }

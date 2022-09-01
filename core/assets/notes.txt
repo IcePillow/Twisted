@@ -49,3 +49,5 @@ Gameplay
         Blasters -- always hit unless warp, have travel time, shoot discretely
         Lasers -- continuously hit, no travel time, shoot continuously
         Missiles -- have travel time, can time out, deals aoe, shoot discretely
+Misc
+    Use "git ls-files | grep '\.java' | xargs wc -l" to get total java line count

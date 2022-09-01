@@ -119,7 +119,6 @@ class SecOptions extends Sector{
             game.optionsClickEvent(OptionEvent.END_GAME, endMessage);
         });
 
-
         //make invisible and return
         child.setVisible(false);
         return child;

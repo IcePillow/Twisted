@@ -1,343 +1,43 @@
-package com.twisted.logic.host;
+package com.twisted.logic.host.game;
 
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.local.game.state.PlayerFile;
-import com.twisted.logic.Player;
+import com.twisted.Main;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
-import com.twisted.logic.descriptors.Tracking;
+import com.twisted.logic.descriptors.events.EvGameEnd;
+import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.mobs.Mobile;
-import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
-import com.twisted.net.msg.remaining.MGameStart;
-import com.twisted.net.msg.remaining.MSceneChange;
-import com.twisted.net.server.Server;
-import com.twisted.net.server.ServerContact;
 
-import java.text.DecimalFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
 
-/**
- * TODO safety checks on all inputs from the users in the client request handling methods.
- */
-public class GameHost implements ServerContact {
+class ServerGameLoop {
 
-    /* Constants */
-
-    public static final int TICK_DELAY = 50; //millis between each tick
-    public static final float FRAC = TICK_DELAY / 1000f; //fraction of a second per tick
-
-    private static final DecimalFormat df2 = new DecimalFormat("0.00");
+    //exterior references
+    private final GameHost host;
+    private final ServerGameState state;
 
 
-    /* Exterior Reference Variables */
-
-    private final Server server;
-
-
-    /* Storage Variables */
-
-    //player details
-    private final HashMap<Integer, Player> players;
-    private final int hostId;
-
-    //networking and game loop
-    private final HashMap<MGameReq, Integer> requests; //requests being read during game logic
-    private final Map<MGameReq, Integer> hotRequests; //requests stored between ticks (synchronized)
-    private boolean looping;
-    private float millisSinceMajor;
-
-    //map details
-    private int mapWidth;
-    private int mapHeight;
-
-    //state variables
-    private Grid[] grids;
-    private HashMap<Integer, Ship> shipsInWarp;
-
-    //tracking variables, should only be accessed through their respective sync'd methods
-    private int nextJobId = 1;
-    public synchronized int useNextJobId(){
-        nextJobId++;
-        return nextJobId-1;
-    }
-    private int nextShipId = 1;
-    public synchronized int useNextShipId(){
-        nextShipId++;
-        return nextShipId-1;
-    }
-    private int nextMobileId = 1;
-    public synchronized int useNextMobileId(){
-        nextMobileId++;
-        return nextMobileId-1;
+    ServerGameLoop(GameHost host, ServerGameState state){
+        this.host = host;
+        this.state = state;
     }
 
 
-    /* Constructing & Launching */
-
-    /**
-     * Constructor. Makes itself the contact of the server.
-     * @param players The array of players. Should not exceed the max number for the map.
-     */
-    public GameHost(Server server, HashMap<Integer, Player> players, int hostId){
-        //initialize
-        this.requests = new HashMap<>();
-        this.hotRequests = Collections.synchronizedMap(new HashMap<>());
-        this.looping = true;
-
-        //copy players over
-        this.hostId = hostId;
-        this.players = players;
-
-        //create ai players
-        for(int i = this.players.size(); i < 2; i++) {
-            int id = server.useNextId();
-
-            Player aiPlayer = new Player(server, id, "AI"+id, true);
-            this.players.put(id, aiPlayer);
-            players.put(id, aiPlayer);
-        }
-
-        //make this the server contact and set the server
-        this.server = server;
-        this.server.setContact(this);
-
-        //tell players to change scene
-        MSceneChange sceneChange = new MSceneChange(MSceneChange.Change.GAME);
-        sceneChange.isPlayer = true;
-        for(Player p : players.values()){
-            p.sendMessage(sceneChange);
-        }
-
-        //thread that starts the game
-        new Thread(() -> {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-
-            //load initial game state
-            loadInitialState(players.values().toArray(new Player[0]));
-
-            //tell the players the information about the game starting
-            sendGameStart();
-
-            preLoopCalls();
-
-            //begin the game loop
-            startGameLoop();
-
-        }).start();
-
-    }
-
-    /**
-     * Loads the initial game state.
-     * IMPORTANT - ONLY LOADS CLASSIC MAP
-     */
-    private void loadInitialState(Player[] players){
-
-        //map basics
-        mapWidth = 1000;
-        mapHeight = 1000;
-
-        //grids and stations
-        grids = new Grid[]{
-                new Grid(0, new Vector2(50, 320), "A"),
-                new Grid(1, new Vector2(200, 100), "B"),
-                new Grid(2, new Vector2(80, 920), "C"),
-                new Grid(3, new Vector2(950, 680), "D"),
-                new Grid(4, new Vector2(800, 900), "E"),
-                new Grid(5, new Vector2(920, 80), "F"),
-                new Grid(6, new Vector2(400, 500), "G"),
-                new Grid(7, new Vector2(500, 400), "H"),
-        };
-        grids[0].station = new Extractor(0, grids[0].nickname, players[0].getId(), Station.Stage.SHIELDED, false);
-        grids[1].station = new Extractor(1, grids[1].nickname, players[0].getId(), Station.Stage.SHIELDED, false);
-        grids[2].station = new Harvester(2, grids[2].nickname, players[0].getId(), Station.Stage.ARMORED, false);
-        grids[3].station = new Extractor(3, grids[3].nickname, players[1].getId(), Station.Stage.SHIELDED, false);
-        grids[4].station = new Extractor(4, grids[4].nickname, players[1].getId(), Station.Stage.SHIELDED, false);
-        grids[5].station = new Harvester(5, grids[5].nickname, players[1].getId(), Station.Stage.ARMORED, false);
-        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.RUBBLE, false);
-        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.RUBBLE, false);
-
-        //add initial resources
-        grids[0].station.resources[0] += 20;
-        grids[0].station.resources[1] += 6;
-        grids[0].station.resources[2] += 2;
-        grids[3].station.resources[0] += 20;
-        grids[3].station.resources[1] += 6;
-        grids[3].station.resources[2] += 2;
-
-        //set initial timers
-        grids[2].station.stageTimer = 60;
-        grids[5].station.stageTimer = 60;
-
-        //warp
-        shipsInWarp = new HashMap<>();
-    }
-
-    /**
-     * Sends the game start message that contains the details for the initial game state.
-     */
-    private void sendGameStart(){
-
-        //create maps of ids to player names and colors
-        HashMap<Integer, String> idToName = new HashMap<>();
-        for (Player p : players.values()){
-            idToName.put(p.getId(), p.name);
-        }
-        HashMap<Integer, PlayerFile> idToFile = new HashMap<>();
-        int i = 0;
-        for(Player p : players.values()){
-            if(i==0){
-                idToFile.put(p.getId(), PlayerFile.BLUE);
-            }
-            else if(i==1){
-                idToFile.put(p.getId(), PlayerFile.ORANGE);
-            }
-            else break;
-            i++;
-        }
-
-        //create the message
-        MGameStart msg = new MGameStart(idToName, idToFile, grids.length);
-
-        //fill in the message
-        msg.tickDelay = TICK_DELAY;
-        msg.mapWidth = mapWidth;
-        msg.mapHeight = mapHeight;
-
-        //fill in the grid parts of the message
-        for(int j=0; j<grids.length; j++){
-            Grid g = grids[j];
-
-            msg.gridPositions[j] = g.pos;
-            msg.gridNicknames[j] = g.nickname;
-            msg.stationTypes[j] = g.station.getType();
-            msg.stationOwners[j] = g.station.owner;
-            msg.stationStages[j] = g.station.stage;
-            msg.stationResources[j] = g.station.resources;
-        }
-
-        //send the message to each player
-        for(Player p : players.values()){
-            //set the player's name
-            msg.yourPlayerId = p.getId();
-            //and send the message to the player
-            p.sendMessage(msg);
-        }
-
-    }
-
-    /**
-     * Any calls that should be made after the game state is initialized but before the game loop
-     * begins. Mostly for development.
-     */
-    private void preLoopCalls(){
-
-        //dev ships
-        Ship s1 = new Frigate(useNextShipId(), 0, 2, false);
-        s1.pos.set(1, 1);
-        s1.rot = (float) Math.PI/2;
-        grids[0].ships.put(s1.id, s1);
-        server.broadcastMessage(MAddShip.createFromShipBody(s1));
-
-        Ship s2 = new Frigate(useNextShipId(), 0, 1, false);
-        s2.pos.set(-0.9f, 0.9f);
-        s2.rot = (float) -Math.PI/2;
-        grids[0].ships.put(s2.id, s2);
-        server.broadcastMessage(MAddShip.createFromShipBody(s2));
-    }
-
-
-    /* ServerContact Methods */
-
-    /**
-     * Called when the server receives a message from a client.
-     */
-    @Override
-    public void serverReceived(int clientId, Message message) {
-        if(message instanceof MGameReq){
-            hotRequests.put((MGameReq) message, clientId);
-        }
-    }
-
-    /**
-     * Should never be called in this GameHost.
-     */
-    @Override
-    public void clientConnected(int clientId) {
-
-    }
-
-    @Override
-    public void clientDisconnected(int clientId, String reason) {
-        //TODO this function
-    }
-
-    @Override
-    public void clientLostConnection(int clientId) {
-        //TODO this function
-    }
-
-
-    /* Game Loop */
-
-    /**
-     * Starts the game loop thread.
-     */
-    private void startGameLoop(){
-        new Thread(() -> {
-            //declare
-            long sleepTime, startTime;
-
-            //the game loop
-            while(looping){
-                startTime = System.currentTimeMillis();
-
-                //run the methods
-                prepRequests();
-                loop();
-
-                //sleep
-                sleepTime = startTime+TICK_DELAY - System.currentTimeMillis();
-                if(sleepTime > 0){
-                    try {
-                        Thread.sleep(sleepTime);
-                    }
-                    catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
-                else {
-                    System.out.println("[Warning] Game loop sleep time was " + sleepTime);
-                }
-            }
-
-        }).start();
-    }
-
-    /**
-     * Prepares the message arrays for the game loop by copying from hotRequests to requests.
-     */
-    private void prepRequests(){
-        requests.clear();
-        requests.putAll(hotRequests);
-        hotRequests.clear();
-    }
+    /* Loop Methods */
 
     /**
      * The function where the game logic is performed.
      */
-    private void loop(){
+    void loop(HashMap<MGameReq, Integer> requests){
         //handle requests
         for(MGameReq r : requests.keySet()){
             int id = requests.get(r);
@@ -353,7 +53,11 @@ public class GameHost implements ServerContact {
             else if(r instanceof MShipUndockReq) handleShipUndockReq(id, (MShipUndockReq) r);
             else if(r instanceof MShipDockReq) handleShipDockReq(id, (MShipDockReq) r);
             else if(r instanceof MPackedStationMoveReq) handlePackedStationMoveReq(id, (MPackedStationMoveReq) r);
+            else if(r instanceof MGemMoveReq) handleGemMoveReq(id, (MGemMoveReq) r);
         }
+
+        //timer
+        state.timeElapsed += GameHost.FRAC;
 
         //updating
         updateStationTimers();
@@ -364,67 +68,25 @@ public class GameHost implements ServerContact {
         //telling clients
         sendEntMobData();
 
-        //major update
-        millisSinceMajor += TICK_DELAY;
-        if(millisSinceMajor > 1000){
-            millisSinceMajor -= 1000;
-            majorLoop();
-        }
-
         //end condition
         loopEndCondition();
     }
 
-    /**
-     * A function approximately called once per second to do less frequent updates. It does not
-     * change game state, only updates users.
-     */
-    private void majorLoop(){
 
-        HashMap<Integer, MGameOverview> overviews = new HashMap<>(); //playerId -> message
-
-        //create message shells
-        for(Player player : players.values()) {
-            overviews.put(player.getId(), new MGameOverview());
-        }
-
-        //fill messages
-        for(Grid g : grids){
-            //fill station timers
-            for(CurrentJob j : g.station.currentJobs){
-                overviews.get(j.owner).jobToTimeLeft.put(j.jobId, j.timeLeft);
-            }
-
-            //fill station resources
-            Station s = g.station;
-            if(s.owner > 0){ //check there is an owner
-                overviews.get(s.owner).stationToResources.put(s.grid, s.resources.clone());
-            }
-        }
-
-        //send messages
-        for(Map.Entry<Integer, MGameOverview> e : overviews.entrySet()) {
-            if(!players.get(e.getKey()).ai){
-                server.sendMessage(e.getKey(), e.getValue());
-            }
-        }
-    }
-
-
-    /* Game Loop Methods */
+    /* Loop Helper Methods */
 
     /**
      * Updates the station state due to time-based events.
      */
     private void updateStationTimers(){
-        for(Grid grid : grids){
+        for(Grid grid : state.grids){
             Station st = grid.station;
 
             //job updates
             if(st.currentJobs.size() > 0) {
                 //otherwise, grab the first job
                 CurrentJob job = st.currentJobs.get(0);
-                if(!job.blocking) job.timeLeft -= FRAC;
+                if(!job.blocking) job.timeLeft -= GameHost.FRAC;
 
                 if(job.timeLeft <= 0){
                     boolean jobBlocking = false;
@@ -433,10 +95,10 @@ public class GameHost implements ServerContact {
                     Ship sh = null;
                     switch(job.jobType){
                         case Frigate:
-                            sh = new Frigate(useNextShipId(), grid.id, job.owner,true);
+                            sh = new Frigate(state.useNextShipId(), grid.id, job.owner,true);
                             break;
                         case Barge:
-                            sh = new Barge(useNextShipId(), grid.id, job.owner, true);
+                            sh = new Barge(state.useNextShipId(), grid.id, job.owner, true);
                             break;
                         //TODO add the rest of the ship cases
                         case Extractor:
@@ -447,20 +109,20 @@ public class GameHost implements ServerContact {
                             for(idx=0; idx<st.packedStations.length; idx++){
                                 if(st.packedStations[idx] == null){
                                     st.packedStations[idx] = job.jobType.getPackedStationType();
+
+                                    //tracking
+                                    state.players.get(st.owner).tracking.incrEntsBuilt(job.jobType.getPackedStationType());
+
+                                    //tell players
+                                    host.broadcastMessage(new MPackedStationMove(null,
+                                            -1, EntPtr.createFromEntity(st), idx,
+                                            job.jobType.getPackedStationType()));
                                     break;
                                 }
                                 else if(idx == st.packedStations.length-1){
                                     jobBlocking = true;
                                     break;
                                 }
-                            }
-
-                            //was successfully able to add it
-                            if(!jobBlocking){
-                                //tell players
-                                server.broadcastMessage(new MPackedStationMove(null,
-                                        -1, EntPtr.createFromEntity(st), idx,
-                                        job.jobType.getPackedStationType()));
                             }
                             break;
                         default:
@@ -478,27 +140,30 @@ public class GameHost implements ServerContact {
                             grid.station.dockedShips.put(sh.id, sh);
                         }
 
+                        //tracking
+                        state.players.get(st.owner).tracking.incrEntsBuilt(sh.getSubtype());
+
                         //tell users
-                        server.broadcastMessage(MAddShip.createFromShipBody(sh));
+                        host.broadcastMessage(MAddShip.createFromShipBody(sh));
                     }
 
                     //end the job and tell the user
                     if(!jobBlocking){
                         st.currentJobs.remove(0);
-                        server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
+                        host.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
                                 job.jobId, job.grid, null));
                     }
                     //tell the user the job is blocking
                     else if(!job.blocking){
                         job.blocking = true;
-                        server.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.BLOCKING,
+                        host.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.BLOCKING,
                                 job.jobId, job.grid, null));
                     }
                 }
             }
 
             //stage timer
-            st.stageTimer -= FRAC;
+            st.stageTimer -= GameHost.FRAC;
             if(st.stageTimer <= 0){
                 st.stageTimer = 0;
 
@@ -511,11 +176,6 @@ public class GameHost implements ServerContact {
                     case ARMORED:
                         st.stage = Station.Stage.VULNERABLE;
                         st.stageTimer = st.getVulnerableDuration();
-                        break;
-                    case DEPLOYMENT:
-                        st.stage = Station.Stage.SHIELDED;
-                        st.shieldHealth = st.getMaxShield();
-                        st.hullHealth = st.getMaxHull();
                         break;
                 }
             }
@@ -530,7 +190,7 @@ public class GameHost implements ServerContact {
         float distanceToTarget;
         Vector2 accel = new Vector2(0, 0);
 
-        for(Grid g : grids){
+        for(Grid g : state.grids){
             for(Ship s : g.ships.values()) {
                 //check there is a targetPos and that it is not already close enough
                 if(s.movement == Ship.Movement.STOPPING){
@@ -590,7 +250,7 @@ public class GameHost implements ServerContact {
                                 .nor().scl(0.9f*s.getMaxSpeed());
 
                         if((velAng > relPosAng && velAng < relPosAng+180)
-                           || (velAng+360 > relPosAng && velAng+360 < relPosAng+180)){
+                                || (velAng+360 > relPosAng && velAng+360 < relPosAng+180)){
                             oPath.rotateRad((float) -Math.PI/2);
                         }
                         else {
@@ -611,9 +271,9 @@ public class GameHost implements ServerContact {
                     accel.set(s.trajectoryVel.x-s.vel.x, s.trajectoryVel.y-s.vel.y);
 
                     float length = accel.len();
-                    if(length > s.getMaxAccel() * FRAC){
-                        accel.x *= s.getMaxAccel() * FRAC /length;
-                        accel.y *= s.getMaxAccel() * FRAC /length;
+                    if(length > s.getMaxAccel() * GameHost.FRAC){
+                        accel.x *= s.getMaxAccel() * GameHost.FRAC /length;
+                        accel.y *= s.getMaxAccel() * GameHost.FRAC /length;
                     }
 
                     //update the velocity
@@ -630,15 +290,16 @@ public class GameHost implements ServerContact {
     private void updatePhysics(){
         //utility objects
         ArrayList<Ship> shipsToRemove = new ArrayList<>();
+        ArrayList<Ship> shipsToDock = new ArrayList<>();
         ArrayList<Integer> mobilesToRemove = new ArrayList<>(); //mobile id
 
         //time step for ships not in warp
-        for(Grid g : grids){
+        for(Grid g : state.grids){
             //loop through ships on the grid
             for(Ship s : g.ships.values()){
                 //move the ship
-                s.pos.x += s.vel.x * FRAC;
-                s.pos.y += s.vel.y * FRAC;
+                s.pos.x += s.vel.x * GameHost.FRAC;
+                s.pos.y += s.vel.y * GameHost.FRAC;
 
                 //set the rotation
                 if(s.vel.len() != 0){
@@ -647,17 +308,17 @@ public class GameHost implements ServerContact {
 
                 //check if it should enter warp
                 if(s.movement == Ship.Movement.ALIGN_FOR_WARP
-                    && s.alignedForWarp(g, grids[s.warpTargetGridId])){
+                        && s.alignedForWarp(g, state.grids[s.warpTargetGridId])){
                     //remove the ship at the end of the loop
                     shipsToRemove.add(s);
 
                     //put in warp space
-                    shipsInWarp.put(s.id, s);
+                    state.shipsInWarp.put(s.id, s);
                     s.warpTimeToLand = 3; //TODO set this based on dist/speed/etc
 
                     //update the movement description
                     s.movement = Ship.Movement.WARPING;
-                    s.moveCommand = "Warping to " + grids[s.warpTargetGridId].nickname;
+                    s.moveCommand = "Warping to " + state.grids[s.warpTargetGridId].nickname;
 
                     //update physics
                     s.pos.set(0, 0);
@@ -668,7 +329,7 @@ public class GameHost implements ServerContact {
                     s.targetEntity = null;
 
                     //tell the users
-                    server.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
+                    host.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
                 }
 
                 //check if the ship should dock
@@ -676,7 +337,7 @@ public class GameHost implements ServerContact {
                     Station st = g.station;
                     //dock
                     if(s.pos.dst(st.pos) <= st.getDockingRadius() && st.owner == s.owner){
-                        dockShipAtStation(s, st, g);
+                        shipsToDock.add(s);
                     }
                     //owner changed
                     else if(st.owner != s.owner) {
@@ -686,6 +347,11 @@ public class GameHost implements ServerContact {
                 }
             }
 
+            //dock ships
+            for(Ship s : shipsToDock){
+                state.dockShipAtStation(s, g.station, g);
+            }
+            shipsToDock.clear();
             //remove ships that left the grid
             for(Ship s : shipsToRemove){
                 g.ships.remove(s.id);
@@ -694,9 +360,9 @@ public class GameHost implements ServerContact {
         }
 
         //time step for ships in warp
-        for(Ship s : shipsInWarp.values()){
+        for(Ship s : state.shipsInWarp.values()){
             //move the ship along
-            s.warpTimeToLand -= FRAC;
+            s.warpTimeToLand -= GameHost.FRAC;
 
             if(s.warpTimeToLand <= 0){
                 s.warpTimeToLand = 0;
@@ -704,10 +370,10 @@ public class GameHost implements ServerContact {
                 shipsToRemove.add(s);
 
                 //tell the users
-                server.broadcastMessage(new MShipExitWarp(s.id, s.warpTargetGridId));
+                host.broadcastMessage(new MShipExitWarp(s.id, s.warpTargetGridId));
 
                 //add it to the correct grid
-                grids[s.warpTargetGridId].ships.put(s.id, s);
+                state.grids[s.warpTargetGridId].ships.put(s.id, s);
                 s.grid = s.warpTargetGridId;
 
                 //exiting warp
@@ -725,19 +391,19 @@ public class GameHost implements ServerContact {
         }
         //remove ships that exited warp
         for(Ship s : shipsToRemove){
-            shipsInWarp.remove(s.id);
+            state.shipsInWarp.remove(s.id);
         }
 
         //time step for mobiles
-        for(Grid g : grids) {
+        for(Grid g : state.grids) {
             //loop through mobiles on the grid
             for (Mobile m : g.mobiles.values()) {
                 //take the time step and check for fizzle
-                if(m.update(FRAC, g)) {
+                if(m.update(GameHost.FRAC, g)) {
                     mobilesToRemove.add(m.id);
 
                     //tell clients
-                    server.broadcastMessage(MMobileUps.createFromMobile(m, g.id, true));
+                    host.broadcastMessage(MMobileUps.createFromMobile(m, g.id, true));
                 }
             }
             //remove mobiles that fizzle
@@ -755,11 +421,11 @@ public class GameHost implements ServerContact {
 
         ArrayList<Ship> toBeRemoved = new ArrayList<>();
 
-        for(Grid g : grids){
+        for(Grid g : state.grids){
             //targeting and weapons
             for(Ship s : g.ships.values()){
                 if(s.targetingState == Ship.Targeting.Locking){
-                    s.targetTimeToLock -= FRAC;
+                    s.targetTimeToLock -= GameHost.FRAC;
 
                     if(s.targetTimeToLock <= 0){
                         s.targetingState = Ship.Targeting.Locked;
@@ -776,15 +442,18 @@ public class GameHost implements ServerContact {
                 }
                 //update weapons
                 for(Weapon w : s.weapons){
-                    w.tick(this, g, s, target, s.targetingState, FRAC);
+                    w.tick(state, g, s, target, s.targetingState, GameHost.FRAC);
                 }
             }
 
             //ship health checks
             for(Ship s : g.ships.values()){
                 if(s.health <= 0){
-                    server.broadcastMessage(new MRemShip(s.id, g.id, Ship.Removal.EXPLOSION, false));
+                    host.broadcastMessage(new MRemShip(s.id, g.id, Ship.Removal.EXPLOSION, false));
                     toBeRemoved.add(s);
+
+                    //tracking
+                    state.players.get(s.lastHit).tracking.incrEntsKilled(s.getSubtype());
                 }
             }
             //remove ships
@@ -798,8 +467,16 @@ public class GameHost implements ServerContact {
                 st.shieldHealth = 0;
                 st.stageTimer = st.getArmoredDuration();
                 st.stage = Station.Stage.ARMORED;
+
+                //add event
+                state.addToEventHistory(new EvStationStageChange(st.getId(), Station.Stage.SHIELDED,
+                        st.owner, Station.Stage.ARMORED, st.owner));
             }
             if(st.stage == Station.Stage.VULNERABLE && st.hullHealth <= 0){
+                //add event
+                state.addToEventHistory(new EvStationStageChange(st.getId(), Station.Stage.VULNERABLE,
+                        st.owner, Station.Stage.RUBBLE, 0));
+
                 //change to rubble
                 g.station.hullHealth = 0;
                 g.station.stage = Station.Stage.RUBBLE;
@@ -807,14 +484,18 @@ public class GameHost implements ServerContact {
 
                 //stop all ships from targeting it
                 for(Ship s : g.ships.values()){
-                    if(s.targetEntity.matches(g.station) && !(s.getType() == Ship.Type.Barge)){
+                    if(s.targetingState != null && s.targetEntity.matches(g.station)
+                            && !(s.getSubtype() == Ship.Type.Barge)){
                         s.targetingState = null;
                         s.targetEntity = null;
                         s.targetTimeToLock = 0;
                     }
                 }
 
-                //other updates
+                //tracking
+                state.players.get(st.lastHit).tracking.incrEntsKilled(st.getSubtype());
+
+                //other updates in station
                 st.currentJobs.clear();
                 Arrays.fill(st.packedStations, null);
                 st.dockedShips.clear();
@@ -827,24 +508,27 @@ public class GameHost implements ServerContact {
      */
     private void sendEntMobData(){
         //ship data, not in warp then in warp
-        for(Grid g : grids){
+        for(Grid g : state.grids){
             for(Ship s : g.ships.values()){
-                server.broadcastMessage(MShipUpd.createFromShip(s));
+                host.broadcastMessage(MShipUpd.createFromShip(s));
             }
         }
-        for(Ship s : shipsInWarp.values()){
-            server.broadcastMessage(MShipUpd.createFromShip(s));
+        for(Ship s : state.shipsInWarp.values()){
+            host.broadcastMessage(MShipUpd.createFromShip(s));
         }
 
         //station data
-        for(Grid g : grids){
-            server.broadcastMessage(MStationUpd.createFromStation(g.station));
+        for(Grid g : state.grids){
+            host.broadcastMessage(MStationUpd.createFromStation(g.station));
+            if(g.station.owner != 0 && !state.players.get(g.station.owner).ai){
+                host.sendMessage(g.station.owner, MJobTimerUpd.createFromStation(g.station));
+            }
         }
 
         //mobile data
-        for(Grid g : grids){
+        for(Grid g : state.grids){
             for(Mobile m : g.mobiles.values()){
-                server.broadcastMessage(MMobileUps.createFromMobile(m, g.id, false));
+                host.broadcastMessage(MMobileUps.createFromMobile(m, g.id, false));
             }
         }
     }
@@ -854,37 +538,31 @@ public class GameHost implements ServerContact {
      */
     private void loopEndCondition(){
 
-        //TODO make this an actual end condition
-//        boolean end = false;
-//        for(Ship s : grids[0].ships.values()){
-//            if(s.getType() == Ship.Type.Barge){
-//                end = true;
-//                break;
-//            }
-//        }
-//        if(!end) return;
-
-        //end the game
-        looping = false;
-
-        //create game end message
-        MGameEnd gameEnd = new MGameEnd(1);
-
-        //fill player tracking info
-        for(Map.Entry<Integer, Player> e : players.entrySet()){
-            gameEnd.tracking.put(e.getKey(), e.getValue().tracking);
+        //check end condition
+        int winner = -1;
+        for(Grid g : state.grids){
+            for(Station.Type t : g.station.packedStations){
+                if(t == Station.Type.Liquidator){
+                    winner = g.station.owner;
+                    break;
+                }
+            }
+            if(winner != -1) break;
         }
+        if(winner == -1) return;
 
-        //send last message then close the server
-        server.broadcastMessage(gameEnd);
-        server.closeServer();
+        //add event
+        state.addToEventHistory(new EvGameEnd(winner));
+
+        //tell host
+        host.endGame(winner);
     }
 
 
     /* Client Request Handling */
 
     private void handleJobReq(int userId, MJobReq msg){
-        Station s = (Station) findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
+        Station s = (Station) state.findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
         Station.Job j = msg.job;
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleJobRequest()");
@@ -892,38 +570,37 @@ public class GameHost implements ServerContact {
         }
 
         //reject if conditions not met
-        if(s.owner != userId || !s.enoughForJob(j) || s.stage == null ||
-                s.stage == Station.Stage.DEPLOYMENT){
+        if(s.owner != userId || !s.enoughForJob(j) || s.stage == null){
 
             MDenyRequest deny = new MDenyRequest(msg);
             if(!s.enoughForJob(j)){
                 deny.reason = "Not enough resources for job: " + j.name();
             }
-            else if(s.stage == null || s.stage == Station.Stage.DEPLOYMENT) {
+            else if(s.stage == null) {
                 deny.reason = s.getFullName() + " cannot build right now";
             }
             else {
                 deny.reason = "Job denied for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         //otherwise accept
         else {
             //update on the serverside
             s.removeResourcesForJob(j);
-            CurrentJob currentJob = new CurrentJob(useNextJobId(), userId, j, s.grid, j.duration);
+            CurrentJob currentJob = new CurrentJob(state.useNextJobId(), userId, j, s.grid, j.duration);
             s.currentJobs.add(currentJob);
 
             //send information to the client
-            server.sendMessage(userId, new MChangeJob(MChangeJob.Action.ADDING,
+            host.sendMessage(userId, new MChangeJob(MChangeJob.Action.ADDING,
                     currentJob.jobId, currentJob.grid, currentJob));
         }
     }
 
     private void handleShipMoveReq(int userId, MShipMoveReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -943,7 +620,7 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             //set the ship's movement
@@ -951,15 +628,15 @@ public class GameHost implements ServerContact {
             s.moveTargetPos = msg.location;
 
             //set the description of the movement
-            s.moveCommand = "Moving to (" + df2.format(s.moveTargetPos.x) + ", "
-                    + df2.format(s.moveTargetPos.y) + ")";
+            s.moveCommand = "Moving to (" + Main.df2.format(s.moveTargetPos.x) + ", "
+                    + Main.df2.format(s.moveTargetPos.y) + ")";
         }
 
     }
 
     private void handleShipOrbitReq(int userId, MShipOrbitReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -972,7 +649,7 @@ public class GameHost implements ServerContact {
             if(s.grid == -1){
                 deny.reason = "Cannot command a ship that is currently in warp";
             }
-            else if(s.id == msg.targetId){
+            else if(s.id == msg.targetId && msg.targetType == Entity.Type.Ship){
                 deny.reason = "Ship cannot orbit itself";
             }
             else if(s.docked){
@@ -982,11 +659,11 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             Entity ent;
-            if((ent = grids[msg.grid].retrieveEntity(msg.targetType, msg.targetId)) != null){
+            if((ent = state.grids[msg.grid].retrieveEntity(msg.targetType, msg.targetId)) != null){
                 //set the ship's movement
                 s.movement = Ship.Movement.ORBIT_ENT;
                 s.moveTargetEntType = msg.targetType;
@@ -998,7 +675,7 @@ public class GameHost implements ServerContact {
                     s.moveCommand = "Orbiting station";
                 }
                 else if(ent instanceof Ship) {
-                    s.moveCommand = "Orbiting " + ((Ship) ent).getType();
+                    s.moveCommand = "Orbiting " + ((Ship) ent).getSubtype();
                 }
             }
         }
@@ -1006,7 +683,7 @@ public class GameHost implements ServerContact {
 
     private void handleShipAlignReq(int userId, MShipAlignReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -1026,7 +703,7 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             //set the ship's movement
@@ -1044,7 +721,7 @@ public class GameHost implements ServerContact {
 
     private void handleShipWarpReq(int userId, MShipWarpReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipWarpRequest()");
             return;
@@ -1064,17 +741,17 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else{
             //set the target grid id
             s.movement = Ship.Movement.ALIGN_FOR_WARP;
             s.warpTargetGridId = msg.targetGridId;
-            s.moveCommand = "Aligning to grid " + grids[msg.targetGridId].nickname;
+            s.moveCommand = "Aligning to grid " + state.grids[msg.targetGridId].nickname;
 
             //get the angle to the target grid
-            float angle = (float) Math.atan2(grids[msg.targetGridId].pos.y-grids[msg.grid].pos.y,
-                    grids[msg.targetGridId].pos.x-grids[msg.grid].pos.x);
+            float angle = (float) Math.atan2(state.grids[msg.targetGridId].pos.y-state.grids[msg.grid].pos.y,
+                    state.grids[msg.targetGridId].pos.x-state.grids[msg.grid].pos.x);
             s.trajectoryVel = s.trajectoryVel.set(
                     (float) Math.cos(angle) * s.getMaxSpeed() * 0.8f,
                     (float) Math.sin(angle) * s.getMaxSpeed() * 0.8f);
@@ -1083,7 +760,7 @@ public class GameHost implements ServerContact {
 
     private void handleShipTargetReq(int userId, MTargetReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipTargetRequest()");
             return;
@@ -1103,11 +780,11 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             //get the target entity
-            Entity target = findEntityInState(msg.targetType, msg.targetId, msg.grid);
+            Entity target = state.findEntityInState(msg.targetType, msg.targetId, msg.grid);
 
             //start locking on to the target
             if(target != null && target.pos.dst(s.pos) <= s.getTargetRange()){
@@ -1121,7 +798,7 @@ public class GameHost implements ServerContact {
             else if(target != null){
                 MDenyRequest deny = new MDenyRequest(msg);
                 deny.reason = "Target not in targeting range";
-                server.sendMessage(userId, deny);
+                host.sendMessage(userId, deny);
             }
             //cancel any locking
             else {
@@ -1133,7 +810,7 @@ public class GameHost implements ServerContact {
 
     private void handleWeaponActiveReq(int userId, MWeaponActiveReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleWeaponActiveRequest()");
             return;
@@ -1150,7 +827,7 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             switch(s.weapons[msg.weaponId].getType()){
@@ -1169,11 +846,11 @@ public class GameHost implements ServerContact {
                     }
                     else {
                         //retrieve station
-                        Station st = (Station) s.targetEntity.retrieveFromGrid(grids[s.grid]);
+                        Station st = (Station) s.targetEntity.retrieveFromGrid(state.grids[s.grid]);
                         if(st.stage != Station.Stage.RUBBLE){
                             deny.reason = "Station must be rubble to deploy";
                         }
-                        else if(st.getType() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
+                        else if(st.getSubtype() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
                             deny.reason = "Station type must match to be able to deploy";
                         }
                         else if(st.pos.dst(s.pos) > s.weapons[msg.weaponId].getMaxRange()){
@@ -1182,7 +859,7 @@ public class GameHost implements ServerContact {
                     }
                     //send deny
                     if(!deny.reason.equals("")) {
-                        server.sendMessage(userId, deny);
+                        host.sendMessage(userId, deny);
                         break;
                     }
 
@@ -1197,7 +874,7 @@ public class GameHost implements ServerContact {
 
     private void handleShipStopReq(int userId, MShipStopReq msg){
         //get the ship
-        Ship s = (Ship) findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipStopRequest()");
             return;
@@ -1217,7 +894,7 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             //set the ship's movement
@@ -1229,7 +906,7 @@ public class GameHost implements ServerContact {
     }
 
     private void handleShipUndockReq(int userId, MShipUndockReq msg){
-        Ship s = grids[msg.stationId].station.dockedShips.get(msg.shipId);
+        Ship s = state.grids[msg.stationId].station.dockedShips.get(msg.shipId);
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleShipUndockRequest()");
             return;
@@ -1249,12 +926,12 @@ public class GameHost implements ServerContact {
                 deny.reason = "Cannot command ship for unexpected reason";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             //move it to the grid
-            grids[msg.stationId].station.dockedShips.remove(s.id);
-            grids[msg.stationId].ships.put(s.id, s);
+            state.grids[msg.stationId].station.dockedShips.remove(s.id);
+            state.grids[msg.stationId].ships.put(s.id, s);
 
             //set physics TODO set to not intersect
             s.rot = (float) Math.random()*6.28f;
@@ -1274,20 +951,20 @@ public class GameHost implements ServerContact {
             s.targetingState = null;
             s.warpTimeToLand = 0;
 
-            server.broadcastMessage(new MShipDockingChange(s.id, msg.stationId, false,
+            host.broadcastMessage(new MShipDockingChange(s.id, msg.stationId, false,
                     MShipUpd.createFromShip(s)));
         }
     }
 
     private void handleShipDockReq(int userId, MShipDockReq msg){
-        Ship s = grids[msg.grid].ships.get(msg.shipId);
+        Ship s = state.grids[msg.grid].ships.get(msg.shipId);
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleShipDockReq()");
             return;
         }
 
         //check permissions and others TODO add in combat checks
-        if(s.owner != userId || grids[msg.grid].station.owner != s.owner){
+        if(s.owner != userId || state.grids[msg.grid].station.owner != s.owner){
             MDenyRequest deny = new MDenyRequest(msg);
 
             if(s.owner != userId){
@@ -1296,23 +973,23 @@ public class GameHost implements ServerContact {
             else if(s.grid == -1){
                 deny.reason = "Cannot dock a ship in warp";
             }
-            else if(grids[msg.grid].station.owner != s.owner){
+            else if(state.grids[msg.grid].station.owner != s.owner){
                 deny.reason = "You do not own that station";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             s.movement = Ship.Movement.MOVE_FOR_DOCK;
             s.moveCommand = "Taxiing to dock";
-            s.moveTargetPos = grids[msg.grid].station.pos;
+            s.moveTargetPos = state.grids[msg.grid].station.pos;
         }
 
     }
 
     private void handlePackedStationMoveReq(int userId, MPackedStationMoveReq msg){
-        Entity removeFrom = msg.removeFrom.retrieveFromGrid(grids[msg.removeFrom.grid]);
-        Entity addTo = msg.addTo.retrieveFromGrid(grids[msg.addTo.grid]);
+        Entity removeFrom = msg.removeFrom.retrieveFromGrid(state.grids[msg.removeFrom.grid]);
+        Entity addTo = msg.addTo.retrieveFromGrid(state.grids[msg.addTo.grid]);
 
         //check permissions
         if(removeFrom.owner != userId || addTo.owner != userId || removeFrom.grid != addTo.grid ||
@@ -1329,7 +1006,7 @@ public class GameHost implements ServerContact {
                 deny.reason = "Neither participant is docked to complete move";
             }
 
-            server.sendMessage(userId, deny);
+            host.sendMessage(userId, deny);
         }
         else {
             Station st;
@@ -1357,13 +1034,13 @@ public class GameHost implements ServerContact {
 
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Unexpectedly unable to transfer";
-                    server.sendMessage(userId, deny);
+                    host.sendMessage(userId, deny);
                     return;
                 }
                 else if(destIdx == -1){
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Can't move packed station due to space";
-                    server.sendMessage(userId, deny);
+                    host.sendMessage(userId, deny);
                     return;
                 }
 
@@ -1372,7 +1049,7 @@ public class GameHost implements ServerContact {
                 ((StationTransport) sh.weapons[destIdx]).cargo = packedStationType;
 
                 //tell players
-                server.broadcastMessage(new MPackedStationMove(
+                host.broadcastMessage(new MPackedStationMove(
                         EntPtr.createFromEntity(st), msg.idxRemoveFrom,
                         EntPtr.createFromEntity(sh), destIdx,
                         packedStationType));
@@ -1399,13 +1076,13 @@ public class GameHost implements ServerContact {
 
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Unexpectedly unable to transfer";
-                    server.sendMessage(userId, deny);
+                    host.sendMessage(userId, deny);
                     return;
                 }
                 else if(destIdx == -1){
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Can't move packed station due to space";
-                    server.sendMessage(userId, deny);
+                    host.sendMessage(userId, deny);
                     return;
                 }
 
@@ -1414,7 +1091,7 @@ public class GameHost implements ServerContact {
                 st.packedStations[destIdx] = packedStationType;
 
                 //tell players
-                server.broadcastMessage(new MPackedStationMove(
+                host.broadcastMessage(new MPackedStationMove(
                         EntPtr.createFromEntity(sh), msg.idxRemoveFrom,
                         EntPtr.createFromEntity(st), destIdx,
                         packedStationType));
@@ -1426,46 +1103,104 @@ public class GameHost implements ServerContact {
         }
     }
 
+    private void handleGemMoveReq(int userId, MGemMoveReq msg){
+        Entity removeFrom = msg.removeFrom.retrieveFromGrid(state.grids[msg.removeFrom.grid]);
+        Entity addTo = msg.addTo.retrieveFromGrid(state.grids[msg.addTo.grid]);
 
-    /* State Utility */
+        //check permissions
+        if(removeFrom.owner != userId || addTo.owner != userId || removeFrom.grid != addTo.grid ||
+                (!removeFrom.isDocked() && !addTo.isDocked())){
+            MDenyRequest deny = new MDenyRequest(msg);
 
-    private Entity findEntityInState(Entity.Type type, int entityId, int gridId){
-        if(type == Entity.Type.Station && gridId >= 0 && gridId < grids.length){
-            return grids[gridId].station;
-        }
-        else if(type == Entity.Type.Ship && gridId == -1) {
-            return shipsInWarp.get(entityId);
-        }
-        else if(type == Entity.Type.Ship && gridId >= 0 && gridId < grids.length){
-            return grids[gridId].ships.get(entityId);
+            if(removeFrom.owner != userId || addTo.owner != userId){
+                deny.reason = "Cannot complete move due to ownership";
+            }
+            else if(removeFrom.grid != addTo.grid){
+                deny.reason = "Cannot complete move due to dif grids";
+            }
+            else if(!removeFrom.isDocked() && !addTo.isDocked()){
+                deny.reason = "Neither participant is docked to complete move";
+            }
+
+            host.sendMessage(userId, deny);
         }
         else {
-            return null;
+            Station st;
+            Barge sh;
+
+            //move from station to barge
+            if(removeFrom instanceof Station && addTo instanceof Barge){
+                st = (Station) removeFrom;
+                sh = (Barge) addTo;
+
+                //modify amount if it's too large
+                int amt = msg.amount;
+                if(amt > st.resources[msg.gemType.index]){
+                    amt = st.resources[msg.gemType.index];
+                }
+                if(amt > sh.maxGemsCanFit(msg.gemType)){
+                    amt = (int) sh.maxGemsCanFit(msg.gemType);
+                }
+
+                //deny if necessary
+                if(amt <= 0){
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Can't transfer due to space or resource limits";
+                    host.sendMessage(userId, deny);
+                }
+                //otherwise transfer
+                else {
+                    //make the changes
+                    st.resources[msg.gemType.index] -= amt;
+                    sh.resources[msg.gemType.index] += amt;
+
+                    //tell clients
+                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st));
+                    stMsg.resourceChanges[msg.gemType.index] = -amt;
+                    host.sendMessage(st.owner, stMsg);
+                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh));
+                    shMsg.resourceChanges[msg.gemType.index] = amt;
+                    host.sendMessage(sh.owner, shMsg);
+                }
+            }
+            //move from barge to station
+            else if(removeFrom instanceof Barge && addTo instanceof Station){
+                st = (Station) addTo;
+                sh = (Barge) removeFrom;
+
+                //modify amount if it's too large
+                int amt = msg.amount;
+                if(msg.amount > sh.resources[msg.gemType.index]){
+                    amt = sh.resources[msg.gemType.index];
+                }
+
+                //deny if necessary
+                if(amt <= 0){
+                    MDenyRequest deny = new MDenyRequest(msg);
+                    deny.reason = "Can't transfer due to resource limits";
+                    host.sendMessage(userId, deny);
+                }
+                //otherwise transfer
+                else {
+                    //make the changes
+                    sh.resources[msg.gemType.index] -= amt;
+                    st.resources[msg.gemType.index] += amt;
+
+                    //tell clients
+                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh));
+                    shMsg.resourceChanges[msg.gemType.index] = -amt;
+                    host.sendMessage(sh.owner, shMsg);
+                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st));
+                    stMsg.resourceChanges[msg.gemType.index] = amt;
+                    host.sendMessage(st.owner, stMsg);
+                }
+            }
+            else {
+                System.out.println("Unexpected requested inventory move");
+                new Exception().printStackTrace();
+            }
         }
-    }
 
-    private void dockShipAtStation(Ship ship, Station station, Grid grid){
-        //dock the ship
-        grid.ships.remove(ship.id);
-        station.dockedShips.put(ship.id, ship);
-
-        //set physics
-        ship.rot = 0;
-        ship.pos.set(station.pos);
-        ship.vel.set(0, 0);
-        ship.docked = true;
-
-        //reset other values
-        for(Weapon w : ship.weapons){
-            w.active = false;
-        }
-        ship.targetTimeToLock = -1;
-        ship.targetingState = null;
-        ship.warpTimeToLand = 0;
-
-        //send to clients
-        server.broadcastMessage(new MShipDockingChange(ship.id, station.grid, true,
-                MShipUpd.createFromShip(ship)));
     }
 
 }

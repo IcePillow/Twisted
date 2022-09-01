@@ -12,6 +12,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.Main;
 import com.twisted.local.game.cosmetic.Cosmetic;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
@@ -25,7 +26,6 @@ public class SecViewport extends Sector{
 
     //constants
     private static final float LTR = Game.LTR; //logical to rendered
-    private static final Color SPACE = new Color(0x020036ff);
     private static final Color NEUTRAL_COL = Color.GRAY;
 
     //high level input
@@ -35,7 +35,6 @@ public class SecViewport extends Sector{
     private final Game game;
 
     //graphics utilities
-    private final Skin skin;
     private final Stage stage;
     OrthographicCamera camera;
     SpriteBatch sprite;
@@ -60,7 +59,6 @@ public class SecViewport extends Sector{
     SecViewport(Game game, Stage stage){
         this.game = game;
         this.stage = stage;
-        this.skin = game.skin;
     }
 
     @Override
@@ -125,7 +123,7 @@ public class SecViewport extends Sector{
         //access the grid and start drawing
         Grid g = state.grids[game.getGrid()];
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(SPACE);
+        shape.setColor(Main.SPACE);
         shape.rect(camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f, stage.getWidth(), stage.getHeight());
         shape.end();
 

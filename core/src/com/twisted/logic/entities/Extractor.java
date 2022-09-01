@@ -39,8 +39,4 @@ public class Extractor extends Station {
     public float[] getVertices() {
         return vertices;
     }
-    @Override
-    public Asset.EntityIcon getIconEnum(){
-        return Asset.EntityIcon.STATION;
-    }
 }

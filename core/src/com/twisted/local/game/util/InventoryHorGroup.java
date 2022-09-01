@@ -51,7 +51,15 @@ class InventoryHorGroup extends Table {
     /* Updating */
 
     /**
-     * Must be called before any of the other update methods
+     * Utility method that calls updateName followed by updateAmount
+     */
+    void updateAll(String name, String amount) {
+        updateName(name);
+        updateAmount(amount);
+    }
+
+    /**
+     * Must be called before updateAmount().
      */
     void updateName(String name) {
         if (loaded) {
@@ -65,7 +73,7 @@ class InventoryHorGroup extends Table {
     /**
      * Basic update the text method.
      */
-    void updateAmount(String amount) {
+    private void updateAmount(String amount) {
         if (loaded) {
             amountLabel.setText(amount);
             updateFiller();
@@ -82,7 +90,7 @@ class InventoryHorGroup extends Table {
      * Should only be used internally. Will automatically be called if needed when update
      * methods are called
      */
-    protected void load(String name) {
+    private void load(String name) {
         nameLabel = new Label(name, detsShipDocked.skin, "small", Color.LIGHT_GRAY);
         nameLabel.setFontScale(0.8f);
         this.add(nameLabel);

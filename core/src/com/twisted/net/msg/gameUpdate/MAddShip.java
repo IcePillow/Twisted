@@ -27,7 +27,7 @@ public class MAddShip implements MGameUpd {
      * Creates an MAddShip from a ship with a body.
      */
     public static MAddShip createFromShipBody(Ship s){
-        MAddShip m = new MAddShip(s.getType(), s.id);
+        MAddShip m = new MAddShip(s.getSubtype(), s.id);
 
         m.grid = s.grid;
         m.ownerId = s.owner;

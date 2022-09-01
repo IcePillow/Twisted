@@ -5,14 +5,13 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.local.game.state.GameState;
+import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.descriptors.EntPtr;
-import com.twisted.logic.entities.Entity;
 
 abstract class Sector {
 
-    protected GameState state;
-    void setState(GameState state){
+    protected ClientGameState state;
+    void setState(ClientGameState state){
         this.state = state;
     }
 

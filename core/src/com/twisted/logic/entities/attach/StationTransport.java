@@ -2,10 +2,11 @@ package com.twisted.logic.entities.attach;
 
 import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
-import com.twisted.logic.host.GameHost;
+import com.twisted.logic.host.game.ServerGameState;
 
 public class StationTransport extends Weapon {
 
@@ -17,7 +18,9 @@ public class StationTransport extends Weapon {
 
     /* Construction */
 
-    public StationTransport(){
+    public StationTransport(Entity attached){
+        super(attached);
+
         cargo = null;
 
         deploying = false;
@@ -28,7 +31,7 @@ public class StationTransport extends Weapon {
     /* Action Methods */
 
     @Override
-    public void tick(GameHost host, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
+    public void tick(ServerGameState state, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
                      float delta) {
 
         if(!active){
@@ -61,8 +64,9 @@ public class StationTransport extends Weapon {
                     putOnFullCooldown();
                     active = false;
 
-                    //tell players
-
+                    //add event
+                    state.addToEventHistory(new EvStationStageChange(st.getId(), Station.Stage.RUBBLE,
+                            0, st.stage, st.owner));
                 }
             }
             else {

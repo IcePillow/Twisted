@@ -2,18 +2,22 @@ Work
     Large scale
         TODO exterior target summaries for the current grid
         TODO make a better lobby screen
-        TODO fill in the curtain screen
-    Contained ui changes
-        TODO lobby text fields match the new buttons
+    Ui changes
+        TODO shortcut keys for ship commands
+        TODO match hp bars in details & fleet to the owner color
     Combat
-        TODO station regen
         TODO fix the orbiting for small radii at higher speeds
-        TODO ships stop shooting when a station changes state
-        TODO barges transporting resources
     Graphics
-        TODO visual indicators (mobiles?) for station entering different stages
-        TODO graphics of victory or defeat continue panel
+        TODO visual indicators for station entering different stages
+        TODO visual indicator for station transport deploying
+        TODO progress bar for targeting
     Refactoring
-    Other
-        TODO figure out where that one print statement "0, 0" is coming from
+    Bugs
+    Misc
         TODO make sure everything is being disposed of in each screen
+    Future
+        - Add station regen
+        - Add the other ships
+        - Make the correct win condition
+        - Add other weapon types
+        - Set correct entity constant values

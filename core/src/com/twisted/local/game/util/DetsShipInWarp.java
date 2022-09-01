@@ -147,7 +147,7 @@ public class DetsShipInWarp extends DetsGroup {
         sel = (Ship) entity;
 
         //update the name
-        shipName.setText(sel.getType().toString());
+        shipName.setText(sel.getSubtype().toString());
         shipName.setColor(state.players.get(sel.owner).getFile().color);
 
         //update the weapon button visibility

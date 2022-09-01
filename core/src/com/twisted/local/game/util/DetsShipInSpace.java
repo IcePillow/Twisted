@@ -318,7 +318,7 @@ public class DetsShipInSpace extends DetsGroup {
         sel = (Ship) entity;
 
         //update the name
-        shipName.setText(sel.getType().toString());
+        shipName.setText(sel.getSubtype().toString());
         shipName.setColor(state.findColorForOwner(sel.owner));
 
         //update the grid

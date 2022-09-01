@@ -1,5 +1,6 @@
 package com.twisted.local.game;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
@@ -29,8 +30,8 @@ public class SecFleet extends Sector {
     //constants
     private final static int TOT_HEIGHT =450, MID_HEIGHT=14, TOP_HEIGHT=24;
     private final static float PANEL_NAME_WID=95, GRID_TAG_WID=26, SHIP_NAME_WID=PANEL_NAME_WID-GRID_TAG_WID;
-    private final static float PANEL_DIST_WID=35;
-    private final static float PANEL_SPD_WID=35;
+    private final static float PANEL_DIST_WID=35, PANEL_SPD_WID=35, PANEL_HP_WID=50;
+    private final static float PANEL_STAGE_WID=16;
 
     //reference variables
     private final Game game;
@@ -49,6 +50,14 @@ public class SecFleet extends Sector {
 
     //state
     private float timeWithoutSorting;
+
+    //texture storage (for updating off gdx thread)
+    final HashMap<Station.Stage, TextureRegionDrawable> stationStageTextures =
+            new HashMap<Station.Stage, TextureRegionDrawable>(){{
+        put(Station.Stage.SHIELDED, Asset.retrieve(Station.getStageIcon(Station.Stage.SHIELDED)));
+        put(Station.Stage.ARMORED, Asset.retrieve(Station.getStageIcon(Station.Stage.ARMORED)));
+        put(Station.Stage.VULNERABLE, Asset.retrieve(Station.getStageIcon(Station.Stage.VULNERABLE)));
+    }};
 
 
     /* Creation */
@@ -490,6 +499,12 @@ public class SecFleet extends Sector {
         spdLab.setFontScale(0.8f);
         spdLab.setX(PANEL_NAME_WID + PANEL_DIST_WID);
         headerBar.addActor(spdLab);
+
+        //hp child
+        Label hpLab = new Label("HP", skin, "small", Color.GRAY);
+        hpLab.setFontScale(0.8f);
+        hpLab.setX(PANEL_NAME_WID + PANEL_DIST_WID + PANEL_SPD_WID);
+        headerBar.addActor(hpLab);
     }
 
     /**
@@ -511,7 +526,7 @@ public class SecFleet extends Sector {
         }
 
         //name label
-        Label nameLabel = new Label(ship.getType().toString(), skin, "small", Color.WHITE);
+        Label nameLabel = new Label(ship.getSubtype().toString(), skin, "small", Color.WHITE);
         group.addActor(new FleetContainer<Label>(nameLabel, type==TabType.Fleet ? SHIP_NAME_WID : PANEL_NAME_WID,
                 true, false) {
             @Override
@@ -563,6 +578,27 @@ public class SecFleet extends Sector {
             }
         });
 
+        //hp graphic
+        Group hpGroup = new Group();
+        Gdx.app.postRunnable(() -> {
+            Image hpOutline = new Image(Asset.retrieve(Asset.Shape.PIXEL_GRAY));
+            hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
+            hpGroup.addActor(hpOutline);
+            Image hpBground = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+            hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
+            hpGroup.addActor(hpBground);
+            Image hpValue = new Image(Asset.retrieve(Asset.Shape.PIXEL_GREEN));
+            hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
+            hpGroup.addActor(hpValue);
+            group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
+                @Override
+                public void updateValuesFromEntity(Entity entity) {
+                    Ship sh = (Ship) entity;
+                    hpValue.setWidth((PANEL_HP_WID-2) * sh.health/sh.getMaxHealth());
+                }
+            });
+        });
+
         return group;
     }
 
@@ -585,6 +621,72 @@ public class SecFleet extends Sector {
             public void eventLeftClick(){
                 entityClicked(Input.Buttons.LEFT, station);
             }
+        });
+
+        //filler
+        float stageImgRightSpace = 4;
+        group.addActor(new FleetContainer<Actor>(new Actor(),
+                PANEL_DIST_WID+PANEL_SPD_WID-PANEL_STAGE_WID-stageImgRightSpace) {
+            @Override
+            public void updateValuesFromEntity(Entity entity) {
+
+            }
+        });
+
+        //requires asset loading
+        Gdx.app.postRunnable(() -> {
+            //stage img
+            Image stageImg = new Image(Asset.retrieve(Asset.UiIcon.STATION_SHIELDED));
+            stageImg.setColor(Color.GRAY);
+            group.addActor(new FleetContainer<Image>(stageImg, PANEL_STAGE_WID) {
+
+                @Override
+                public void updateValuesFromEntity(Entity entity) {
+                    stageImg.setDrawable(stationStageTextures.get(((Station) entity).stage));
+                }
+            });
+
+            //filler
+            group.addActor(new FleetContainer<Actor>(new Actor(), stageImgRightSpace) {
+                @Override
+                public void updateValuesFromEntity(Entity entity) {
+
+                }
+            });
+
+            //hp group
+            Group hpGroup = new Group();
+            Image hpOutline = new Image(Asset.retrieve(Asset.Shape.PIXEL_GRAY));
+            hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
+            hpGroup.addActor(hpOutline);
+            Image hpBground = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+            hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
+            hpGroup.addActor(hpBground);
+            Image shieldValue = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLUE));
+            shieldValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
+            hpGroup.addActor(shieldValue);
+            Image hullValue = new Image(Asset.retrieve(Asset.Shape.PIXEL_GREEN));
+            hullValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
+            hpGroup.addActor(hullValue);
+            group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
+                @Override
+                public void updateValuesFromEntity(Entity entity) {
+                    Station s = (Station) entity;
+                    shieldValue.setVisible(s.stage == Station.Stage.SHIELDED);
+                    hullValue.setVisible(s.stage != Station.Stage.SHIELDED);
+
+                    switch(s.stage){
+                        case SHIELDED:
+                            shieldValue.setWidth((PANEL_HP_WID-2) * s.shieldHealth/s.getMaxShield());
+                            break;
+                        case ARMORED:
+                        case VULNERABLE:
+                        case RUBBLE:
+                            hullValue.setWidth((PANEL_HP_WID-2) * s.hullHealth/s.getMaxHull());
+                            break;
+                    }
+                }
+            });
         });
 
         return group;

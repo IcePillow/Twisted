@@ -10,6 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
+import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Gem;
@@ -18,15 +19,16 @@ import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
 import com.twisted.logic.entities.attach.StationTransport;
+import com.twisted.net.msg.gameReq.MGemMoveReq;
 import com.twisted.net.msg.gameReq.MPackedStationMoveReq;
 
 public class DetsShipDocked extends DetsGroup {
 
     //tree
-    private Label shipName, shipGrid, healthLabel;
+    private Label shipName, shipGrid, healthLabel, gemStorageLabel, holdSizeLabel;
     private Image healthFill;
     private final Group inventoryGroup;
-    private VerticalGroup inventoryShip, inventoryStation; //TODO add listeners to the verticals
+    private VerticalGroup inventoryShip, inventoryStation;
     private TextField invNumField;
     private ImageButton transferLeft, transferRight;
 
@@ -149,13 +151,24 @@ public class DetsShipDocked extends DetsGroup {
         invNumField = new TextField("", skin);
         TextField.TextFieldStyle numberFieldStyle = new TextField.TextFieldStyle(invNumField.getStyle());
         numberFieldStyle.fontColor = Color.LIGHT_GRAY;
-        invNumField.setMaxLength(5);
+        numberFieldStyle.background = Asset.retrieve(Asset.Shape.PIXEL_BLACK);
         invNumField.setStyle(numberFieldStyle);
+        invNumField.setMaxLength(5);
+        invNumField.setBlinkTime(0.4f);
         invNumField.setTextFieldFilter(new TextField.TextFieldFilter.DigitsOnlyFilter());
-        invNumField.setBounds(invNumBox.getX()-2, invNumBox.getY()-3,
-                invNumBox.getWidth()+4, invNumBox.getHeight()+6); //bounds are weird because of the skin
-        invNumField.setColor(Color.BLACK);
+        invNumField.setBounds(invNumBox.getX()+1, invNumBox.getY()+1,
+                invNumBox.getWidth()-2, invNumBox.getHeight()-2); //bounds are weird because of the skin
         group.addActor(invNumField);
+
+        //storage labels
+        gemStorageLabel = new Label("0", skin, "small", Color.WHITE);
+        gemStorageLabel.setColor(Color.LIGHT_GRAY);
+        gemStorageLabel.setPosition(shipBox.getX()+shipBox.getWidth(), 50);
+        group.addActor(gemStorageLabel);
+        holdSizeLabel = new Label("/", skin, "small", Color.WHITE);
+        holdSizeLabel.setColor(Color.GRAY);
+        holdSizeLabel.setPosition(shipBox.getX()+shipBox.getWidth()+invNumBox.getWidth()/2, 50);
+        group.addActor(holdSizeLabel);
 
         //transfer buttons
         transferLeft = new ImageButton(Asset.retrieve(Asset.UiButton.TRANSFER_LEFT));
@@ -163,21 +176,21 @@ public class DetsShipDocked extends DetsGroup {
         transferLeft.setVisible(false);
         group.addActor(transferLeft);
         transferRight = new ImageButton(Asset.retrieve(Asset.UiButton.TRANSFER_RIGHT));
-        transferRight.setX(150-6- transferRight.getWidth()/2);
+        transferRight.setX(150-6-transferRight.getWidth()/2);
         transferRight.setVisible(false);
         group.addActor(transferRight);
 
         //inventory elements
-        shipInvElements = new InventoryHorGroup[Barge.weaponSlots.length + Gem.NUMBER_OF_GEMS];
+        shipInvElements = new InventoryHorGroup[Barge.weaponSlots.length + Gem.NUM_OF_GEMS];
         for(int i=0; i<shipInvElements.length; i++){
             shipInvElements[i] = new InventoryHorGroup(this, shipBox.getWidth()-5, i);
             inventoryShip.addActor(shipInvElements[i]);
 
             if(i > Barge.weaponSlots.length-1){
-                shipInvElements[i].updateName(Gem.orderedGems[i-Barge.weaponSlots.length].name());
+                shipInvElements[i].updateAll(Gem.orderedGems[i-Barge.weaponSlots.length].name(), "0");
             }
         }
-        stationInvElements = new InventoryHorGroup[Station.PACKED_STATION_SLOTS + Gem.NUMBER_OF_GEMS];
+        stationInvElements = new InventoryHorGroup[Station.PACKED_STATION_SLOTS + Gem.NUM_OF_GEMS];
         for(int i=0; i<stationInvElements.length; i++){
             stationInvElements[i] = new InventoryHorGroup(this, stationBox.getWidth()-5, i);
             inventoryStation.addActor(stationInvElements[i]);
@@ -246,14 +259,19 @@ public class DetsShipDocked extends DetsGroup {
         sel = (Ship) entity;
 
         //update the name
-        shipName.setText(sel.getType().toString());
+        shipName.setText(sel.getSubtype().toString());
         shipName.setColor(state.players.get(sel.owner).getFile().color);
 
         //update the grid
         shipGrid.setText("[" + state.grids[sel.grid].nickname + "]");
 
         //inventory prep
-        inventoryGroup.setVisible(sel.getType() == Ship.Type.Barge);
+        inventoryGroup.setVisible(sel.getSubtype() == Ship.Type.Barge);
+
+        //hold size
+        if(sel.getSubtype() == Ship.Type.Barge){
+            holdSizeLabel.setText("/" + (int) ((Barge) sel).getHoldSize());
+        }
     }
 
     @Override
@@ -264,16 +282,16 @@ public class DetsShipDocked extends DetsGroup {
         healthFill.setWidth(200 * sel.health / sel.getMaxHealth());
 
         //update the inventories
-        if(sel.getType() == Ship.Type.Barge){
+        if(sel.getSubtype() == Ship.Type.Barge){
             //ship inventory
             for(int i=0; i<shipInvElements.length; i++){
                 //weapon slots
                 if(i < Barge.weaponSlots.length){
-                    StationTransport st = (StationTransport) sel.weapons[i];
+                    StationTransport sh = (StationTransport) sel.weapons[i];
 
                     //update
-                    if(st.cargo != null) {
-                        shipInvElements[i].updateName(st.cargo.name());
+                    if(sh.cargo != null) {
+                        shipInvElements[i].updateName(sh.cargo.name());
                     }
                     else {
                         shipInvElements[i].unload();
@@ -281,7 +299,16 @@ public class DetsShipDocked extends DetsGroup {
                 }
                 //gems
                 else {
-                    shipInvElements[i].unload();
+                    Barge sh = (Barge) sel;
+
+                    if(sh.resources[i-sh.getWeaponSlots().length] > 0){
+                        shipInvElements[i].updateAll(
+                                Gem.orderedGems[i-sh.getWeaponSlots().length].name(),
+                                sh.resources[i-sh.getWeaponSlots().length]+"");
+                    }
+                    else {
+                        shipInvElements[i].unload();
+                    }
                 }
             }
             //station inventory
@@ -299,13 +326,19 @@ public class DetsShipDocked extends DetsGroup {
                 //gems
                 else {
                     if(st.resources[i-Station.PACKED_STATION_SLOTS] > 0){
-                        stationInvElements[i].updateAmount(st.resources[i-Station.PACKED_STATION_SLOTS]+"");
+                        stationInvElements[i].updateAll(Gem.orderedGems[i-Station.PACKED_STATION_SLOTS].name(),
+                                st.resources[i-Station.PACKED_STATION_SLOTS]+"");
                     }
                     else {
                         stationInvElements[i].unload();
                     }
                 }
             }
+
+            //gem storage
+            gemStorageLabel.setText(Float.toString(Gem.calcVolume(((Barge) sel).resources)));
+            Main.glyph.setText(gemStorageLabel.getStyle().font, gemStorageLabel.getText());
+            gemStorageLabel.setX(holdSizeLabel.getX() - Main.glyph.width);
         }
     }
 
@@ -327,24 +360,37 @@ public class DetsShipDocked extends DetsGroup {
         }
 
         //make the selection
+        int amount = 0;
         if(inventory == inventoryShip){
             transferLeft.setVisible(false);
             transferRight.setVisible(true);
+
+            if(index < Barge.weaponSlots.length) amount = 1;
+            else {
+                amount = ((Barge) sel).resources[index - Barge.weaponSlots.length];
+            }
+
         }
         else if(inventory == inventoryStation){
             transferLeft.setVisible(true);
             transferRight.setVisible(false);
+
+            if(index < Station.PACKED_STATION_SLOTS) amount = 1;
+            else {
+                amount = (int) Math.min(state.grids[sel.grid].station.resources[index - Station.PACKED_STATION_SLOTS],
+                        ((Barge) sel).maxGemsCanFit(Gem.orderedGems[index - Station.PACKED_STATION_SLOTS]));
+            }
         }
         invRowSelect = index;
 
         //update inputs
-        invNumField.setText("1");
+        sector.keyboardFocus(invNumField);
+        invNumField.setText(Integer.toString(amount));
     }
 
     private void transferButtonClicked(){
-        int amount = 0;
         if(invNumField.getText().length() > 0){
-            amount = Integer.parseInt(invNumField.getText());
+            int amount = Integer.parseInt(invNumField.getText());
 
             //figure out which resource is wanted
             if(transferLeft.isVisible()){
@@ -357,12 +403,17 @@ public class DetsShipDocked extends DetsGroup {
                 }
                 //gems
                 else {
-                    //TODO
+                    sector.input(new MGemMoveReq(
+                            EntPtr.createFromEntity(state.grids[sel.grid].station),
+                            Gem.orderedGems[invRowSelect-Station.PACKED_STATION_SLOTS],
+                            amount,
+                            EntPtr.createFromEntity(sel)));
                 }
             }
             else if(transferRight.isVisible()){
                 //packed
                 if(invRowSelect < Barge.weaponSlots.length){
+                    System.out.println(invRowSelect);
                     sector.input(new MPackedStationMoveReq(
                             EntPtr.createFromEntity(sel),
                             invRowSelect,
@@ -370,7 +421,11 @@ public class DetsShipDocked extends DetsGroup {
                 }
                 //gems
                 else {
-                    //TODO
+                    sector.input(new MGemMoveReq(
+                            EntPtr.createFromEntity(sel),
+                            Gem.orderedGems[invRowSelect-Barge.weaponSlots.length],
+                            amount,
+                            EntPtr.createFromEntity(state.grids[sel.grid].station)));
                 }
             }
         }

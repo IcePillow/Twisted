@@ -45,9 +45,9 @@ class SecLog extends Sector {
         Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
-        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
-        embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
-        decoration.addActor(embedded);
+//        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+//        embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
+//        decoration.addActor(embedded);
 
         //create the scrollpane's child
         vertical = new VerticalGroup();

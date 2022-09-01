@@ -2,6 +2,7 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.Asset;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.attach.Weapon;
@@ -106,14 +107,14 @@ public abstract class Ship extends Entity implements Serializable {
 
     @Override
     public String getFullName(){
-        return this.getType().name();
+        return this.getSubtype().name();
     }
 
     @Override
     public String getFleetName(){
-        switch(this.getType()){
+        switch(this.getSubtype()){
             case Frigate:
-                return this.getType().name();
+                return this.getSubtype().name();
             default:
                 System.out.println("Unexpected type");
                 new Exception().printStackTrace();
@@ -125,12 +126,12 @@ public abstract class Ship extends Entity implements Serializable {
     /* Action Methods */
 
     @Override
-    public void takeDamage(Grid grid, float amount){
+    public void takeDamage(Grid grid, int owner, float amount){
+        super.takeDamage(grid, owner, amount);
+
         health -= amount;
 
         if(health <= 0){
-            //TODO ship explosion
-
             health = 0;
         }
     }
@@ -138,7 +139,8 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* Utility Methods */
 
-    public Type getType(){
+    @Override
+    public Type getSubtype(){
         if(this instanceof Frigate) return Type.Frigate;
         else if(this instanceof Barge) return Type.Barge;
         else return null;
@@ -207,8 +209,18 @@ public abstract class Ship extends Entity implements Serializable {
      * Type of ship.
      */
     public enum Type implements Subtype {
-        Frigate,
-        Barge,
+        Frigate(Asset.EntityIcon.FRIGATE),
+        Barge(Asset.EntityIcon.BARGE);
+
+        private final Asset.EntityIcon icon;
+        @Override
+        public Asset.EntityIcon getIcon(){
+            return icon;
+        }
+
+        Type(Asset.EntityIcon icon){
+            this.icon = icon;
+        }
     }
 
     /**

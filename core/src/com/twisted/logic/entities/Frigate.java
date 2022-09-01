@@ -17,8 +17,8 @@ public class Frigate extends Ship {
     public Frigate(int shipId, int gridId, int owner, boolean docked){
         super(shipId, gridId, owner, docked);
 
-        weapons[0] = new Blaster(3, 2, 1.4f, 2);
-        weapons[1] = new Blaster(3, 2, 1.4f, 2);
+        weapons[0] = new Blaster(this, 3, 2, 1.4f, 2);
+        weapons[1] = new Blaster(this, 3, 2, 1.4f, 2);
     }
 
 
@@ -51,10 +51,6 @@ public class Frigate extends Ship {
     @Override
     public Weapon.Type[] getWeaponSlots(){
         return weaponSlots;
-    }
-    @Override
-    public Asset.EntityIcon getIconEnum(){
-        return Asset.EntityIcon.FRIGATE;
     }
 
 }

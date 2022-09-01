@@ -105,7 +105,7 @@ public class DetsStation extends DetsGroup {
         sel = (Station) entity;
 
         //update the name
-        stationName.setText(sel.getType().toString());
+        stationName.setText(sel.getSubtype().toString());
         stationName.setColor(state.findColorForOwner(sel.owner));
 
         //update the grid
@@ -162,7 +162,6 @@ public class DetsStation extends DetsGroup {
                 healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.getMaxHull())+1)) + "s",
                         ((int) Math.ceil(sel.hullHealth)) + "/" + sel.getMaxHull()));
                 break;
-            case DEPLOYMENT:
             case RUBBLE:
                 shieldHealthFill.setVisible(false);
                 hullHealthFill.setVisible(false);

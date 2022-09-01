@@ -5,7 +5,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.local.game.SecDetails;
-import com.twisted.local.game.state.GameState;
+import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.entities.Entity;
 
 public abstract class DetsGroup extends Group {
@@ -17,7 +17,7 @@ public abstract class DetsGroup extends Group {
     protected final GlyphLayout glyph;
     protected final Vector2 size;
 
-    protected GameState state;
+    protected ClientGameState state;
 
 
     /* Construction */
@@ -29,7 +29,7 @@ public abstract class DetsGroup extends Group {
         this.size = size;
     }
 
-    public void setState(GameState state){
+    public void setState(ClientGameState state){
         this.state = state;
     }
 

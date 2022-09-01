@@ -4,7 +4,7 @@ import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
-import com.twisted.logic.host.GameHost;
+import com.twisted.logic.host.game.ServerGameState;
 import com.twisted.logic.mobs.BlasterBolt;
 
 public class Blaster extends Weapon {
@@ -21,7 +21,9 @@ public class Blaster extends Weapon {
      * @param speed In units per second
      * @param fullCooldown In seconds
      */
-    public Blaster(float range, float damage, float speed, float fullCooldown) {
+    public Blaster(Entity attached, float range, float damage, float speed, float fullCooldown) {
+        super(attached);
+
         this.range = range;
         this.damage = damage;
         this.missileSpeed = speed;
@@ -34,15 +36,15 @@ public class Blaster extends Weapon {
     /* Action Methods */
 
     @Override
-    public void tick(GameHost host, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
+    public void tick(ServerGameState state, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
                      float delta) {
         if(timer > 0){
             timer -= delta;
         }
         else if(target != null && targeting == Ship.Targeting.Locked
                 && ship.pos.dst(target.pos) <= range && active) {
-            BlasterBolt bolt = new BlasterBolt(host.useNextMobileId(), ship.pos.cpy(),
-                    this, target.getEntityType(), target.getId());
+            BlasterBolt bolt = new BlasterBolt(state.useNextMobileId(), ship.pos.cpy(), this,
+                    target.getEntityType(), target.getId());
             grid.mobiles.put(bolt.id, bolt);
 
             timer = fullCooldown;

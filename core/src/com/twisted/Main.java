@@ -3,6 +3,7 @@ package com.twisted;
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Cursor;
 import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
@@ -12,11 +13,22 @@ import java.text.DecimalFormat;
 
 public class Main extends Game {
 
+	/* Constants */
+
+	//graphical values
 	public static final int WIDTH = 1440;
 	public static final int HEIGHT = 800;
 
+	//color values
+	public static final Color SPACE = new Color(0x0c0c26ff);
+
+	//utility objects
 	public static final DecimalFormat df1 = new DecimalFormat("0.0");
+	public static final DecimalFormat df2 = new DecimalFormat("0.00");
 	public static final GlyphLayout glyph = new GlyphLayout();
+
+
+	/* State */
 
 	private Screen scene;
 	@Override
@@ -24,9 +36,6 @@ public class Main extends Game {
 		super.setScreen(screen);
 		this.scene = screen;
 	}
-
-	//graphics thread
-	public Thread thread;
 
 
 	/* Game Methods */
@@ -36,8 +45,6 @@ public class Main extends Game {
 		scene = new Lobby(this);
 
 		this.setScreen(scene);
-
-		thread = Thread.currentThread();
 	}
 
 	@Override

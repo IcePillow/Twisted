@@ -1,6 +1,6 @@
 package com.twisted.logic.entities;
 
-import com.twisted.Asset;
+import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.entities.attach.StationTransport;
 import com.twisted.logic.entities.attach.Weapon;
 
@@ -13,12 +13,19 @@ public class Barge extends Ship {
     public static final Weapon.Type[] weaponSlots = new Weapon.Type[]{Weapon.Type.StationTransport};
 
 
+    /* State */
+
+    public final int[] resources;
+
+
     /* Constructor */
 
     public Barge(int shipId, int gridId, int owner, boolean docked) {
         super(shipId, gridId, owner, docked);
 
-        weapons[0] = new StationTransport();
+        weapons[0] = new StationTransport(this);
+
+        resources = new int[4];
     }
 
 
@@ -52,8 +59,26 @@ public class Barge extends Ship {
     public Weapon.Type[] getWeaponSlots() {
         return weaponSlots;
     }
-    @Override
-    public Asset.EntityIcon getIconEnum(){
-        return Asset.EntityIcon.BARGE;
+    /**
+     * Amount of space for carrying resources.
+     */
+    public float getHoldSize(){
+        return 10f;
+    }
+
+
+    /* Utility */
+
+    /**
+     * @return The max number of additional gems that can be fit.
+     */
+    public float maxGemsCanFit(Gem gemType){
+        float space = getHoldSize();
+        for(int i = 0; i<Gem.NUM_OF_GEMS; i++){
+            space -= Gem.orderedGems[i].volume * resources[i];
+        }
+
+        if(space < 0) return 0;
+        else return (float) Math.floor(space/gemType.volume);
     }
 }

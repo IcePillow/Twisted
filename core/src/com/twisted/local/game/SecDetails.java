@@ -1,23 +1,18 @@
 package com.twisted.local.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 import com.twisted.Main;
-import com.twisted.local.game.state.GameState;
+import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.util.*;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
-import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.net.msg.gameReq.*;
 
 import java.util.HashMap;
@@ -107,7 +102,7 @@ public class SecDetails extends Sector {
     }
 
     @Override
-    void setState(GameState state){
+    void setState(ClientGameState state){
         this.state = state;
 
         for(DetsGroup d : displayGroups.values()){
@@ -242,7 +237,6 @@ public class SecDetails extends Sector {
             }
         }
 
-
         //release the cross sector listening
         game.updateCrossSectorListening(null, null);
     }
@@ -260,7 +254,6 @@ public class SecDetails extends Sector {
             //create the request
             MGameReq req = null;
             if(externalWait == ExternalWait.TARGET){
-                System.out.println(ptr.grid + "  " + ent.grid);
                 if(ptr.grid == ent.grid){
                     req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
                 }
@@ -474,6 +467,9 @@ public class SecDetails extends Sector {
 
     public void scrollFocus(Actor actor){
         game.scrollFocus(actor);
+    }
+    public void keyboardFocus(Actor actor){
+        game.keyboardFocus(actor);
     }
 
 

@@ -5,20 +5,19 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Main;
-import com.twisted.Asset;
 import com.twisted.local.curtain.Curtain;
 import com.twisted.local.game.cosmetic.Explosion;
-import com.twisted.local.game.state.GameState;
+import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
+import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.entities.attach.StationTransport;
-import com.twisted.logic.host.GameHost;
+import com.twisted.logic.host.game.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.mobs.BlasterBolt;
@@ -55,7 +54,7 @@ public class Game implements Screen, ClientContact {
     }
 
     //game state tracking
-    private GameState state;
+    private ClientGameState state;
 
     //sectors
     private Sector[] sectors;
@@ -120,6 +119,7 @@ public class Game implements Screen, ClientContact {
         }
 
         //scene2d updates
+        Main.glyph.reset();
         stage.act(delta);
         stage.draw();
     }
@@ -177,13 +177,11 @@ public class Game implements Screen, ClientContact {
 
     /**
      * Receiving messages from the server.
-     *
-     * TODO break this apart into multiple utility methods or another class
      */
     @Override
     public void clientReceived(Message m) {
         if(m instanceof MGameStart) receiveGameStart((MGameStart) m);
-        else if(m instanceof MGameOverview) receiveGameOverview((MGameOverview) m);
+        else if(m instanceof MJobTimerUpd) receiveGameOverview((MJobTimerUpd) m);
         else if(m instanceof MChangeJob) receiveChangeJob((MChangeJob) m);
         else if(m instanceof MDenyRequest) receiveDenyRequest((MDenyRequest) m);
         else if(m instanceof MAddShip) receiveAddShip((MAddShip) m);
@@ -196,6 +194,7 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MStationUpd) receiveStationUpd((MStationUpd) m);
         else if(m instanceof MPackedStationMove) receivePackedStationMove((MPackedStationMove) m);
         else if(m instanceof MGameEnd) receiveGameEnd((MGameEnd) m);
+        else if(m instanceof MResourceChange) receiveResourceChange((MResourceChange) m);
     }
 
     @Override
@@ -217,7 +216,7 @@ public class Game implements Screen, ClientContact {
         }
         else {
             //get the message and create the state
-            state = new GameState(m.getPlayers(), m.getPlayerFiles());
+            state = new ClientGameState(m.getPlayers(), m.getPlayerFiles());
 
             //copy data
             state.serverTickDelay = m.tickDelay;
@@ -238,6 +237,9 @@ public class Game implements Screen, ClientContact {
                 else if(m.stationTypes[i] == Station.Type.Liquidator){
                     state.grids[i].station = new Liquidator(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
                 }
+
+                System.arraycopy(m.stationResources[i], 0, state.grids[i].station.resources,
+                        0, Gem.NUM_OF_GEMS);
             }
 
             //pass the state reference
@@ -251,6 +253,7 @@ public class Game implements Screen, ClientContact {
 
                 for(Grid g : state.grids){
                     fleetSec.checkAddEntity(g.station);
+                    industrySec.stationResourceUpdate(g.station);
                 }
 
                 state.readyToRender = true;
@@ -258,23 +261,14 @@ public class Game implements Screen, ClientContact {
         }
     }
 
-    private void receiveGameOverview(MGameOverview m){
+    private void receiveGameOverview(MJobTimerUpd m){
         //update each job timer
-        for(Map.Entry<Integer, Float> e : m.jobToTimeLeft.entrySet()){
+        for(Map.Entry<Integer, Float> e : m.jobTimers.entrySet()){
             CurrentJob job = state.jobs.get(e.getKey());
             job.timeLeft = e.getValue();
 
             //tell sectors
             industrySec.upsertStationJob(job.grid, job, state.grids[grid].station.currentJobs.indexOf(job));
-        }
-        //update station resources
-        for(Map.Entry<Integer, int[]> e : m.stationToResources.entrySet()){
-            //update state
-            System.arraycopy(e.getValue(), 0, state.grids[e.getKey()].station.resources,
-                    0, e.getValue().length);
-
-            //tell sectors
-            industrySec.stationResourceUpdate(state.grids[e.getKey()].station);
         }
     }
 
@@ -480,6 +474,7 @@ public class Game implements Screen, ClientContact {
 
         //update sectors generally
         detailsSec.updateEntity(s);
+        fleetSec.updEntityValues(s);
 
         //update sectors on stage change
         if(oldStage != s.stage){
@@ -543,6 +538,39 @@ public class Game implements Screen, ClientContact {
 
         //close the client
         client.shutdown();
+    }
+
+    private void receiveResourceChange(MResourceChange m){
+        Entity ent = state.findEntity(m.entity);
+        int[] resources;
+
+        //get the resources object
+        if(ent instanceof Station){
+            resources = ((Station) ent).resources;
+        }
+        else if(ent instanceof Barge){
+            resources = ((Barge) ent).resources;
+        }
+        else {
+            System.out.println("Unexpected entity changing resources");
+            new Exception().printStackTrace();
+            return;
+        }
+
+        //change the resources
+        for(int i=0; i<resources.length; i++){
+            resources[i] += m.resourceChanges[i];
+        }
+
+        //update the sectors
+        if(ent instanceof Station){
+            industrySec.stationResourceUpdate((Station) ent);
+
+            for(Ship sh : ((Station) ent).dockedShips.values()){
+                if(sh instanceof Barge) detailsSec.updateEntity(sh);
+            }
+        }
+        detailsSec.updateEntity(ent);
     }
 
 
@@ -676,7 +704,7 @@ public class Game implements Screen, ClientContact {
                 //change screen
                 main.setScreen(curtain);
                 this.dispose();
-            }); //TODO fix this
+            });
         }
     }
 
@@ -732,6 +760,13 @@ public class Game implements Screen, ClientContact {
      */
     void scrollFocus(Actor actor){
         stage.setScrollFocus(actor);
+    }
+
+    /**
+     * Sets the keyboard focus to the passed in actor. Null is allowed.
+     */
+    void keyboardFocus(Actor actor){
+        stage.setKeyboardFocus(actor);
     }
 
 

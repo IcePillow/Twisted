@@ -19,18 +19,27 @@ public class Asset {
     /* Accessing */
 
     public static TextureRegionDrawable retrieve(TextureAsset key){
-        TextureRegionDrawable texture = textureAssets.get(key);
+        TextureRegionDrawable tex = textureAssets.get(key);
 
-        if(texture == null){
-            texture = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
-            textureAssets.put(key, texture);
+        if(tex == null){
+            tex = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
+            textureAssets.put(key, tex);
         }
 
-        return texture;
+        return tex;
+    }
+
+    public static TextureRegionDrawable temporaryRetrieve(TextureAsset key){
+        TextureRegionDrawable tex = textureAssets.get(key);
+
+        if(tex == null){
+            tex = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
+        }
+
+        return tex;
     }
 
     public static void clear(){
-        //TODO call this method at some reasonable interval (beginning of each game?)
         textureAssets.clear();
     }
 
@@ -46,6 +55,11 @@ public class Asset {
         CRUISER("cruiser"),
         BATTLESHIP("battleship"),
         BARGE("barge"),
+
+        EXTRACTOR("extractor"),
+        HARVESTER("harvester"),
+        LIQUIDATOR("liquidator"),
+
         STATION("station");
 
         private final String path;
@@ -86,7 +100,8 @@ public class Asset {
         PIXEL_GREEN("pixels/green"),
         PIXEL_LIGHTGRAY("pixels/lightgray"),
         PIXEL_MAGENTA("pixels/magenta"),
-        PIXEL_NAVY("pixels/navy");
+        PIXEL_NAVY("pixels/navy"),
+        PIXEL_SPACE("pixels/space");
 
         private final String path;
         public String getPath(){
@@ -98,6 +113,7 @@ public class Asset {
         }
     }
     public enum UiBasic implements TextureAsset {
+        CURSOR_1("cursor1"),
         GRAY_ARROW_1("gray-arrow-1"),
         GRAY_ARROW_2("gray-arrow-2"),
         GRAY_ARROW_3("gray-arrow-3"),

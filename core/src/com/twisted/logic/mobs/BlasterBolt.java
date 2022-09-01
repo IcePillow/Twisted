@@ -15,7 +15,8 @@ public class BlasterBolt extends Mobile {
     private final Entity.Type targetType;
     private final int targetId;
 
-    //blaster that fired
+    //metadata
+    private final int owner;
     private final Blaster blaster;
 
 
@@ -34,6 +35,9 @@ public class BlasterBolt extends Mobile {
         this.blaster = blaster;
         this.targetType = targetType;
         this.targetId = targetId;
+
+        if(blaster != null) this.owner = blaster.attached.owner;
+        else this.owner = 0;
     }
 
     @Override
@@ -52,7 +56,7 @@ public class BlasterBolt extends Mobile {
 
         //check if it can collide, otherwise move it
         if(pos.dst(target.pos) < blaster.missileSpeed*delta){
-            target.takeDamage(grid, blaster.damage);
+            target.takeDamage(grid, owner, blaster.damage);
             return true;
         }
         else {
