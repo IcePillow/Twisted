@@ -1,4 +1,4 @@
-package com.twisted.net.msg.remaining;
+package com.twisted.net.msg.lobby;
 
 import com.twisted.net.msg.Message;
 
@@ -29,18 +29,23 @@ public class MCommand implements Message {
         return strings.length;
     }
 
-    public String getCommandType(){
-        return strings[0];
-    }
 
     /* Command Checking */
 
-    public boolean isStart(){
-        return (this.strings.length >= 1 && this.strings[0].equals("start"));
+    public Type getType(){
+        if(this.strings.length >= 1 && this.strings[0].equals("start")) return Type.START;
+        else if(this.strings.length >= 2 && this.strings[0].equals("name")) return Type.NAME;
+        else if(this.strings.length >= 1 && this.strings[0].equals("help")) return Type.HELP;
+        else if(this.strings.length >= 2 && this.strings[0].equals("kick")) return Type.KICK;
+        else return Type.NONE;
     }
 
-    public boolean isName(){
-        return (this.strings.length >= 2 && this.strings[0].equals("name"));
+    public enum Type {
+        START,
+        NAME,
+        HELP,
+        KICK,
+        NONE,
     }
 
 }

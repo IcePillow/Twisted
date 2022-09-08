@@ -9,6 +9,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.twisted.Asset;
+import com.twisted.Main;
 
 /**
  * Represents a row in one of the inventory panes in the details sector DetsShipDocked
@@ -91,15 +92,13 @@ class InventoryHorGroup extends Table {
      * methods are called
      */
     private void load(String name) {
-        nameLabel = new Label(name, detsShipDocked.skin, "small", Color.LIGHT_GRAY);
-        nameLabel.setFontScale(0.8f);
+        nameLabel = new Label(name, Asset.labelStyle(Asset.Avenir.LIGHT_12));
         this.add(nameLabel);
 
         filler = new Actor();
         this.add(filler);
 
-        amountLabel = new Label("", detsShipDocked.skin, "small", Color.LIGHT_GRAY);
-        amountLabel.setFontScale(0.8f);
+        amountLabel = new Label("", Asset.labelStyle(Asset.Avenir.LIGHT_12));
         this.add(amountLabel);
 
         updateFiller();
@@ -140,11 +139,11 @@ class InventoryHorGroup extends Table {
      * Resizes the filler actor correctly based on the other actors.
      */
     private void updateFiller() {
-        detsShipDocked.glyph.setText(detsShipDocked.skin.getFont("small"), nameLabel.getText());
-        filler.setHeight(detsShipDocked.glyph.height * 0.8f);
-        float width = parentWidth - (detsShipDocked.glyph.width * 0.8f);
-        detsShipDocked.glyph.setText(detsShipDocked.skin.getFont("small"), amountLabel.getText());
-        width -= detsShipDocked.glyph.width * 0.8f;
+        Main.glyph.setText(nameLabel.getStyle().font, nameLabel.getText());
+        filler.setHeight(Main.glyph.height);
+        float width = parentWidth - (Main.glyph.width);
+        Main.glyph.setText(nameLabel.getStyle().font, amountLabel.getText());
+        width -= Main.glyph.width;
 
         filler.setWidth(width);
     }

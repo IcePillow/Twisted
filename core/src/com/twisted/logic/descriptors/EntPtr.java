@@ -34,7 +34,7 @@ public class EntPtr implements Serializable {
      */
     public static EntPtr createFromEntity(Entity entity){
         if(entity == null) return null;
-        return new EntPtr(entity.getEntityType(), entity.getId(), entity.grid, entity.isDocked());
+        return new EntPtr(entity.entityType(), entity.getId(), entity.grid, entity.isDocked());
     }
 
     /**
@@ -73,7 +73,7 @@ public class EntPtr implements Serializable {
      * Will not match null, but no error will be thrown.
      */
     public boolean matches(Entity ent){
-        return (ent != null && ent.getId() == id && ent.getEntityType() == type);
+        return (ent != null && ent.getId() == id && ent.entityType() == type);
     }
 
     /**

@@ -29,7 +29,7 @@ import com.twisted.net.msg.gameReq.MGameReq;
 import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
-import com.twisted.net.msg.remaining.MGameStart;
+import com.twisted.net.msg.lobby.MGameStart;
 
 import java.util.*;
 
@@ -228,14 +228,14 @@ public class Game implements Screen, ClientContact {
             state.grids = new Grid[m.gridPositions.length];
             for(int i=0; i < state.grids.length; i++) {
                 state.grids[i] = new Grid(i, m.gridPositions[i], m.gridNicknames[i]);
-                if(m.stationTypes[i] == Station.Type.Extractor){
-                    state.grids[i].station = new Extractor(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                if(m.stationTypes[i] == Station.Model.Extractor){
+                    state.grids[i].station = new Extractor(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
                 }
-                else if(m.stationTypes[i] == Station.Type.Harvester){
-                    state.grids[i].station = new Harvester(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                else if(m.stationTypes[i] == Station.Model.Harvester){
+                    state.grids[i].station = new Harvester(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
                 }
-                else if(m.stationTypes[i] == Station.Type.Liquidator){
-                    state.grids[i].station = new Liquidator(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i], true);
+                else if(m.stationTypes[i] == Station.Model.Liquidator){
+                    state.grids[i].station = new Liquidator(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
                 }
 
                 System.arraycopy(m.stationResources[i], 0, state.grids[i].station.resources,
@@ -420,7 +420,7 @@ public class Game implements Screen, ClientContact {
 
         //explosion
         if(ship != null && m.grid != -1){
-            Explosion explosion = new Explosion(m.grid, ship.getPaddedLogicalRadius(), 1f, ship.pos);
+            Explosion explosion = new Explosion(m.grid, ship.subtype().getPaddedLogicalRadius(), 1f, ship.pos);
             explosion.color = state.findColorForOwner(ship.owner);
             viewportSec.addCosmetic(explosion);
         }
@@ -777,7 +777,7 @@ public class Game implements Screen, ClientContact {
      */
     private void initSectors(){
 
-        //load the skin and glyph
+        //load the skin
         skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
         skin.getFont("small").getData().markupEnabled = true;
         skin.getFont("medium").getData().markupEnabled = true;
@@ -809,6 +809,7 @@ public class Game implements Screen, ClientContact {
         optionsSec = new SecOptions(this, stage);
         stage.addActor(optionsSec.init());
 
+        //set the sector array
         this.sectors = new Sector[]{
                 viewportSec, minimapSec, fleetSec, detailsSec, industrySec,
                 logSec, overlaySec, optionsSec

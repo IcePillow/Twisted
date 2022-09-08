@@ -16,11 +16,11 @@ public class Tracking implements Serializable {
         entitiesBuilt = new HashMap<>();
         entitiesKilled = new HashMap<>();
 
-        for(Entity.Subtype s : Ship.Type.values()){
+        for(Entity.Subtype s : Ship.Model.values()){
             entitiesBuilt.put(s, 0);
             entitiesKilled.put(s, 0);
         }
-        for(Entity.Subtype s : Station.Type.values()){
+        for(Entity.Subtype s : Station.Model.values()){
             entitiesBuilt.put(s, 0);
             entitiesKilled.put(s, 0);
         }

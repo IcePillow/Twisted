@@ -2,22 +2,28 @@ Work
     Large scale
         TODO exterior target summaries for the current grid
         TODO make a better lobby screen
+        TODO deal with colors across the entire app
     Ui changes
         TODO shortcut keys for ship commands
         TODO match hp bars in details & fleet to the owner color
+        TODO add station stage & health to SecIndustry
+        TODO display entity icons in SecFleet and SecDetails
     Combat
         TODO fix the orbiting for small radii at higher speeds
     Graphics
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
         TODO progress bar for targeting
-    Refactoring
+        TODO figure out what happens if a user has a screen larger than necessary
+            Don't want the app to over scale
     Bugs
+    Refactoring
     Misc
-        TODO make sure everything is being disposed of in each screen
+        TODO make sure everything disposed in each screen
     Future
         - Add station regen
         - Add the other ships
         - Make the correct win condition
         - Add other weapon types
         - Set correct entity constant values
+        - Decorative background in Game screen

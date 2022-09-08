@@ -85,7 +85,7 @@ abstract class Sector {
     /* Input Methods */
 
     /**
-     * Should be overriden if continuous keyboard input is desired. Will be called each frame if
+     * Should be overridden if continuous keyboard input is desired. Will be called each frame if
      * keyboard input should be passed to this sector.
      */
     void keyboardInput(){}

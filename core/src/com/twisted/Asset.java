@@ -1,8 +1,13 @@
 package com.twisted;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.twisted.logic.entities.Entity;
 
 import java.util.HashMap;
 
@@ -13,64 +18,81 @@ public class Asset {
 
     /* Storage */
 
+    //main
     private static final HashMap<TextureAsset, TextureRegionDrawable> textureAssets = new HashMap<>();
+    private static final HashMap<FontAsset, BitmapFont> fontAssets = new HashMap<>();
+
+    //entities
+    private static final HashMap<Entity.Subtype, TextureRegionDrawable> entityIconAssets = new HashMap<>();
+    private static final HashMap<Entity.Subtype, String> entityBlurbAssets = new HashMap<>();
 
 
     /* Accessing */
 
+    //normal retrieving
     public static TextureRegionDrawable retrieve(TextureAsset key){
-        TextureRegionDrawable tex = textureAssets.get(key);
-
-        if(tex == null){
-            tex = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
-            textureAssets.put(key, tex);
+        TextureRegionDrawable asset = textureAssets.get(key);
+        if(asset == null){
+            asset = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
+            textureAssets.put(key, asset);
         }
-
-        return tex;
+        return asset;
+    }
+    public static BitmapFont retrieve(FontAsset key){
+        BitmapFont asset = fontAssets.get(key);
+        if(asset == null){
+            asset = new BitmapFont(Gdx.files.internal(key.getPath()));
+            fontAssets.put(key, asset);
+        }
+        return asset;
     }
 
-    public static TextureRegionDrawable temporaryRetrieve(TextureAsset key){
-        TextureRegionDrawable tex = textureAssets.get(key);
-
-        if(tex == null){
-            tex = new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
-        }
-
-        return tex;
+    //retrieving assets for modification
+    public static TextureRegionDrawable retrieveBlank(TextureAsset key){
+        return new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
     }
+
+    //retrieving entity specific
+    public static TextureRegionDrawable retrieveEntityIcon(Entity.Subtype subtype){
+        TextureRegionDrawable asset = entityIconAssets.get(subtype);
+        if(asset == null){
+            asset = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/entities/"
+                    + subtype.getFilename() + "-icon.png")));
+            entityIconAssets.put(subtype, asset);
+        }
+        return asset;
+    }
+    public static String retrieveEntityBlurb(Entity.Subtype subtype){
+        String asset = entityBlurbAssets.get(subtype);
+        if(asset == null){
+            asset = Gdx.files.internal("text/blurbs/" + subtype.getFilename() + ".txt").readString();
+            entityBlurbAssets.put(subtype, asset);
+        }
+        return asset;
+    }
+
+
+    /* Storage Management */
 
     public static void clear(){
         textureAssets.clear();
     }
 
 
+    /* Utility */
+
+    public static Label.LabelStyle labelStyle(Avenir font){
+        return new Label.LabelStyle(Asset.retrieve(font), Color.WHITE);
+    }
+
+
     /* Asset Enums */
 
-    public interface TextureAsset {
+    public interface BaseAsset {
         String getPath();
     }
 
-    public enum EntityIcon implements TextureAsset {
-        FRIGATE("frigate"),
-        CRUISER("cruiser"),
-        BATTLESHIP("battleship"),
-        BARGE("barge"),
-
-        EXTRACTOR("extractor"),
-        HARVESTER("harvester"),
-        LIQUIDATOR("liquidator"),
-
-        STATION("station");
-
-        private final String path;
-        public String getPath(){
-            return path;
-        }
-
-        EntityIcon(String string){
-            this.path = "images/entities/" + string + "-icon.png";
-        }
-    }
+    public interface TextureAsset extends BaseAsset {}
     public enum Gem implements TextureAsset {
         CALCITE("calcite"),
         CRYSTAL("crystal"),
@@ -88,6 +110,7 @@ public class Asset {
 
     }
     public enum Shape implements TextureAsset {
+        //TODO break this into two distinct enums: circles and pixels
         CIRCLE_BLACK("circles/black"),
         CIRCLE_BLUE("circles/blue"),
         CIRCLE_GRAY("circles/gray"),
@@ -101,7 +124,8 @@ public class Asset {
         PIXEL_LIGHTGRAY("pixels/lightgray"),
         PIXEL_MAGENTA("pixels/magenta"),
         PIXEL_NAVY("pixels/navy"),
-        PIXEL_SPACE("pixels/space");
+        PIXEL_SPACE("pixels/space"),
+        PIXEL_WHITE("pixels/white");
 
         private final String path;
         public String getPath(){
@@ -114,9 +138,9 @@ public class Asset {
     }
     public enum UiBasic implements TextureAsset {
         CURSOR_1("cursor1"),
-        GRAY_ARROW_1("gray-arrow-1"),
-        GRAY_ARROW_2("gray-arrow-2"),
-        GRAY_ARROW_3("gray-arrow-3"),
+        ARROW_1("arrow-1"),
+        ARROW_2("arrow-2"),
+        ARROW_3("arrow-3"),
         WHITE_ARROW("white-arrow"),
         WHITE_SQUARE_1("white-square-1");
 
@@ -178,5 +202,33 @@ public class Asset {
             this.path = "images/ui/buttons/" + string + ".png";
         }
     }
+
+    public interface FontAsset extends BaseAsset{}
+    public enum Avenir implements FontAsset {
+        LIGHT_12("light_12"),
+        LIGHT_16("light_16"),
+
+        MEDIUM_12("medium_12"),
+        MEDIUM_12_ITALIC("medium_12_italic"),
+        MEDIUM_14("medium_14"),
+        MEDIUM_16("medium_16"),
+
+        HEAVY_16("heavy_16"),
+        HEAVY_20("heavy_20"),
+
+        BLACK_24("black_24"),
+        BLACK_32("black_32"),
+        BLACK_48("black_48");
+
+        private final String path;
+        public String getPath(){
+            return path;
+        }
+
+        Avenir(String string){
+            this.path = "fonts/avenir/" + string + ".fnt";
+        }
+    }
+
 
 }

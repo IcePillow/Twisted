@@ -11,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Station;
 
@@ -47,9 +48,9 @@ class SecMinimap extends Sector {
         parent = super.init();
         parent.setBounds(Main.WIDTH-256, 0, 256, 256);
 
-        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        main.setSize(parent.getWidth(), parent.getHeight());
-        parent.addActor(main);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        ribbon.setSize(parent.getWidth(), parent.getHeight());
+        parent.addActor(ribbon);
 
         Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
@@ -83,7 +84,8 @@ class SecMinimap extends Sector {
             image.setSize(10, 10);
 
             //load the minimap label
-            Label label = new Label(g.station.getFullName(), skin, "small", Color.GRAY);
+            Label label = new Label(g.station.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+            label.setColor(Color.GRAY);
             label.setVisible(false);
             if(image.getX() < 3+label.getWidth()/2f){
                 label.setPosition(

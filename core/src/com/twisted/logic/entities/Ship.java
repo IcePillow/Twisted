@@ -2,7 +2,6 @@ package com.twisted.logic.entities;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Asset;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.attach.Weapon;
@@ -32,20 +31,22 @@ public abstract class Ship extends Entity implements Serializable {
 
     /* State */
 
+    //meta data
     public int id;
     @Override
     public int getId(){
         return id;
     }
+    public final Model model;
 
-    public float warpTimeToLand; //0 if not in warp
 
+    //combat
     public float health;
-
-    public boolean docked;
 
     //ui and movement
     public String moveCommand;
+    public float warpTimeToLand; //0 if not in warp
+    public boolean docked;
 
     //targeting
     public Targeting targetingState;
@@ -59,8 +60,9 @@ public abstract class Ship extends Entity implements Serializable {
     /**
      * Constructor
      */
-    protected Ship(int id, int grid, int owner,  boolean docked){
+    protected Ship(Model model, int id, int grid, int owner, boolean docked){
         //meta data
+        this.model = model;
         this.id = id;
         this.grid = grid;
         this.owner = owner;
@@ -70,6 +72,7 @@ public abstract class Ship extends Entity implements Serializable {
         this.vel = new Vector2(0, 0);
         this.rot = 0;
         this.docked = docked;
+        this.polygon = new Polygon(this.model.vertices); //TODO make clientside only
 
         //command data
         this.moveCommand = "Stationary";
@@ -80,13 +83,13 @@ public abstract class Ship extends Entity implements Serializable {
         this.warpTimeToLand = 0;
 
         //battle
-        this.health = getMaxHealth();
+        this.health = this.model.getMaxHealth();
 
         //weapons
-        this.weapons = new Weapon[this.getWeaponSlots().length];
+        this.weapons = new Weapon[model.getWeaponSlots().length];
 
         //graphics stuff
-        polygon = new Polygon(this.getVertices());
+        polygon = new Polygon(subtype().getVertices());
 
         //logic stuff
         this.trajectoryVel = new Vector2(0, 0);
@@ -94,27 +97,18 @@ public abstract class Ship extends Entity implements Serializable {
         this.moveTargetPos = null;
     }
 
-    /* Data Methods */
-
-    public abstract float getMaxSpeed();
-    public abstract float getMaxAccel();
-    public abstract float getTargetRange();
-    public abstract int getMaxHealth();
-    public abstract Weapon.Type[] getWeaponSlots();
-
 
     /* Naming Methods */
 
     @Override
     public String getFullName(){
-        return this.getSubtype().name();
+        return this.model.name();
     }
-
     @Override
     public String getFleetName(){
-        switch(this.getSubtype()){
+        switch(this.model){
             case Frigate:
-                return this.getSubtype().name();
+                return this.model.name();
             default:
                 System.out.println("Unexpected type");
                 new Exception().printStackTrace();
@@ -140,10 +134,8 @@ public abstract class Ship extends Entity implements Serializable {
     /* Utility Methods */
 
     @Override
-    public Type getSubtype(){
-        if(this instanceof Frigate) return Type.Frigate;
-        else if(this instanceof Barge) return Type.Barge;
-        else return null;
+    public Subtype subtype(){
+        return model;
     }
 
     /**
@@ -160,7 +152,7 @@ public abstract class Ship extends Entity implements Serializable {
     public boolean alignedForWarp(Grid originGrid, Grid destGrid){
 
         //check if speed is high enough
-        if(vel.len() < 0.75f*getMaxSpeed()){
+        if(vel.len() < 0.75f* model.getMaxSpeed()){
             return false;
         }
 
@@ -208,18 +200,97 @@ public abstract class Ship extends Entity implements Serializable {
     /**
      * Type of ship.
      */
-    public enum Type implements Subtype {
-        Frigate(Asset.EntityIcon.FRIGATE),
-        Barge(Asset.EntityIcon.BARGE);
+    public enum Model implements Subtype {
+        //TODO refactor weapon specs into this enum
 
-        private final Asset.EntityIcon icon;
+
+        Frigate(
+                new float[]{-0.08f,-0.08f,  0.08f,-0.08f,  0,0.08f},
+                1.4f*0.113f, 0.8f, 0.4f,
+                3.5f, 6,
+                new Weapon.Type[]{Weapon.Type.Blaster, Weapon.Type.Blaster}
+        ),
+        //TODO cruiser specs
+        Cruiser(
+                null,
+                0f, 0f, 0f,
+                0f, 0,
+                null
+        ),
+        //TODO battleship specs
+        Battleship(
+                null,
+                0f, 0f, 0f,
+                0f, 0,
+                null
+        ),
+        Barge(
+                new float[]{-0.1f,-0.12f, 0f,-0.08f,  0.1f,-0.12f,  0.1f,0.12f, -0.1f,0.12f},
+                1.4f*0.156f, 0.1f, 0.02f,
+                1.5f, 10,
+                new Weapon.Type[]{Weapon.Type.StationTransport}
+        ),
+        //TODO titan specs
+        Titan(
+                null,
+                0f, 0f, 0f,
+                0f, 0,
+                null
+        );
+
+        //data methods from entity
         @Override
-        public Asset.EntityIcon getIcon(){
-            return icon;
+        public float[] getVertices(){
+            return vertices;
+        }
+        @Override
+        public float getPaddedLogicalRadius() {
+            return paddedLogicalRadius;
+        }
+        @Override
+        public String getFilename(){
+            return this.name().toLowerCase();
         }
 
-        Type(Asset.EntityIcon icon){
-            this.icon = icon;
+        //data methods for ships
+        public float getMaxSpeed() {
+            return maxSpeed;
+        }
+        public float getMaxAccel() {
+            return maxAccel;
+        }
+        public float getTargetRange(){
+            return targetRange;
+        }
+        public int getMaxHealth(){
+            return maxHealth;
+        }
+        public Weapon.Type[] getWeaponSlots(){
+            return weaponSlots;
+        }
+
+        //data storage
+        private final float[] vertices;
+        private final float paddedLogicalRadius;
+        private final float maxSpeed;
+        private final float maxAccel;
+        private final float targetRange;
+        private final int maxHealth;
+        private final Weapon.Type[] weaponSlots;
+
+
+        /**
+         * Constructor
+         */
+        Model(float[] vertices, float paddedLogicalRadius, float maxSpeed, float maxAccel,
+              float targetRange, int maxHealth, Weapon.Type[] weaponSlots){
+            this.vertices = vertices;
+            this.paddedLogicalRadius = paddedLogicalRadius;
+            this.maxSpeed = maxSpeed;
+            this.maxAccel = maxAccel;
+            this.targetRange = targetRange;
+            this.maxHealth = maxHealth;
+            this.weaponSlots = weaponSlots;
         }
     }
 

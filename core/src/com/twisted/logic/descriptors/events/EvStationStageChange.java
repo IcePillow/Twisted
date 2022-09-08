@@ -48,17 +48,17 @@ public class EvStationStageChange extends GameEvent {
         HorizontalGroup group = super.displayForCurtain(state, skin);
 
         //prev image
-        Image image1 = new Image(Asset.retrieve(Asset.EntityIcon.STATION));
+        Image image1 = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
         image1.setColor(state.findColorForOwner(prevOwnerId));
         group.addActor(image1);
 
         //prev name label
-        Label label1 = new Label(" " + state.grids[stationId].station.getFullName(), skin, "small", Color.WHITE);
+        Label label1 = new Label(" " + state.grids[stationId].station.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         label1.setColor(state.findColorForOwner(prevOwnerId));
         group.addActor(label1);
 
         //descriptive label
-        Label label2 = new Label("", skin, "small", Color.WHITE);
+        Label label2 = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         label2.setColor(Color.LIGHT_GRAY);
         switch(prevStage){
             case VULNERABLE: {

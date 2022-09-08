@@ -5,22 +5,10 @@ Colors
     Purple - 0xab47bcff
     Gray - 0x9d9d9dff
 Skins & Fonts
-    Credits for sgx
-        SGX UI Ver. 1
-
-        Created by Raymond "Raeleus" Buckley
-        Visit ray3k.wordpress.com for games, tutorials, and much more!
-        © Copyright 2017 Raymond Buckley
-
-        SGX UI can be used under the CC BY license.
-        http://creativecommons.org/licenses/by/4.0/
     Modifications to sgx
         sgx-ui.atlas
             [508]  size: 19, 19
             [526]  size: 19, 28
-    Don't currently know where Andale credits are
-    Play Font downloaded from https://www.1001freefonts.com/play.font
-
 Game Launch Sequence
     > Lobby takes user input
     > Lobby sends Command over network to Server
@@ -51,3 +39,11 @@ Gameplay
         Missiles -- have travel time, can time out, deals aoe, shoot discretely
 Misc
     Use "git ls-files | grep '\.java' | xargs wc -l" to get total java line count
+
+New Lobby Design
+    Sectors
+        Decoration (all)
+            - Star background
+            - Title card
+        Chat (bottom left)
+            -

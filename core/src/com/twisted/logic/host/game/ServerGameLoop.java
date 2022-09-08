@@ -141,7 +141,7 @@ class ServerGameLoop {
                         }
 
                         //tracking
-                        state.players.get(st.owner).tracking.incrEntsBuilt(sh.getSubtype());
+                        state.players.get(st.owner).tracking.incrEntsBuilt(sh.subtype());
 
                         //tell users
                         host.broadcastMessage(MAddShip.createFromShipBody(sh));
@@ -171,11 +171,11 @@ class ServerGameLoop {
                 switch(st.stage){
                     case VULNERABLE:
                         st.stage = Station.Stage.SHIELDED;
-                        st.shieldHealth = (float) Math.ceil(0.25f * st.getMaxShield());
+                        st.shieldHealth = (float) Math.ceil(0.25f * st.model.getMaxShield());
                         break;
                     case ARMORED:
                         st.stage = Station.Stage.VULNERABLE;
-                        st.stageTimer = st.getVulnerableDuration();
+                        st.stageTimer = st.model.getVulnerableDuration();
                         break;
                 }
             }
@@ -214,8 +214,8 @@ class ServerGameLoop {
                                 s.moveTargetPos.y - s.pos.y).nor();
 
                         //find the effective max speed (compare speed can stop from to actual max speed)
-                        float speedCanStopFrom = (float) Math.sqrt( 2*s.getMaxAccel()*distanceToTarget );
-                        float effectiveMaxSpeed = Math.min(0.8f*speedCanStopFrom, s.getMaxSpeed());
+                        float speedCanStopFrom = (float) Math.sqrt( 2*s.model.getMaxAccel()*distanceToTarget );
+                        float effectiveMaxSpeed = Math.min(0.8f*speedCanStopFrom, s.model.getMaxSpeed());
 
                         //update the target velocity
                         s.trajectoryVel.x *= effectiveMaxSpeed;
@@ -247,7 +247,7 @@ class ServerGameLoop {
 
                         //vector to represent the direction of travel
                         Vector2 oPath = new Vector2(s.pos.x-tar.pos.x, s.pos.y-tar.pos.y)
-                                .nor().scl(0.9f*s.getMaxSpeed());
+                                .nor().scl(0.9f*s.model.getMaxSpeed());
 
                         if((velAng > relPosAng && velAng < relPosAng+180)
                                 || (velAng+360 > relPosAng && velAng+360 < relPosAng+180)){
@@ -271,9 +271,9 @@ class ServerGameLoop {
                     accel.set(s.trajectoryVel.x-s.vel.x, s.trajectoryVel.y-s.vel.y);
 
                     float length = accel.len();
-                    if(length > s.getMaxAccel() * GameHost.FRAC){
-                        accel.x *= s.getMaxAccel() * GameHost.FRAC /length;
-                        accel.y *= s.getMaxAccel() * GameHost.FRAC /length;
+                    if(length > s.model.getMaxAccel() * GameHost.FRAC){
+                        accel.x *= s.model.getMaxAccel() * GameHost.FRAC /length;
+                        accel.y *= s.model.getMaxAccel() * GameHost.FRAC /length;
                     }
 
                     //update the velocity
@@ -336,7 +336,7 @@ class ServerGameLoop {
                 if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
                     Station st = g.station;
                     //dock
-                    if(s.pos.dst(st.pos) <= st.getDockingRadius() && st.owner == s.owner){
+                    if(s.pos.dst(st.pos) <= st.model.getDockingRadius() && st.owner == s.owner){
                         shipsToDock.add(s);
                     }
                     //owner changed
@@ -382,10 +382,10 @@ class ServerGameLoop {
                 s.movement = Ship.Movement.STOPPING;
 
                 //placing with correct physics (slightly varied)
-                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.getMaxSpeed()).rotateRad((float) Math.random()*0.15f);
+                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.model.getMaxSpeed()).rotateRad((float) Math.random()*0.15f);
                 s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
 
-                warpVel.nor().scl(s.getMaxSpeed()*0.75f);
+                warpVel.nor().scl(s.model.getMaxSpeed()*0.75f);
                 s.vel.set(warpVel.x, warpVel.y);
             }
         }
@@ -436,7 +436,7 @@ class ServerGameLoop {
                 Entity target = (s.targetEntity==null) ? null : s.targetEntity.retrieveFromGrid(g);
 
                 //stop targeting if not valid to target (doesn't exist or range checks)
-                if(target == null || target.pos.dst(s.pos) > s.getTargetRange()){
+                if(target == null || target.pos.dst(s.pos) > s.model.getTargetRange()){
                     s.targetingState = null;
                     s.targetEntity = null;
                 }
@@ -453,7 +453,7 @@ class ServerGameLoop {
                     toBeRemoved.add(s);
 
                     //tracking
-                    state.players.get(s.lastHit).tracking.incrEntsKilled(s.getSubtype());
+                    state.players.get(s.lastHit).tracking.incrEntsKilled(s.subtype());
                 }
             }
             //remove ships
@@ -465,7 +465,7 @@ class ServerGameLoop {
             Station st = g.station;
             if(st.stage == Station.Stage.SHIELDED && st.shieldHealth <= 0){
                 st.shieldHealth = 0;
-                st.stageTimer = st.getArmoredDuration();
+                st.stageTimer = st.model.getArmoredDuration();
                 st.stage = Station.Stage.ARMORED;
 
                 //add event
@@ -485,7 +485,7 @@ class ServerGameLoop {
                 //stop all ships from targeting it
                 for(Ship s : g.ships.values()){
                     if(s.targetingState != null && s.targetEntity.matches(g.station)
-                            && !(s.getSubtype() == Ship.Type.Barge)){
+                            && !(s.subtype() == Ship.Model.Barge)){
                         s.targetingState = null;
                         s.targetEntity = null;
                         s.targetTimeToLock = 0;
@@ -493,7 +493,7 @@ class ServerGameLoop {
                 }
 
                 //tracking
-                state.players.get(st.lastHit).tracking.incrEntsKilled(st.getSubtype());
+                state.players.get(st.lastHit).tracking.incrEntsKilled(st.subtype());
 
                 //other updates in station
                 st.currentJobs.clear();
@@ -541,8 +541,8 @@ class ServerGameLoop {
         //check end condition
         int winner = -1;
         for(Grid g : state.grids){
-            for(Station.Type t : g.station.packedStations){
-                if(t == Station.Type.Liquidator){
+            for(Station.Model t : g.station.packedStations){
+                if(t == Station.Model.Liquidator){
                     winner = g.station.owner;
                     break;
                 }
@@ -675,7 +675,7 @@ class ServerGameLoop {
                     s.moveCommand = "Orbiting station";
                 }
                 else if(ent instanceof Ship) {
-                    s.moveCommand = "Orbiting " + ((Ship) ent).getSubtype();
+                    s.moveCommand = "Orbiting " + ((Ship) ent).subtype();
                 }
             }
         }
@@ -709,8 +709,8 @@ class ServerGameLoop {
             //set the ship's movement
             s.movement = Ship.Movement.ALIGN_TO_ANG;
             s.trajectoryVel = s.trajectoryVel.set(
-                    (float) Math.cos(msg.angle) * s.getMaxSpeed() * 0.8f,
-                    (float) Math.sin(msg.angle) * s.getMaxSpeed() * 0.8f);
+                    (float) Math.cos(msg.angle) * s.model.getMaxSpeed() * 0.8f,
+                    (float) Math.sin(msg.angle) * s.model.getMaxSpeed() * 0.8f);
 
             //set the description of the movement
             int degrees = -((int) (msg.angle*180/Math.PI - 90));
@@ -753,8 +753,8 @@ class ServerGameLoop {
             float angle = (float) Math.atan2(state.grids[msg.targetGridId].pos.y-state.grids[msg.grid].pos.y,
                     state.grids[msg.targetGridId].pos.x-state.grids[msg.grid].pos.x);
             s.trajectoryVel = s.trajectoryVel.set(
-                    (float) Math.cos(angle) * s.getMaxSpeed() * 0.8f,
-                    (float) Math.sin(angle) * s.getMaxSpeed() * 0.8f);
+                    (float) Math.cos(angle) * s.model.getMaxSpeed() * 0.8f,
+                    (float) Math.sin(angle) * s.model.getMaxSpeed() * 0.8f);
         }
     }
 
@@ -787,7 +787,7 @@ class ServerGameLoop {
             Entity target = state.findEntityInState(msg.targetType, msg.targetId, msg.grid);
 
             //start locking on to the target
-            if(target != null && target.pos.dst(s.pos) <= s.getTargetRange()){
+            if(target != null && target.pos.dst(s.pos) <= s.model.getTargetRange()){
                 s.targetingState = Ship.Targeting.Locking;
                 s.targetEntity = EntPtr.createFromEntity(target);
 
@@ -850,7 +850,7 @@ class ServerGameLoop {
                         if(st.stage != Station.Stage.RUBBLE){
                             deny.reason = "Station must be rubble to deploy";
                         }
-                        else if(st.getSubtype() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
+                        else if(st.subtype() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
                             deny.reason = "Station type must match to be able to deploy";
                         }
                         else if(st.pos.dst(s.pos) > s.weapons[msg.weaponId].getMaxRange()){
@@ -936,7 +936,7 @@ class ServerGameLoop {
             //set physics TODO set to not intersect
             s.rot = (float) Math.random()*6.28f;
             s.pos.set(0.8f*(float)Math.cos(s.rot), 0.8f*(float)Math.sin(s.rot));
-            s.vel.set(s.getMaxSpeed()/3 * (float)Math.cos(s.rot), s.getMaxSpeed()/3 * (float)Math.sin(s.rot));
+            s.vel.set(s.model.getMaxSpeed()/3 * (float)Math.cos(s.rot), s.model.getMaxSpeed()/3 * (float)Math.sin(s.rot));
             s.docked = false;
 
             //set ai
@@ -1018,9 +1018,9 @@ class ServerGameLoop {
                 sh = (Barge) addTo;
 
                 //final checks
-                Station.Type packedStationType = st.packedStations[msg.idxRemoveFrom];
+                Station.Model packedStationType = st.packedStations[msg.idxRemoveFrom];
                 int destIdx = -1;
-                for(int i=0; i<Barge.weaponSlots.length; i++) {
+                for(int i=0; i< Ship.Model.Barge.getWeaponSlots().length; i++) {
                     if(((StationTransport) sh.weapons[i]).cargo == null){
                         destIdx = i;
                         break;
@@ -1060,7 +1060,7 @@ class ServerGameLoop {
                 sh = (Barge) removeFrom;
 
                 //final checks
-                Station.Type packedStationType = ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo;
+                Station.Model packedStationType = ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo;
                 int destIdx = -1;
                 for(int i=0; i<Station.PACKED_STATION_SLOTS; i++) {
                     if(st.packedStations[i] == null){

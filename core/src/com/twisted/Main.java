@@ -1,11 +1,8 @@
 package com.twisted;
 
 import com.badlogic.gdx.Game;
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Cursor;
-import com.badlogic.gdx.graphics.Pixmap;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.twisted.local.lobby.Lobby;
 
@@ -19,7 +16,7 @@ public class Main extends Game {
 	public static final int WIDTH = 1440;
 	public static final int HEIGHT = 800;
 
-	//color values
+	//color values TODO refactor into enum tree with all useful colors
 	public static final Color SPACE = new Color(0x0c0c26ff);
 
 	//utility objects

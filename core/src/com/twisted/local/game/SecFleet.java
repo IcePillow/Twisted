@@ -15,6 +15,7 @@ import com.twisted.Main;
 import com.twisted.Asset;
 import com.twisted.local.game.util.FleetContainer;
 import com.twisted.local.game.util.FleetTab;
+import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
@@ -98,24 +99,29 @@ public class SecFleet extends Sector {
         TextureRegionDrawable blackPixel = Asset.retrieve(Asset.Shape.PIXEL_BLACK);
 
         //create the images
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
 
         Image embeddedBot = new Image(blackPixel);
-        embeddedBot.setBounds(3, 3, parent.getWidth()-6,
-                TOT_HEIGHT-12-MID_HEIGHT-TOP_HEIGHT);
+        embeddedBot.setBounds(3, 3, parent.getWidth()-6, TOT_HEIGHT-12-MID_HEIGHT-TOP_HEIGHT);
         decoration.addActor(embeddedBot);
-
         Image embeddedMid = new Image(blackPixel);
         embeddedMid.setBounds(3, 3+embeddedBot.getHeight()+3, parent.getWidth()-6,
                 MID_HEIGHT);
         decoration.addActor(embeddedMid);
-
         Image embeddedTop = new Image(blackPixel);
         embeddedTop.setBounds(3, 3+embeddedBot.getHeight()+3+embeddedMid.getHeight()+3,
                 parent.getWidth()-6, TOP_HEIGHT);
         decoration.addActor(embeddedTop);
+
+        //bands
+        Image lowBand = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        lowBand.setBounds(0, embeddedMid.getY()-3, decoration.getWidth(), 3);
+        decoration.addActor(lowBand);
+        Image highBand = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        highBand.setBounds(0, embeddedTop.getY()-3, decoration.getWidth(), 3);
+        decoration.addActor(highBand);
 
         return decoration;
     }
@@ -129,8 +135,8 @@ public class SecFleet extends Sector {
         //create the tabs
         TabType[] types = TabType.values();
         for(int i=0; i<types.length; i++){
-            tabs.put(types[i], new FleetTab(types[i].toString(), game.skin, Main.glyph,
-                    new Vector2(3+66*i, 2), new Vector2(64, 22)));
+            tabs.put(types[i], new FleetTab(types[i].toString(), new Vector2(3+66*i, 2),
+                    new Vector2(64, 22)));
 
             //get the group, add it to the overall header group, add listener
             Group tabGroup = tabs.get(types[i]).getHeader();
@@ -156,7 +162,7 @@ public class SecFleet extends Sector {
 
     private Group initHeaderBar(){
         headerBar = new Group();
-        headerBar.setPosition(5, 401);
+        headerBar.setPosition(5, 405);
 
         loadHeaderBar(TabType.Fleet);
 
@@ -484,25 +490,25 @@ public class SecFleet extends Sector {
         headerBar.clearChildren();
 
         //name child
-        Label nameLab = new Label("Name", skin, "small", Color.GRAY);
-        nameLab.setFontScale(0.8f);
+        Label nameLab = new Label("Name", Asset.labelStyle(Asset.Avenir.LIGHT_12));
+        nameLab.setColor(Color.GRAY);
         headerBar.addActor(nameLab);
 
         //position child
-        Label posLab = new Label("Dst", skin, "small", Color.GRAY);
-        posLab.setFontScale(0.8f);
+        Label posLab = new Label("Dst", Asset.labelStyle(Asset.Avenir.LIGHT_12));
+        posLab.setColor(Color.GRAY);
         posLab.setX(PANEL_NAME_WID);
         headerBar.addActor(posLab);
 
         //velocity child
-        Label spdLab = new Label("Spd", skin, "small", Color.GRAY);
-        spdLab.setFontScale(0.8f);
+        Label spdLab = new Label("Spd", Asset.labelStyle(Asset.Avenir.LIGHT_12));
+        spdLab.setColor(Color.GRAY);
         spdLab.setX(PANEL_NAME_WID + PANEL_DIST_WID);
         headerBar.addActor(spdLab);
 
         //hp child
-        Label hpLab = new Label("HP", skin, "small", Color.GRAY);
-        hpLab.setFontScale(0.8f);
+        Label hpLab = new Label("HP", Asset.labelStyle(Asset.Avenir.LIGHT_12));
+        hpLab.setColor(Color.GRAY);
         hpLab.setX(PANEL_NAME_WID + PANEL_DIST_WID + PANEL_SPD_WID);
         headerBar.addActor(hpLab);
     }
@@ -515,7 +521,8 @@ public class SecFleet extends Sector {
 
         //grid tag
         if(type == TabType.Fleet){
-            Label gridTagLabel = new Label("[X]", skin, "small", Color.LIGHT_GRAY);
+            Label gridTagLabel = new Label("[X]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+            gridTagLabel.setColor(Color.LIGHT_GRAY);
             group.addActor(new FleetContainer<Label>(gridTagLabel, GRID_TAG_WID) {
                 @Override
                 public void updateValuesFromEntity(Entity entity) {
@@ -526,7 +533,7 @@ public class SecFleet extends Sector {
         }
 
         //name label
-        Label nameLabel = new Label(ship.getSubtype().toString(), skin, "small", Color.WHITE);
+        Label nameLabel = new Label(ship.subtype().toString(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         group.addActor(new FleetContainer<Label>(nameLabel, type==TabType.Fleet ? SHIP_NAME_WID : PANEL_NAME_WID,
                 true, false) {
             @Override
@@ -540,7 +547,8 @@ public class SecFleet extends Sector {
         });
 
         //position label
-        Label posLabel = new Label("", skin, "small", Color.LIGHT_GRAY);
+        Label posLabel = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        posLabel.setColor(Color.LIGHT_GRAY);
         group.addActor(new FleetContainer<Label>(posLabel, PANEL_DIST_WID){
             @Override
             public void updateValuesFromEntity(Entity entity){
@@ -551,8 +559,7 @@ public class SecFleet extends Sector {
                 }
                 //docked
                 else if(entity.isDocked()){
-                    actor().setText("(Docked)");
-                    actor().setFontScale(0.75f);
+                    actor().setText("");
                 }
                 //in warp
                 else if(entity.grid == -1) {
@@ -562,7 +569,8 @@ public class SecFleet extends Sector {
         });
 
         //speed label
-        Label spdLabel = new Label("", skin, "small", Color.LIGHT_GRAY);
+        Label spdLabel = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        spdLabel.setColor(Color.LIGHT_GRAY);
         group.addActor(new FleetContainer<Label>(spdLabel, PANEL_SPD_WID) {
             @Override
             public void updateValuesFromEntity(Entity entity){
@@ -594,7 +602,7 @@ public class SecFleet extends Sector {
                 @Override
                 public void updateValuesFromEntity(Entity entity) {
                     Ship sh = (Ship) entity;
-                    hpValue.setWidth((PANEL_HP_WID-2) * sh.health/sh.getMaxHealth());
+                    hpValue.setWidth((PANEL_HP_WID-2) * sh.health/sh.model.getMaxHealth());
                 }
             });
         });
@@ -609,7 +617,7 @@ public class SecFleet extends Sector {
         HorizontalGroup group = new HorizontalGroup();
 
         //name label
-        Label nameLabel = new Label(station.getFleetName(), skin, "small", Color.WHITE);
+        Label nameLabel = new Label(station.getFleetName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         group.addActor(new FleetContainer<Label>(nameLabel, PANEL_NAME_WID,
                 true, false) {
             @Override
@@ -677,12 +685,12 @@ public class SecFleet extends Sector {
 
                     switch(s.stage){
                         case SHIELDED:
-                            shieldValue.setWidth((PANEL_HP_WID-2) * s.shieldHealth/s.getMaxShield());
+                            shieldValue.setWidth((PANEL_HP_WID-2) * s.shieldHealth/s.model.getMaxShield());
                             break;
                         case ARMORED:
                         case VULNERABLE:
                         case RUBBLE:
-                            hullValue.setWidth((PANEL_HP_WID-2) * s.hullHealth/s.getMaxHull());
+                            hullValue.setWidth((PANEL_HP_WID-2) * s.hullHealth/s.model.getMaxHull());
                             break;
                     }
                 }

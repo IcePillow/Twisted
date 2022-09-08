@@ -4,7 +4,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -13,6 +12,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Asset;
+import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
@@ -34,8 +34,8 @@ public class DetsShipInWarp extends DetsGroup {
 
     /* Construction */
 
-    public DetsShipInWarp(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
-        super(sector, skin, glyph, size);
+    public DetsShipInWarp(SecDetails sector, Skin skin, Vector2 size){
+        super(sector, skin, size);
 
         Group topTextGroup = createTopTextGroup();
         topTextGroup.setPosition(6, 100);
@@ -53,17 +53,19 @@ public class DetsShipInWarp extends DetsGroup {
     private Group createTopTextGroup(){
         Group group = new Group();
 
-        Label shipGrid = new Label("[W]", skin, "medium", Color.WHITE);
+        Label shipGrid = new Label("[W]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        shipGrid.setColor(Color.LIGHT_GRAY);
         group.addActor(shipGrid);
 
-        shipName = new Label("[Ship Name]", skin, "medium", Color.WHITE);
+        shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         shipName.setPosition(30, 0);
         group.addActor(shipName);
 
-        shipMoveCommand = new Label("[movement cmd]", skin, "small", Color.LIGHT_GRAY);
+        shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipMoveCommand.setColor(Color.LIGHT_GRAY);
         shipMoveCommand.setFontScale(0.9f);
-        glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setPosition(288 - glyph.width*shipMoveCommand.getFontScaleX(), 0);
+        Main.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
+        shipMoveCommand.setPosition(288 - Main.glyph.width*shipMoveCommand.getFontScaleX(), 0);
         group.addActor(shipMoveCommand);
 
         return group;
@@ -147,13 +149,13 @@ public class DetsShipInWarp extends DetsGroup {
         sel = (Ship) entity;
 
         //update the name
-        shipName.setText(sel.getSubtype().toString());
+        shipName.setText(sel.subtype().toString());
         shipName.setColor(state.players.get(sel.owner).getFile().color);
 
         //update the weapon button visibility
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
-            weaponButtons[i].setVisible(i < sel.getWeaponSlots().length);
+            weaponButtons[i].setVisible(i < sel.model.getWeaponSlots().length);
 
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
@@ -174,13 +176,13 @@ public class DetsShipInWarp extends DetsGroup {
     public void updateEntity() {
         //update movement and calculate new layout data
         shipMoveCommand.setText(sel.moveCommand);
-        glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setX(290 - glyph.width*shipMoveCommand.getFontScaleX());
+        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
+        shipMoveCommand.setX(290 - Main.glyph.width*shipMoveCommand.getFontScaleX());
 
         //update the health
-        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.getMaxHealth())+1)) + "s",
-                ((int) Math.ceil(sel.health)) + "/" + sel.getMaxHealth()));
-        healthFill.setWidth(200 * sel.health / sel.getMaxHealth());
+        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxHealth())+1)) + "s",
+                ((int) Math.ceil(sel.health)) + "/" + sel.model.getMaxHealth()));
+        healthFill.setWidth(200 * sel.health / sel.model.getMaxHealth());
 
         //update active weapons
         for(int i = 0; i< sel.weapons.length; i++){

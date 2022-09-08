@@ -9,7 +9,7 @@ public class DesktopLauncher {
 		LwjglApplicationConfiguration config = new LwjglApplicationConfiguration();
 
 		config.forceExit = true;
-		config.title = "Twisted";
+		config.title = "Armada";
 		config.width = Main.WIDTH;
 		config.height = Main.HEIGHT;
 

@@ -7,7 +7,7 @@ import com.twisted.logic.entities.Ship;
 public class MAddShip implements MGameUpd {
 
     //meta data
-    public Ship.Type type;
+    public Ship.Model type;
     public int grid;
     public int shipId;
 
@@ -18,7 +18,7 @@ public class MAddShip implements MGameUpd {
     /**
      * Constructor
      */
-    private MAddShip(Ship.Type type, int shipId){
+    private MAddShip(Ship.Model type, int shipId){
         this.type = type;
         this.shipId = shipId;
     }
@@ -27,7 +27,7 @@ public class MAddShip implements MGameUpd {
      * Creates an MAddShip from a ship with a body.
      */
     public static MAddShip createFromShipBody(Ship s){
-        MAddShip m = new MAddShip(s.getSubtype(), s.id);
+        MAddShip m = new MAddShip(s.model, s.id);
 
         m.grid = s.grid;
         m.ownerId = s.owner;

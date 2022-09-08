@@ -4,10 +4,7 @@ import com.twisted.net.msg.Disconnect;
 import com.twisted.net.msg.Message;
 import com.twisted.net.msg.Transmission;
 
-import java.io.EOFException;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.net.SocketException;

@@ -1,21 +1,21 @@
 package com.twisted.local.game;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
+import com.twisted.Main;
+import com.twisted.local.lib.Ribbon;
 
 class SecLog extends Sector {
 
     //exterior references
-    private Game game;
+    private final Game game;
 
     //graphics utilities
-    private Skin skin;
+    private final Skin skin;
 
     //graphics tree
     private Group parent;
@@ -42,12 +42,9 @@ class SecLog extends Sector {
         decoration.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(decoration);
 
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
-//        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
-//        embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
-//        decoration.addActor(embedded);
 
         //create the scrollpane's child
         vertical = new VerticalGroup();
@@ -101,8 +98,8 @@ class SecLog extends Sector {
     void addToLog(String string, LogColor logColor){
 
         //create and add the label
-        Label label = new Label(string, skin, "small", logColor.col);
-        label.setFontScale(0.7f);
+        Label label = new Label(string, Asset.labelStyle(Asset.Avenir.LIGHT_12)); //logColor.col
+        label.setColor(logColor.col);
         vertical.addActor(label);
 
         //cap the number of children allowed

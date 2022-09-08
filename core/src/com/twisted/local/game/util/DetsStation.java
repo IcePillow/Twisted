@@ -3,13 +3,13 @@ package com.twisted.local.game.util;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.Asset;
+import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Station;
@@ -32,29 +32,32 @@ public class DetsStation extends DetsGroup {
 
     /* Construction */
 
-    public DetsStation(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size) {
-        super(sector, skin, glyph, size);
+    public DetsStation(SecDetails sector, Skin skin, Vector2 size) {
+        super(sector, skin, size);
 
         Group topTextGroup = createTopTextGroup();
         topTextGroup.setPosition(6, 100);
         this.addActor(topTextGroup);
 
         Group healthGroup = createHealthGroup();
-        healthGroup.setPosition(6, 87);
+        healthGroup.setPosition(6, 89);
         this.addActor(healthGroup);
     }
 
     private Group createTopTextGroup(){
         Group group = new Group();
 
-        stationGrid = new Label("[?]", skin, "medium", Color.WHITE);
+        stationGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        stationGrid.setColor(Color.LIGHT_GRAY);
+
         group.addActor(stationGrid);
 
-        stationName = new Label("[Station Name]", skin, "medium", Color.WHITE);
+        stationName = new Label("[Station Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         stationName.setX(30);
         group.addActor(stationName);
 
-        stageTimer = new Label("", skin, "small", Color.LIGHT_GRAY);
+        stageTimer = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        stageTimer.setColor(Color.LIGHT_GRAY);
         stageTimer.setPosition(260, 8);
         group.addActor(stageTimer);
 
@@ -84,8 +87,8 @@ public class DetsStation extends DetsGroup {
         shieldHealthFill.setBounds(1, 1, 200, 8);
         group.addActor(shieldHealthFill);
 
-        healthLabel = new Label("[health]", skin, "small", Color.WHITE);
-        healthLabel.setPosition(204, -7);
+        healthLabel = new Label("[health]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        healthLabel.setPosition(204, -3);
         group.addActor(healthLabel);
 
         return group;
@@ -105,7 +108,7 @@ public class DetsStation extends DetsGroup {
         sel = (Station) entity;
 
         //update the name
-        stationName.setText(sel.getSubtype().toString());
+        stationName.setText(sel.subtype().toString());
         stationName.setColor(state.findColorForOwner(sel.owner));
 
         //update the grid
@@ -135,13 +138,13 @@ public class DetsStation extends DetsGroup {
         else {
             stageTimer.setVisible(true);
             stageTimer.setText(Math.round(sel.stageTimer));
-            glyph.setText(skin.getFont("small"), stageTimer.getText());
-            stageTimer.setX(266-glyph.width);
+            Main.glyph.setText(stageTimer.getStyle().font, stageTimer.getText());
+            stageTimer.setX(266-Main.glyph.width);
         }
 
         //update health
-        shieldHealthFill.setWidth(200 * sel.shieldHealth / sel.getMaxShield());
-        hullHealthFill.setWidth(200 * sel.hullHealth / sel.getMaxHull());
+        shieldHealthFill.setWidth(200 * sel.shieldHealth / sel.model.getMaxShield());
+        hullHealthFill.setWidth(200 * sel.hullHealth / sel.model.getMaxHull());
         switch(sel.stage){
             case SHIELDED:
                 shieldHealthFill.setVisible(true);
@@ -149,8 +152,8 @@ public class DetsStation extends DetsGroup {
                 healthLabel.setVisible(true);
                 healthLabel.setColor(BLUE_TEXT_COLOR);
 
-                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.getMaxShield())+1)) + "s",
-                        ((int) Math.ceil(sel.shieldHealth)) + "/" + sel.getMaxShield()));
+                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxShield())+1)) + "s",
+                        ((int) Math.ceil(sel.shieldHealth)) + "/" + sel.model.getMaxShield()));
                 break;
             case ARMORED:
             case VULNERABLE:
@@ -159,8 +162,8 @@ public class DetsStation extends DetsGroup {
                 healthLabel.setVisible(true);
                 healthLabel.setColor(GREEN_TEXT_COLOR);
 
-                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.getMaxHull())+1)) + "s",
-                        ((int) Math.ceil(sel.hullHealth)) + "/" + sel.getMaxHull()));
+                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxHull())+1)) + "s",
+                        ((int) Math.ceil(sel.hullHealth)) + "/" + sel.model.getMaxHull()));
                 break;
             case RUBBLE:
                 shieldHealthFill.setVisible(false);

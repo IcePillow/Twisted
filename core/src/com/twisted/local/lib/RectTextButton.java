@@ -2,6 +2,7 @@ package com.twisted.local.lib;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -10,6 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
 import com.twisted.Asset;
@@ -18,7 +20,8 @@ import com.twisted.Main;
 public class RectTextButton extends Group {
 
     //tree
-    private Image trimLight, trimMed, trimDark, embedded;
+    private Ribbon trimLight, trimMed, trimDark;
+    private Image embedded;
     private Label label;
 
     //state
@@ -30,10 +33,15 @@ public class RectTextButton extends Group {
 
     /* Construction */
 
+    public RectTextButton(String text, Label.LabelStyle style){
+        this(text, style, Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+    }
+
     /**
      * This Actor is always center aligned (center of the label is at x, y).
+     * @param style This will be modified throughout the runtime.
      */
-    public RectTextButton(String text, Skin skin, String styleName){
+    public RectTextButton(String text, Label.LabelStyle style, TextureRegionDrawable background){
         super();
 
         //set values
@@ -42,28 +50,28 @@ public class RectTextButton extends Group {
         trimThick = 1;
 
         //initialize everything
-        createActors(skin, styleName);
+        createActors(style, background);
         createListeners();
         setText(text);
     }
 
-    private void createActors(Skin skin, String styleName){
+    private void createActors(Label.LabelStyle style, TextureRegionDrawable background){
         //create trims and embedded
-        trimLight = new Image(Asset.retrieve(Asset.Shape.PIXEL_LIGHTGRAY));
+        trimLight = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_LIGHTGRAY), 0);
         this.addActor(trimLight);
-        trimMed = new Image(Asset.retrieve(Asset.Shape.PIXEL_GRAY));
+        trimMed = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_GRAY), 0);
         this.addActor(trimMed);
-        trimDark = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+        trimDark = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 0);
         trimDark.setVisible(false);
         this.addActor(trimDark);
-        embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        embedded = new Image(background);
         embedded.setPosition(0, 0);
         this.addActor(embedded);
 
         //create label
-        label = new Label("", skin, styleName, Color.WHITE);
+        label = new Label("", style);
         label.setAlignment(Align.center);
-        label.setColor(Color.GRAY);
+        label.getStyle().fontColor = Color.GRAY;
         label.setPosition(0, 0);
         this.addActor(label);
     }
@@ -84,7 +92,7 @@ public class RectTextButton extends Group {
                     extraEnter = true;
                 }
                 else if(!disabled) {
-                    label.setColor(Color.LIGHT_GRAY);
+                    label.getStyle().fontColor = Color.LIGHT_GRAY;
                     trimLight.setVisible(true);
                     trimMed.setVisible(false);
                     entered = true;
@@ -96,7 +104,7 @@ public class RectTextButton extends Group {
                     extraEnter = false;
                 }
                 else if(!disabled) {
-                    label.setColor(Color.GRAY);
+                    label.getStyle().fontColor = Color.GRAY;
                     trimLight.setVisible(false);
                     trimMed.setVisible(true);
                     entered = false;
@@ -134,10 +142,13 @@ public class RectTextButton extends Group {
         //resize images
         trimLight.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
                 Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+        trimLight.setThickness(trimThick);
         trimMed.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
                 Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+        trimMed.setThickness(trimThick);
         trimDark.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
                 Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+        trimDark.setThickness(trimThick);
         embedded.setBounds(-(Main.glyph.width+padHor)/2, -(Main.glyph.height+padVer)/2,
                 Main.glyph.width+padHor, Main.glyph.height+padVer);
     }
@@ -149,8 +160,8 @@ public class RectTextButton extends Group {
         trimMed.setVisible(!disabled);
         trimDark.setVisible(disabled);
 
-        if(disabled) label.setColor(Color.DARK_GRAY);
-        else label.setColor(Color.GRAY);
+        if(disabled) label.getStyle().fontColor = Color.DARK_GRAY;
+        else label.getStyle().fontColor = Color.GRAY;
     }
 
     /**

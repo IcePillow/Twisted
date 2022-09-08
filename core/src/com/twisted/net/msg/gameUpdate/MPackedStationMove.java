@@ -16,11 +16,11 @@ public class MPackedStationMove implements MGameUpd {
     public EntPtr addTo;
     public int idxAddTo;
 
-    public Station.Type type;
+    public Station.Model type;
 
 
     public MPackedStationMove(EntPtr removeFrom, int idxRemoveFrom, EntPtr addTo, int idxAddTo,
-                              Station.Type type){
+                              Station.Model type){
         this.idxRemoveFrom = idxRemoveFrom;
         this.removeFrom = removeFrom;
         this.addTo = addTo;

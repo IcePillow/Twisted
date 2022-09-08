@@ -4,38 +4,26 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
-import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.scenes.scene2d.Event;
-import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Asset;
 import com.twisted.Main;
-import com.twisted.local.lib.RectTextButton;
 import com.twisted.logic.host.lobby.LobbyHost;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
 import com.twisted.net.msg.*;
+import com.twisted.net.msg.lobby.*;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.msg.remaining.MChat;
-import com.twisted.net.msg.remaining.MCommand;
 import com.twisted.local.game.Game;
 
 import java.util.Arrays;
 
 /**
- * The Lobby Screen.
- *
- * Stage
-    decorationGroup
-    initialGroup
-        clientGroup
-        serverGroup
-    terminalGroup
+ * The Lobby Screen
  */
 public class Lobby implements Screen, ClientContact {
 
@@ -44,32 +32,24 @@ public class Lobby implements Screen, ClientContact {
     private Client client;
     private LobbyHost host;
 
+    //networking
+    private int myId;
+    private boolean leavingServer;
+
     //graphics
     private Stage stage;
-    private Skin skin;
-    private OrthographicCamera camera;
-    private ShapeRenderer shape;
+    Skin skin;
 
-    //tree
-    private Group initialGroup, clientGroup, serverGroup, terminalGroup;
-    private RectTextButton joinButton, hostButton, terminateButton; //buttons outside groups
-    private RectTextButton connectButton, launchButton; //buttons inside the groups
-    private Label attemptingJoin, attemptingLaunch, disconnectedLabel;
-    private Table terminalWidget; //terminal display
-    private ScrollPane pane;
+    //sectors
+    private Sector[] sectors;
+    private SecDecor decorSec;
+    private SecConnect connectSec;
+    private SecTerminal terminalSec;
+    private SecSide sideSec;
+    private SecTeaser teaserSec;
 
     //styles
-    private Label.LabelStyle terminalLabelStyle;
-    private TextField.TextFieldStyle textFieldStyle;
-
-    //rendering
-    private float[][] stars;
-
-    //graphics details
-    private final int TERMINAL_WIDTH = 480;
-
-    //user details
-    private String desiredUsername;
+    TextField.TextFieldStyle textFieldStyle;
 
 
     /* Constructor */
@@ -77,8 +57,10 @@ public class Lobby implements Screen, ClientContact {
     public Lobby(Main main){
         this.main = main;
 
-        loadGui();
-        loadRender();
+        //graphics
+        stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
+        Gdx.input.setInputProcessor(stage);
+        initSectors();
     }
 
 
@@ -89,13 +71,14 @@ public class Lobby implements Screen, ClientContact {
     }
     @Override
     public void render(float delta) {
+        //reset background
         Gdx.gl.glClearColor(0, 0, 0f, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        //rendering
-        camera.update();
-        shape.setProjectionMatrix(camera.combined);
-        frameRender(delta);
+        //live drawings
+        for(Sector s : sectors){
+            s.render(delta);
+        }
 
         //scene2d
         Main.glyph.reset();
@@ -126,69 +109,45 @@ public class Lobby implements Screen, ClientContact {
 
     @Override
     public void connectedToServer() {
-        //if hosting
-        if(host != null) {
-            //prepare the terminal group
-            terminateButton.setText("Close");
-            terminateButton.setVisible(true);
+        //tell sectors generally
+        terminalSec.scrollToBottom();
+        sideSec.setPlayersVisible(true);
+        sideSec.setSettingsVisible(true);
 
-            //fix the previous group
-            attemptingLaunch.setVisible(false);
-            joinButton.setDisabled(false);
-            launchButton.setDisabled(false);
-            serverGroup.setVisible(false);
+        //hosting only things
+        if(host != null) {
+            //tell sectors
+            sideSec.setBottomVisible(true);
+            connectSec.connectedToServer(true);
+        }
+        //client only things
+        else {
+            //tell sectors
+            connectSec.connectedToServer(false);
 
             //chat
-            addToTerminal(MChat.Type.LOGISTICAL, "> You started hosting a server on port " + host.getPort());
+            terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "\n\n> You connected to a server");
         }
-        //if just a client
-        else {
-            //prepare the terminal group
-            terminateButton.setText("Leave");
-            terminateButton.setVisible(true);
-
-            //fix the previous group
-            attemptingJoin.setVisible(false);
-            hostButton.setDisabled(false);
-            connectButton.setDisabled(false);
-            clientGroup.setVisible(false);
-        }
-
-        //switch which high level group is visible
-        initialGroup.setVisible(false);
-        terminalGroup.setVisible(true);
-
-        //scroll the terminal
-        pane.setScrollPercentY(1);
 
         //name change
-        client.send(new MCommand(new String[]{"name", desiredUsername}));
+        if(connectSec.getDesiredUsername().length() > 0) {
+            client.send(new MCommand(new String[]{"name", connectSec.getDesiredUsername()}));
+        }
     }
-
     @Override
     public void failedToConnect() {
-        attemptingJoin.setVisible(false);
-        connectButton.setDisabled(false);
-
-        disconnectedLabel.setText("Failed to connect");
-        disconnectedLabel.setVisible(true);
-        new Thread(() -> {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            disconnectedLabel.setVisible(false);
-        }).start();
+        connectSec.failedToConnectToServer();
+        terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> Failed to connect to server");
     }
-
     @Override
-    public void clientReceived(Message message) {
-        if(message instanceof MChat){
-            addToTerminal(((MChat) message).type, ((MChat) message).string);
+    public void clientReceived(Message msg) {
+        if(client == null) return;
+
+        if(msg instanceof MChat){
+            terminalSec.addToTerminal(((MChat) msg).type, ((MChat) msg).string);
         }
-        else if(message instanceof MSceneChange){
-            if(((MSceneChange) message).getChange() == MSceneChange.Change.GAME){
+        else if(msg instanceof MSceneChange){
+            if(((MSceneChange) msg).getChange() == MSceneChange.Change.GAME){
                 //create game
                 Gdx.app.postRunnable(() -> {
                     //create the new game
@@ -212,57 +171,62 @@ public class Lobby implements Screen, ClientContact {
                 System.out.println(Arrays.toString(new Exception().getStackTrace()));
             }
         }
-    }
+        else if(msg instanceof MLobbyPlayerChange){
+            MLobbyPlayerChange m = (MLobbyPlayerChange) msg;
 
+            switch (m.type){
+                case JOIN:
+                    terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> " + m.name + " has joined the lobby");
+                    sideSec.addPlayer(m.id, m.name, m.isHost);
+                    break;
+                case LEAVE:
+                    terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> " + m.name + " has left the lobby");
+                    sideSec.removePlayer(m.id);
+                    break;
+                case RENAME:
+                    if(myId == m.id) terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> You changed your name to " + m.name);
+                    else terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> " + m.oldName + " changed their name to " + m.name);
+                    sideSec.renamePlayer(m.id, m.name);
+                    break;
+            }
+        }
+        else if(msg instanceof MLobbyWelcome){
+            MLobbyWelcome m = (MLobbyWelcome) msg;
+            myId = m.yourId;
+
+            //player ids
+            for(int i=0; i<m.playerIdList.length; i++){
+                if(m.playerIdList[i] == m.hostId){
+                    if(m.yourId == m.hostId) terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "\n\n> You started hosting on port " + host.getPort());
+                    else terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> Welcome to the lobby hosted by " + m.playerNameList[i]);
+                }
+                sideSec.addPlayer(m.playerIdList[i], m.playerNameList[i], m.playerIdList[i]==m.hostId);
+            }
+
+            //state
+            sideSec.settingMap(m.settings.map.name());
+        }
+        else if(msg instanceof MSettingChange){
+            MSettingChange m = (MSettingChange) msg;
+            switch(m.type){
+                case MAP:
+                    sideSec.settingMap(m.value.toString());
+                    break;
+                default:
+                    System.out.println("Unexpected setting type");
+                    new Exception().printStackTrace();
+            }
+        }
+    }
     @Override
     public void disconnected(String reason){
-        //visual groups
-        terminalGroup.setVisible(false);
-        initialGroup.setVisible(true);
-
-        //tell user what happened
-        disconnectedLabel.setText("Disconnected: " + reason);
-        disconnectedLabel.setPosition(600, 200);
-        disconnectedLabel.setVisible(true);
-        new Thread(() -> {
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            disconnectedLabel.setVisible(false);
-        }).start();
-
-        //logical stuff
-        if(client != null) client.shutdown();
-        client = null;
+        if(!leavingServer) terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> Disconnected: " + reason);
+        leftServer();
     }
-
     @Override
     public void lostConnection() {
-        //visual groups
-        terminalGroup.setVisible(false);
-        initialGroup.setVisible(true);
-
-        //update terminal
-        addToTerminal(MChat.Type.WARNING_ERROR,"> You lost connection with the server.");
-
-        //tell user what happened
-        disconnectedLabel.setText("Lost connection to the server.");
-        disconnectedLabel.setPosition(600, 200);
-        disconnectedLabel.setVisible(true);
-        new Thread(() -> {
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            disconnectedLabel.setVisible(false);
-        }).start();
-
-        //logical stuff
-        client.shutdown();
-        client = null;
+        if(!leavingServer) terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> You lost connection");
+        leftServer();
     }
 
 
@@ -279,18 +243,96 @@ public class Lobby implements Screen, ClientContact {
      * Called by LobbyHost if creating and starting a server fails.
      */
     public void serverLaunchFailed(){
-        attemptingLaunch.setVisible(false);
-        launchButton.setDisabled(false);
+        connectSec.stopLaunchingServer();
     }
 
 
-    /* Internal Events */
+    /* Prep Graphics */
 
-    /**
-     * Called when the user presses return while in the terminal text field.
-     */
-    private void terminalInput(String string){
+    private void initSectors(){
+        //load the skin
+        skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
+        skin.getFont("small").getData().markupEnabled = true;
+        skin.getFont("medium").getData().markupEnabled = true;
+        skin.getFont("title").getData().markupEnabled = true;
+        createStyles();
 
+        //load the sectors
+        decorSec = new SecDecor(this, stage);
+        stage.addActor(decorSec.init());
+
+        connectSec = new SecConnect(this);
+        stage.addActor(connectSec.init());
+
+        terminalSec = new SecTerminal(this);
+        stage.addActor(terminalSec.init());
+
+        sideSec = new SecSide(this);
+        stage.addActor(sideSec.init());
+
+        teaserSec = new SecTeaser(this);
+        stage.addActor(teaserSec.init());
+
+        //set the sectors array
+        sectors = new Sector[]{decorSec, connectSec, terminalSec, sideSec, teaserSec};
+    }
+
+    private void createStyles(){
+        Asset.labelStyle(Asset.Avenir.MEDIUM_14);
+
+        textFieldStyle = new TextField.TextFieldStyle(
+                Asset.retrieve(Asset.Avenir.MEDIUM_16),
+                Color.WHITE,
+                Asset.retrieve(Asset.UiBasic.CURSOR_1),
+                null,
+                Asset.retrieve(Asset.Shape.PIXEL_BLACK)
+        );
+        textFieldStyle.messageFont = Asset.retrieve(Asset.Avenir.LIGHT_16);
+        textFieldStyle.messageFontColor = new Color(0.3f, 0.3f, 0.3f, 1);
+    }
+
+
+    /* Sector Events */
+
+    void connectAsClient(String[] address){
+        client = new Client(this, address[0], Integer.parseInt(address[1]));
+    }
+    void cancelClientConnect(){
+        if(client != null){
+            client.shutdown();
+            client = null;
+        }
+    }
+    void launchServer(){
+        host = new LobbyHost(this);
+    }
+
+    void terminateClicked(){
+        leavingServer = true;
+
+        //if you were hosting
+        if(host != null){
+            terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> Closing the server");
+
+            host.shutdown();
+            host = null;
+        }
+        //if you were a client
+        else {
+            terminalSec.addToTerminal(MChat.Type.LOGISTICAL, "> You left the server");
+
+            client.send(new Disconnect());
+        }
+    }
+
+    void scrollFocus(Actor actor){
+        stage.setScrollFocus(actor);
+    }
+    void keyboardFocus(Actor actor){
+        stage.setKeyboardFocus(actor);
+    }
+
+    void terminalInput(String string){
         //check it's not empty
         if(string.equals("")) return;
 
@@ -298,437 +340,62 @@ public class Lobby implements Screen, ClientContact {
         if(string.charAt(0) == '/' && string.length() > 1){
             MCommand command = new MCommand(string.substring(1).split(" "));
 
-            client.send(command);
+            switch(command.getType()){
+                //handle locally
+                case HELP: {
+                    terminalSec.addToTerminal(MChat.Type.LOGISTICAL, SecTerminal.HELP_TEXT);
+                    break;
+                }
+                //send over the network
+                case START:
+                case NAME:
+                case KICK:
+                    if(client != null) client.send(command);
+                    else terminalSec.addToTerminal(MChat.Type.LOGISTICAL,
+                            "> You are not connected to a server");
+                    break;
+                case NONE:
+                    break;
+                default:
+                    System.out.println("Unrecognized command");
+                    new Exception().printStackTrace();
+            }
         }
         //basic chats
-        else if(string.charAt(0) != '/'){
+        else {
             //create the chat
             MChat chat = new MChat(MChat.Type.PLAYER_CHAT, string);
 
             //send the chat
-            client.send(chat);
-        }
-
-    }
-
-    /**
-     * Utility method to add a string to the terminal output.
-     */
-    public void addToTerminal(MChat.Type type, String string){
-
-        //create the label
-        Label label = new Label(string, skin, "small");
-        label.setWrap(true);
-        label.setStyle(terminalLabelStyle);
-        label.setFontScale(0.7f);
-
-        //set label color
-        switch(type){
-            case LOGISTICAL:
-                label.setColor(Color.GRAY);
-                break;
-            case WARNING_ERROR:
-                label.setColor(1, 0.5f, 0.5f, 1);
-                break;
-        }
-
-        //add the label to the widget
-        terminalWidget.row();
-        terminalWidget.add(label).width(TERMINAL_WIDTH);
-
-        //had to do thread for some reason
-        new Thread(() -> {
-            try {
-                Thread.sleep(20);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            pane.setScrollPercentY(1);
-
-        }).start();
-
-    }
-
-
-    /* Rendering */
-
-    private void loadRender(){
-        //create objects
-        camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
-        camera.translate(stage.getWidth()/2, stage.getHeight()/2);
-        shape = new ShapeRenderer();
-
-        //prepare stars
-        stars = new float[150][4];
-        for(float[] s : stars){
-            s[0] = (float) (Math.random()) * Main.WIDTH;
-            s[1] = (float) (Math.random()) * Main.HEIGHT;
-            s[2] = (float) Math.floor((Math.random()) * 1.99f) + 1;
-            s[3] = (float) (Math.random()*0.4f + 0.2f);
+            if(client != null) client.send(chat);
+            else terminalSec.addToTerminal(MChat.Type.LOGISTICAL,
+                    "> You are not connected to a server");
         }
     }
 
-    private void frameRender(float delta){
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-
-        //draw background
-        shape.setColor(Main.SPACE);
-        shape.rect(0, 0, stage.getWidth(), stage.getHeight());
-
-        for(float[] s : stars){
-            shape.setColor(s[3], s[3], s[3], 1f);
-            shape.circle(s[0], s[1], s[2]);
-        }
-
-        shape.end();
+    void settingChange(MSettingRequest msg){
+        client.send(msg);
     }
 
 
-    /* Loading the Stage */
+    /* Internal Events */
 
-    private void loadGui(){
-        //load the skin
-        skin = new Skin(Gdx.files.internal("skins/sgx/skin/sgx-ui.json"));
+    private void leftServer(){
+        //update sectors
+        terminalSec.addConnectionEnded();
+        connectSec.leaveCloseServer();
+        sideSec.clearAllPlayers();
+        sideSec.revertSettings();
+        sideSec.setBottomVisible(false);
+        sideSec.setPlayersVisible(false);
+        sideSec.setSettingsVisible(false);
 
-        //create styles from skin
-        createStyles();
+        //network stuff
+        if(client != null) client.shutdown();
+        client = null;
 
-        //create the stage
-        stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
-        Gdx.input.setInputProcessor(stage);
-
-        //groups
-        Group decorationGroup = createDecoration();
-        initialGroup = createInitialGui();
-        terminalGroup = createTerminalGui();
-        terminalGroup.setVisible(false);
-
-        //groups
-        stage.addActor(decorationGroup);
-        stage.addActor(initialGroup);
-        stage.addActor(terminalGroup);
+        //clean up
+        leavingServer = false;
     }
 
-    /**
-     * Creates alternate styles for use later.
-     */
-    private void createStyles(){
-        Label label = new Label("", skin);
-        terminalLabelStyle = new Label.LabelStyle(label.getStyle());
-        terminalLabelStyle.fontColor = new Color(0.9f, 0.9f, 0.9f, 1);
-
-        TextField textField = new TextField("", skin);
-        textFieldStyle = new TextField.TextFieldStyle(textField.getStyle());
-        textFieldStyle.fontColor = new Color(0.9f, 0.9f, 0.9f, 1);
-        textFieldStyle.background = Asset.retrieve(Asset.Shape.PIXEL_BLACK);
-        textFieldStyle.cursor = Asset.retrieve(Asset.UiBasic.CURSOR_1);
-    }
-
-    /**
-     * Modularity method.
-     */
-    private Group createDecoration(){
-        Group group = new Group();
-
-        //title text
-        Label titleText = new Label("TWISTED", skin, "title", Color.WHITE);
-        titleText.setColor(Color.LIGHT_GRAY);
-        titleText.setPosition(-titleText.getWidth()/2 + 720, 600);
-        group.addActor(titleText);
-
-        return group;
-    }
-
-    /**
-     * Modularity method that takes care of the client, server, and title text.
-     */
-    private Group createInitialGui(){
-
-        Group group = new Group();
-
-        //join as a client
-        joinButton = new RectTextButton("Join", skin, "medium");
-        joinButton.setPadding(30, 24, 2);
-        joinButton.setPosition(600, 525);
-        group.addActor(joinButton);
-
-        clientGroup = createJoinGui();
-        group.addActor(clientGroup);
-        clientGroup.setVisible(false);
-
-        //create a server
-        hostButton = new RectTextButton("Host", skin, "medium");
-        hostButton.setPadding(30, 24, 2);
-        hostButton.setPosition(840, 525);
-        group.addActor(hostButton);
-
-        serverGroup = createHostGui();
-        group.addActor(serverGroup);
-        serverGroup.setVisible(false);
-
-        //disconnected label, not shown initially
-        disconnectedLabel = new Label("[???]", skin, "small", Color.WHITE);
-        disconnectedLabel.setColor(Color.LIGHT_GRAY);
-        disconnectedLabel.setPosition(640, 300);
-        disconnectedLabel.setVisible(false);
-        group.addActor(disconnectedLabel);
-
-        //listeners
-        joinButton.setOnLeftClick(() -> {
-            hostButton.setDisabled(true);
-            clientGroup.setVisible(true);
-        });
-        hostButton.setOnLeftClick(() -> {
-            joinButton.setDisabled(true);
-            serverGroup.setVisible(true);
-        });
-
-        //return
-        return group;
-    }
-
-    /**
-     * Modularity method that creates and returns the group responsible for the client selection.
-     */
-    private Group createJoinGui(){
-        Group group = new Group();
-
-        //address
-        TextField addressField = new TextField("", skin);
-        addressField.setStyle(textFieldStyle);
-        addressField.setBounds(650, 442, 200, 30);
-        addressField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
-        Image addressDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        addressDecor.setBounds(addressField.getX()-3, addressField.getY()-3,
-                addressField.getWidth()+6, addressField.getHeight()+6);
-        Label addressLabel = new Label("Address", skin, "small", Color.WHITE);
-        addressLabel.setColor(Color.GRAY);
-        addressLabel.setPosition(650-addressLabel.getWidth()-6, addressField.getY()+3);
-
-        //username
-        TextField userField = new TextField("", skin);
-        userField.setStyle(textFieldStyle);
-        userField.setBounds(650, 392, 200, 30);
-        userField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
-        Image userDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        userDecor.setBounds(userField.getX()-3, userField.getY()-3,
-                userField.getWidth()+6, userField.getHeight()+6);
-        Label userLabel = new Label("User", skin, "small", Color.WHITE);
-        userLabel.setColor(Color.GRAY);
-        userLabel.setPosition(650-userLabel.getWidth()-6, userField.getY()+3);
-
-        //connect button
-        connectButton = new RectTextButton("Connect", skin, "small");
-        connectButton.setPosition(720+55, 355);
-        connectButton.setPadding(24, 16, 2);
-
-        //cancel button
-        RectTextButton cancelButton = new RectTextButton("Cancel", skin, "small");
-        cancelButton.setPosition(720-55, 355);
-        cancelButton.setPadding(24, 16, 2);
-
-        //attempting label
-        attemptingJoin = new Label("Attempting to connect", skin, "small");
-        attemptingJoin.setPosition(640, 300);
-        attemptingJoin.setVisible(false);
-
-        //listeners
-        Lobby thisSave = this;
-        connectButton.setOnLeftClick(() -> {
-            desiredUsername = userField.getText();
-            String[] address = addressField.getText().split(":");
-
-            if(address.length == 2){
-                client = new Client(thisSave, address[0], Integer.parseInt(address[1]));
-                attemptingJoin.setVisible(true);
-                connectButton.setDisabled(true);
-            }
-        });
-        cancelButton.setOnLeftClick(() -> {
-            clientGroup.setVisible(false);
-            attemptingJoin.setVisible(false);
-            connectButton.setDisabled(false);
-            hostButton.setDisabled(false);
-
-            if(client != null){
-                client.shutdown();
-                client = null;
-            }
-        });
-
-        //add all the actors
-        group.addActor(addressDecor);
-        group.addActor(addressLabel);
-        group.addActor(addressField);
-        group.addActor(userDecor);
-        group.addActor(userLabel);
-        group.addActor(userField);
-        group.addActor(connectButton);
-        group.addActor(cancelButton);
-        group.addActor(attemptingJoin);
-
-        return group;
-    }
-
-    /**
-     * Modularity method that creates and returns the group responsible for the server selection.
-     */
-    private Group createHostGui(){
-        Group group = new Group();
-
-        //address
-        TextField userField = new TextField("", skin);
-        userField.setStyle(textFieldStyle);
-        userField.setBounds(650, 442, 200, 30);
-        userField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
-        Image userDecor = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        userDecor.setBounds(userField.getX()-3, userField.getY()-3,
-                userField.getWidth()+6, userField.getHeight()+6);
-        Label userLabel = new Label("User", skin, "small", Color.WHITE);
-        userLabel.setColor(Color.GRAY);
-        userLabel.setPosition(650-userLabel.getWidth()-6, userField.getY()+3);
-
-        //connect button
-        launchButton = new RectTextButton("Launch", skin, "small");
-        launchButton.setPosition(720+55, 405);
-        launchButton.setPadding(24, 16, 2);
-
-        //cancel button
-        RectTextButton cancelButton = new RectTextButton("Cancel", skin, "small");
-        cancelButton.setPosition(720-55, 405);
-        cancelButton.setPadding(24, 16, 2);
-
-        //attempting label
-        attemptingLaunch = new Label("Launching...", skin, "small");
-        attemptingLaunch.setPosition(680, 300);
-        attemptingLaunch.setVisible(false);
-
-        //listeners
-        Lobby thisSave = this;
-        launchButton.setOnLeftClick(() -> {
-            attemptingLaunch.setVisible(true);
-            launchButton.setDisabled(true);
-
-            desiredUsername = userField.getText();
-            if(desiredUsername.equals("")){
-                desiredUsername = "Host";
-            }
-
-            //create the host
-            host = new LobbyHost(thisSave);
-        });
-        cancelButton.setOnLeftClick(() -> {
-            serverGroup.setVisible(false);
-            joinButton.setDisabled(false);
-            attemptingLaunch.setVisible(false);
-            launchButton.setDisabled(false);
-        });
-
-        //add actors
-        group.addActor(userDecor);
-        group.addActor(userField);
-        group.addActor(userLabel);
-        group.addActor(launchButton);
-        group.addActor(cancelButton);
-        group.addActor(attemptingLaunch);
-
-        return group;
-    }
-
-    /**
-     * Modularity method that creates and returns the group responsible for the terminal and
-     * leave or close button.
-     */
-    private Group createTerminalGui(){
-        Group group = new Group();
-        group.setPosition(720-TERMINAL_WIDTH/2f-3, 138);
-
-        //close the server button
-        terminateButton = new RectTextButton("", skin, "medium");
-        terminateButton.setPadding(16, 10, 2);
-        terminateButton.setPosition(TERMINAL_WIDTH/2f, 387);
-
-        //ribbon of the terminal
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        ribbon.setSize(TERMINAL_WIDTH+6, 300+36+9);
-        group.addActor(ribbon);
-
-        //create the widget
-        terminalWidget = new Table();
-        terminalWidget.left().bottom();
-
-        //create the pane
-        pane = new ScrollPane(terminalWidget, skin);
-        pane.setBounds(3, 36+6, TERMINAL_WIDTH, 300);
-        pane.setColor(Color.BLACK);
-        pane.setScrollingDisabled(true, false);
-        pane.setFadeScrollBars(false);
-
-        //text field input
-        TextField textField = new TextField("", skin);
-        textField.setStyle(textFieldStyle);
-        textField.setBlinkTime(0.4f);
-        textField.setBounds(3, 3, TERMINAL_WIDTH, 36);
-        textField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
-
-        //listeners
-        terminateButton.setOnLeftClick(() -> {
-            //if you were hosting
-            if(host != null){
-                host.shutdown();
-                host = null;
-
-                addToTerminal(MChat.Type.LOGISTICAL, "> You closed the server.");
-            }
-            //if you were a client
-            else {
-                client.shutdown();
-                client = null;
-
-                addToTerminal(MChat.Type.LOGISTICAL, "> You left the server.");
-            }
-
-            addToTerminal(MChat.Type.LOGISTICAL,"--Connection Ended--\n\n");
-
-            //reset graphics
-            textField.setText("");
-            terminalGroup.setVisible(false);
-            initialGroup.setVisible(true);
-
-            //shutdown the networking
-            if(host != null){
-                host.shutdown();
-                host = null;
-            }
-            else {
-                client.shutdown();
-                client = null;
-            }
-        });
-        textField.addCaptureListener((Event event) -> {
-            if(event instanceof InputEvent && ((InputEvent) event).getType() == InputEvent.Type.keyUp){
-                if((((InputEvent) event).getKeyCode()) == 66){
-                    terminalInput(textField.getText());
-                    textField.setText("");
-                }
-            }
-            return false;
-        });
-        pane.addListener(event -> {
-            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
-                stage.setScrollFocus(pane);
-            }
-            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
-                stage.setScrollFocus(null);
-            }
-            return true;
-        });
-
-        //add everything to the group
-        group.addActor(terminateButton);
-        group.addActor(pane);
-        group.addActor(textField);
-        return group;
-    }
 }

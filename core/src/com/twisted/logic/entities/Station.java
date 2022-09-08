@@ -35,6 +35,7 @@ public abstract class Station extends Entity implements Serializable {
         return grid;
     }
     public final String gridNick;
+    public final Model model;
 
     //stage tracking
     public Stage stage;
@@ -44,7 +45,7 @@ public abstract class Station extends Entity implements Serializable {
     public final ArrayList<CurrentJob> currentJobs;
     public final int[] resources;
     public final LinkedHashMap<Integer, Ship> dockedShips;
-    public final Type[] packedStations;
+    public final Model[] packedStations;
 
     //health
     public float shieldHealth;
@@ -54,7 +55,8 @@ public abstract class Station extends Entity implements Serializable {
     /**
      * Constructor
      */
-    public Station(int grid, String gridNick, int owner, Stage stage){
+    public Station(Model model, int grid, String gridNick, int owner, Stage stage){
+        this.model = model;
         this.grid = grid;
         this.owner = owner;
         this.stage = stage;
@@ -65,41 +67,21 @@ public abstract class Station extends Entity implements Serializable {
         currentJobs = new ArrayList<>();
         resources = new int[]{0, 0, 0, 0};
         dockedShips = new LinkedHashMap<>();
-        packedStations = new Type[PACKED_STATION_SLOTS];
+        packedStations = new Model[PACKED_STATION_SLOTS];
 
         //physics
         this.pos = new Vector2(0, 0);
         this.rot = 0;
+        this.polygon = new Polygon(this.model.vertices); //TODO make clientside only
 
         //battle
-        this.shieldHealth = getMaxShield();
-        this.hullHealth = getMaxHull();
+        this.shieldHealth = model.getMaxShield();
+        this.hullHealth = model.getMaxHull();
     }
 
 
     /* Data Methods */
 
-    public abstract Job[] getPossibleJobs();
-    public abstract float[] getVertices();
-    @Override
-    public float getPaddedLogicalRadius(){
-        return (1.28f * 1.1f);
-    }
-    public float getDockingRadius(){
-        return 1f;
-    }
-    public int getMaxShield(){
-        return 10;
-    }
-    public int getMaxHull(){
-        return 8;
-    }
-    public int getArmoredDuration(){
-        return 5;
-    }
-    public int getVulnerableDuration(){
-        return 30;
-    }
     public static Asset.UiIcon getStageIcon(Stage stage){
         switch (stage){
             case SHIELDED:
@@ -120,12 +102,13 @@ public abstract class Station extends Entity implements Serializable {
 
     /* Naming Methods */
 
+    @Override
     public String getFullName(){
-        return this.getSubtype().name() + " " + gridNick;
+        return this.subtype().name() + " " + gridNick;
     }
     @Override
     public String getFleetName(){
-        switch(this.getSubtype()){
+        switch(this.subtype()){
             case Extractor:
                 return "Extrac " + gridNick;
             case Liquidator:
@@ -191,10 +174,10 @@ public abstract class Station extends Entity implements Serializable {
      * Returns what kind of station this is.
      */
     @Override
-    public Type getSubtype(){
-        if(this instanceof Extractor) return Type.Extractor;
-        else if(this instanceof Harvester) return Type.Harvester;
-        else return Type.Liquidator;
+    public Model subtype(){
+        if(this instanceof Extractor) return Model.Extractor;
+        else if(this instanceof Harvester) return Model.Harvester;
+        else return Model.Liquidator;
     }
 
 
@@ -205,25 +188,74 @@ public abstract class Station extends Entity implements Serializable {
      *
      * Lowercase of type is filename.
      */
-    public enum Type implements Subtype {
-        Extractor(4, Asset.EntityIcon.EXTRACTOR),
-        Harvester(4, Asset.EntityIcon.HARVESTER),
-        Liquidator(4, Asset.EntityIcon.LIQUIDATOR);
+    public enum Model implements Subtype {
+        Extractor(
+                new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
+                new Job[]{Job.Frigate, Job.Cruiser, Job.Battleship, Job.Barge, Job.Extractor, Job.Harvester, Job.Liquidator},
+                4
+        ),
+        Harvester(
+                new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
+                new Job[]{Job.Frigate, Job.Cruiser, Job.Battleship, Job.Extractor},
+                4
+        ),
+        Liquidator(
+                new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
+                new Job[]{Job.Frigate, Job.Cruiser, Job.Extractor, Job.Titan},
+                4
+        );
 
-        private final float deployTime;
+        //data methods from entity
+        @Override
+        public String getFilename(){
+            return this.name().toLowerCase();
+        }
+        @Override
+        public float[] getVertices() {
+            return vertices;
+        }
+        @Override
+        public float getPaddedLogicalRadius(){
+            return (1.28f * 1.1f);
+        }
+
+        //data methods for station
         public float getDeployTime(){
             return deployTime;
         }
-
-        private final Asset.EntityIcon icon;
-        @Override
-        public Asset.EntityIcon getIcon(){
-            return icon;
+        public Job[] getPossibleJobs(){
+            return possibleJobs;
+        }
+        public float getDockingRadius(){
+            return 1f;
+        }
+        public int getMaxShield(){
+            return 10;
+        }
+        public int getMaxHull(){
+            return 8;
+        }
+        public int getArmoredDuration(){
+            return 5;
+        }
+        public int getVulnerableDuration(){
+            return 30;
         }
 
-        Type(float deployTime, Asset.EntityIcon icon){
+
+        //data storage
+        private final float deployTime;
+        private final float[] vertices;
+        private final Job[] possibleJobs;
+
+
+        /**
+         * Constructor
+         */
+        Model(float[] vertices, Job[] possibleJobs, float deployTime){
+            this.vertices = vertices;
             this.deployTime = deployTime;
-            this.icon = icon;
+            this.possibleJobs = possibleJobs;
         }
     }
 
@@ -292,14 +324,14 @@ public abstract class Station extends Entity implements Serializable {
         /**
          * Returns the type of station that this job creates.
          */
-        public Type getPackedStationType(){
+        public Model getPackedStationType(){
             switch(this){
                 case Extractor:
-                    return Type.Extractor;
+                    return Model.Extractor;
                 case Harvester:
-                    return Type.Harvester;
+                    return Model.Harvester;
                 case Liquidator:
-                    return Type.Liquidator;
+                    return Model.Liquidator;
                 default:
                     System.out.println("Unexpected request for station type");
                     new Exception().printStackTrace();

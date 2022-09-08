@@ -6,12 +6,11 @@ import com.twisted.logic.entities.*;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
-import com.twisted.net.msg.remaining.MGameStart;
+import com.twisted.net.msg.lobby.MGameStart;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
 
-import java.text.DecimalFormat;
 import java.util.*;
 
 public class GameHost implements ServerContact {

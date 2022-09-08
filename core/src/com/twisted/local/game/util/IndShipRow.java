@@ -10,6 +10,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.Asset;
+import com.twisted.Main;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.Ship;
 
@@ -26,24 +28,25 @@ public class IndShipRow extends IndustryRow {
     /**
      * Constructor
      */
-    public IndShipRow(SecIndustry sector, Skin skin, GlyphLayout glyph, float width, Ship ship){
-        super(sector, skin, glyph, width);
+    public IndShipRow(SecIndustry sector, float width, Ship ship){
+        super(sector, width);
 
         //copy values
         this.ship = ship;
 
         //initialize
-        initGraphics(skin);
+        initGraphics();
         initHandling();
     }
 
-    private void initGraphics(Skin skin){
-        nameLabel = new Label(ship.getFullName(), skin, "small", Color.LIGHT_GRAY);
+    private void initGraphics(){
+        nameLabel = new Label(ship.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        nameLabel.setColor(Color.LIGHT_GRAY);
         this.addActor(nameLabel);
 
         Actor filler = new Actor();
-        glyph.setText(skin.getFont("small"), nameLabel.getText());
-        filler.setWidth(width-glyph.width-19);
+        Main.glyph.setText(nameLabel.getStyle().font, nameLabel.getText());
+        filler.setWidth(width- Main.glyph.width-19);
         this.addActor(filler);
 
         undockImage = new Image(new Texture(Gdx.files.internal("images/ui/icons/undock.png")));

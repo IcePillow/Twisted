@@ -7,6 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.utils.Align;
+import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.state.ClientGameState;
 
@@ -27,15 +28,14 @@ public abstract class GameEvent implements Serializable {
         int durMin = ((int) timeStamp) / 60;
         int durSec = ((int) timeStamp) % 60;
         Label timeLabel = new Label(durMin + ":" + ((durSec<10?("0"+durSec):(durSec))),
-                skin, "small", Color.WHITE);
-        timeLabel.setFontScale(0.8f);
+                Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         timeLabel.setColor(Color.DARK_GRAY);
         group.addActor(timeLabel);
 
         //filler
         Actor filler = new Actor();
         Main.glyph.setText(timeLabel.getStyle().font, timeLabel.getText());
-        filler.setWidth(42-Main.glyph.width);
+        filler.setWidth(32-Main.glyph.width);
         group.addActor(filler);
 
         return group;

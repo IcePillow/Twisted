@@ -4,7 +4,6 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -23,6 +22,7 @@ import com.twisted.local.lib.ProgressButton;
 import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.Station;
 
 public class DetsShipInSpace extends DetsGroup {
 
@@ -59,8 +59,8 @@ public class DetsShipInSpace extends DetsGroup {
 
     /* Construction */
 
-    public DetsShipInSpace(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size) {
-        super(sector, skin, glyph, size);
+    public DetsShipInSpace(SecDetails sector, Skin skin, Vector2 size) {
+        super(sector, skin, size);
 
         Group topTextGroup = createTopTextGroup();
         topTextGroup.setPosition(6, 100);
@@ -86,17 +86,17 @@ public class DetsShipInSpace extends DetsGroup {
     private Group createTopTextGroup(){
         Group group = new Group();
 
-        shipGrid = new Label("[?]", skin, "medium", Color.WHITE);
+        shipGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         group.addActor(shipGrid);
 
-        shipName = new Label("[Ship Name]", skin, "medium", Color.WHITE);
+        shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         shipName.setPosition(30, 0);
         group.addActor(shipName);
 
-        shipMoveCommand = new Label("[movement cmd]", skin, "small", Color.LIGHT_GRAY);
-        shipMoveCommand.setFontScale(0.9f);
-        glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setPosition(288 - glyph.width*shipMoveCommand.getFontScaleX(), 0);
+        shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+        shipMoveCommand.setColor(Color.LIGHT_GRAY);
+        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
+        shipMoveCommand.setPosition(288 - Main.glyph.width, 0);
         group.addActor(shipMoveCommand);
 
         return group;
@@ -105,10 +105,12 @@ public class DetsShipInSpace extends DetsGroup {
     private Group createLocationGroup(){
         Group group = new Group();
 
-        shipPosition = new Label("[x]\n[y]", skin, "small", Color.LIGHT_GRAY);
+        shipPosition = new Label("[x]\n[y]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipPosition.setColor(Color.LIGHT_GRAY);
         group.addActor(shipPosition);
 
-        shipVelocity = new Label("[sp]\n[ag]", skin, "small", Color.LIGHT_GRAY);
+        shipVelocity = new Label("[sp]\n[ag]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipPosition.setColor(Color.LIGHT_GRAY);
         shipVelocity.setPosition(84, 0);
         group.addActor(shipVelocity);
 
@@ -130,9 +132,9 @@ public class DetsShipInSpace extends DetsGroup {
         healthFill.setBounds(1, 1, 200, 8);
         group.addActor(healthFill);
 
-        healthLabel = new Label("[health]", skin, "small",
-                new Color(0,0.49f,0,1));
-        healthLabel.setPosition(204, -7);
+        healthLabel = new Label("[health]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        healthLabel.setColor(new Color(0,0.49f,0,1));
+        healthLabel.setPosition(204, -3);
         group.addActor(healthLabel);
 
         return group;
@@ -232,12 +234,12 @@ public class DetsShipInSpace extends DetsGroup {
         shipWeaponGroup = new Group();
 
         //create actors
-        targetImage = new Image(Asset.retrieve(Asset.EntityIcon.STATION));
-        targetImage.setPosition(36, 3);
+        targetImage = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
+        targetImage.setPosition(35, 3);
         shipWeaponGroup.addActor(targetImage);
 
-        targetLabel = new Label("[none]", skin, "small", Color.WHITE);
-        targetLabel.setPosition(28, 0);
+        targetLabel = new Label("[none]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        targetLabel.setPosition(30, 0);
         shipWeaponGroup.addActor(targetLabel);
 
         targetButton = new TogImgButton(
@@ -318,7 +320,7 @@ public class DetsShipInSpace extends DetsGroup {
         sel = (Ship) entity;
 
         //update the name
-        shipName.setText(sel.getSubtype().toString());
+        shipName.setText(sel.subtype().toString());
         shipName.setColor(state.findColorForOwner(sel.owner));
 
         //update the grid
@@ -326,7 +328,7 @@ public class DetsShipInSpace extends DetsGroup {
 
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
-            weaponButtons[i].setVisible(i < sel.getWeaponSlots().length);
+            weaponButtons[i].setVisible(i < sel.model.getWeaponSlots().length);
 
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
@@ -347,13 +349,13 @@ public class DetsShipInSpace extends DetsGroup {
     public void updateEntity() {
         //update movement and calculate new layout data
         shipMoveCommand.setText(sel.moveCommand);
-        glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setX(288 - glyph.width*shipMoveCommand.getFontScaleX());
+        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
+        shipMoveCommand.setX(288 - Main.glyph.width);
 
         //update the health
-        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.getMaxHealth())+1)) + "s",
-                ((int) Math.ceil(sel.health)) + "/" + sel.getMaxHealth()));
-        healthFill.setWidth(200 * sel.health / sel.getMaxHealth());
+        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxHealth())+1)) + "s",
+                ((int) Math.ceil(sel.health)) + "/" + sel.model.getMaxHealth()));
+        healthFill.setWidth(200 * sel.health / sel.model.getMaxHealth());
 
         //update targeting text and image
         if(sel.targetEntity != null){
@@ -365,11 +367,11 @@ public class DetsShipInSpace extends DetsGroup {
                     break;
                 case Locked:
                     Gdx.app.postRunnable(() -> {
-                        targetImage.setDrawable(Asset.retrieve(cacheTargetEnt().getIconEnum()));
+                        targetImage.setDrawable(Asset.retrieveEntityIcon(cacheTargetEnt().subtype()));
                         targetImage.setColor(state.findColorForOwner(cacheTargetEnt().owner));
                         targetImage.setVisible(true);
                     });
-                    targetLabel.setText("[   ]");
+                    targetLabel.setText("[     ]");
                     break;
             }
         }

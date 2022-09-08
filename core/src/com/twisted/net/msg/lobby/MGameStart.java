@@ -1,4 +1,4 @@
-package com.twisted.net.msg.remaining;
+package com.twisted.net.msg.lobby;
 
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.local.game.state.PlayerFile;
@@ -37,7 +37,7 @@ public class MGameStart implements Message {
     //grid details, the id of the grid is the position in the array
     public Vector2[] gridPositions;
     public String[] gridNicknames;
-    public Station.Type[] stationTypes;
+    public Station.Model[] stationTypes;
     public String[] stationNames;
     public int[] stationOwners;
     public Station.Stage[] stationStages;
@@ -55,7 +55,7 @@ public class MGameStart implements Message {
         //grid stuff
         gridPositions = new Vector2[numGrids];
         gridNicknames = new String[numGrids];
-        stationTypes = new Station.Type[numGrids];
+        stationTypes = new Station.Model[numGrids];
         stationNames = new String[numGrids];
         stationOwners = new int[numGrids];
         stationStages = new Station.Stage[numGrids];

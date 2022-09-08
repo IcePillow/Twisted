@@ -1,21 +1,14 @@
 package com.twisted.local.game;
 
-import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.utils.Null;
 import com.twisted.Asset;
 import com.twisted.Main;
-import com.twisted.local.curtain.Curtain;
 import com.twisted.local.lib.RectTextButton;
 import com.twisted.net.msg.gameUpdate.MGameEnd;
 
-class SecOptions extends Sector{
+class SecOptions extends Sector {
 
     //reference variables
     private Game game;
@@ -104,12 +97,12 @@ class SecOptions extends Sector{
         child.addActor(embedded);
 
         //result
-        resultLabel = new Label("", skin, "title", Color.WHITE);
+        resultLabel = new Label("", Asset.labelStyle(Asset.Avenir.BLACK_32));
         resultLabel.setPosition(child.getWidth()/2, 90);
         child.addActor(resultLabel);
 
         //continue button
-        RectTextButton contButton = new RectTextButton("Continue", skin, "small");
+        RectTextButton contButton = new RectTextButton("Continue", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         contButton.setPosition(150, 30);
         contButton.setPadding(16, 10, 2);
         child.addActor(contButton);

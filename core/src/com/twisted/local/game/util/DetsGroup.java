@@ -14,7 +14,6 @@ public abstract class DetsGroup extends Group {
 
     protected final SecDetails sector;
     protected final Skin skin;
-    protected final GlyphLayout glyph;
     protected final Vector2 size;
 
     protected ClientGameState state;
@@ -22,10 +21,9 @@ public abstract class DetsGroup extends Group {
 
     /* Construction */
 
-    protected DetsGroup(SecDetails sector, Skin skin, GlyphLayout glyph, Vector2 size){
+    protected DetsGroup(SecDetails sector, Skin skin, Vector2 size){
         this.sector = sector;
         this.skin = skin;
-        this.glyph = glyph;
         this.size = size;
     }
 

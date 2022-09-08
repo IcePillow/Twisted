@@ -4,13 +4,11 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Main;
 import com.twisted.local.game.cosmetic.Cosmetic;
@@ -22,7 +20,7 @@ import com.twisted.logic.mobs.Mobile;
 
 import java.util.*;
 
-public class SecViewport extends Sector{
+public class SecViewport extends Sector {
 
     //constants
     private static final float LTR = Game.LTR; //logical to rendered
@@ -111,7 +109,6 @@ public class SecViewport extends Sector{
 
     @Override
     void render(float delta) {
-
         //must be at the beginning
         camera.update();
         sprite.setProjectionMatrix(camera.combined);
@@ -165,7 +162,7 @@ public class SecViewport extends Sector{
             }
 
             //draw the ship
-            shipDrawable = new Polygon(s.getVertices());
+            shipDrawable = new Polygon(s.subtype().getVertices());
             shipDrawable.scale(LTR);
             shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
             shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
@@ -208,7 +205,7 @@ public class SecViewport extends Sector{
                 if(s != null){
                     shape.setColor(selectionColors.get(Select.BASE_SELECT));
                     shape.circle(s.pos.x*LTR, s.pos.y*LTR,
-                            s.getPaddedLogicalRadius()*LTR);
+                            s.subtype().getPaddedLogicalRadius()*LTR);
                 }
             }
             else{

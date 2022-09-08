@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.twisted.Asset;
 
 class SecOverlay extends Sector {
 
@@ -32,7 +33,8 @@ class SecOverlay extends Sector {
         Group parent = new Group();
 
         //make the action label
-        bottomActionLabel = new Label("", skin, "small", Color.DARK_GRAY);
+        bottomActionLabel = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        bottomActionLabel.setColor(Color.DARK_GRAY);
         bottomActionLabel.setPosition(4, 8);
         parent.addActor(bottomActionLabel);
 

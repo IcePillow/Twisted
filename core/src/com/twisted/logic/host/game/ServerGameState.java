@@ -8,7 +8,7 @@ import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.net.msg.gameUpdate.MShipDockingChange;
 import com.twisted.net.msg.gameUpdate.MShipUpd;
-import com.twisted.net.msg.remaining.MGameStart;
+import com.twisted.net.msg.lobby.MGameStart;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -77,14 +77,14 @@ public class ServerGameState {
                 new Grid(6, new Vector2(400, 500), "G"),
                 new Grid(7, new Vector2(500, 400), "H"),
         };
-        grids[0].station = new Extractor(0, grids[0].nickname, p[0].getId(), Station.Stage.SHIELDED, false);
-        grids[1].station = new Extractor(1, grids[1].nickname, p[0].getId(), Station.Stage.SHIELDED, false);
-        grids[2].station = new Harvester(2, grids[2].nickname, p[0].getId(), Station.Stage.ARMORED, false);
-        grids[3].station = new Extractor(3, grids[3].nickname, p[1].getId(), Station.Stage.SHIELDED, false);
-        grids[4].station = new Extractor(4, grids[4].nickname, p[1].getId(), Station.Stage.SHIELDED, false);
-        grids[5].station = new Harvester(5, grids[5].nickname, p[1].getId(), Station.Stage.ARMORED, false);
-        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.RUBBLE, false);
-        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.RUBBLE, false);
+        grids[0].station = new Extractor(0, grids[0].nickname, p[0].getId(), Station.Stage.SHIELDED);
+        grids[1].station = new Extractor(1, grids[1].nickname, p[0].getId(), Station.Stage.SHIELDED);
+        grids[2].station = new Harvester(2, grids[2].nickname, p[0].getId(), Station.Stage.ARMORED);
+        grids[3].station = new Extractor(3, grids[3].nickname, p[1].getId(), Station.Stage.SHIELDED);
+        grids[4].station = new Extractor(4, grids[4].nickname, p[1].getId(), Station.Stage.SHIELDED);
+        grids[5].station = new Harvester(5, grids[5].nickname, p[1].getId(), Station.Stage.ARMORED);
+        grids[6].station = new Liquidator(6, grids[6].nickname, 0, Station.Stage.RUBBLE);
+        grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.RUBBLE);
 
         //add initial resources
         grids[0].station.resources[0] += 20;
@@ -114,7 +114,7 @@ public class ServerGameState {
 
             msg.gridPositions[j] = g.pos;
             msg.gridNicknames[j] = g.nickname;
-            msg.stationTypes[j] = g.station.getSubtype();
+            msg.stationTypes[j] = g.station.subtype();
             msg.stationOwners[j] = g.station.owner;
             msg.stationStages[j] = g.station.stage;
             msg.stationResources[j] = g.station.resources;

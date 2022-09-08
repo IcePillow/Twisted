@@ -1,43 +1,34 @@
 package com.twisted.local.game.util;
 
-import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.scenes.scene2d.ui.WidgetGroup;
+import com.twisted.Asset;
+import com.twisted.Main;
 
 public class JobRow extends HorizontalGroup {
 
     private Label jobName, timer;
     private Actor filler1;
 
-    private final GlyphLayout glyph;
-    private final Skin skin;
-
 
     /* Constructing */
 
-    public JobRow(Skin skin, GlyphLayout glyph){
+    public JobRow(){
         super();
 
-        this.skin = skin;
-        this.glyph = glyph;
-
-        initGraphics(skin);
+        initGraphics();
     }
 
-    private void initGraphics(Skin skin){
-        timer = new Label("X", skin, "small", Color.LIGHT_GRAY);
+    private void initGraphics(){
+        timer = new Label("X", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         this.addActor(timer);
 
         filler1 = new Actor();
         filler1.setWidth(0);
         this.addActor(filler1);
 
-        jobName = new Label("X", skin, "small", Color.LIGHT_GRAY);
+        jobName = new Label("X", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         this.addActor(jobName);
     }
 
@@ -47,8 +38,8 @@ public class JobRow extends HorizontalGroup {
     public void updateTimer(String text){
         timer.setText(text);
 
-        glyph.setText(skin.getFont("small"), text);
-        filler1.setWidth(30-glyph.width);
+        Main.glyph.setText(timer.getStyle().font, text);
+        filler1.setWidth(30-Main.glyph.width);
     }
 
     public void updateName(String text){

@@ -17,7 +17,7 @@ public abstract class FleetContainer<T extends Actor> extends Container<T> {
 
 
     /**
-     * This is technically a different reference than the actor in the superclass. However it
+     * This is technically a different reference than the actor in the superclass. However, it
      * should always remain referencing the same object.
      */
     private T t;
@@ -33,8 +33,7 @@ public abstract class FleetContainer<T extends Actor> extends Container<T> {
      * @param evLeftClick If an event for left clicks should be created.
      * @param evRightClick If an event for right clicks should be created.
      */
-    public FleetContainer(T actor, float width,
-                          boolean evLeftClick, boolean evRightClick){
+    public FleetContainer(T actor, float width, boolean evLeftClick, boolean evRightClick){
         super(actor);
 
         //copy values

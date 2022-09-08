@@ -17,6 +17,7 @@ import com.twisted.local.game.util.IndPackedStationRow;
 import com.twisted.local.game.util.IndShipRow;
 import com.twisted.local.game.util.IndustryRow;
 import com.twisted.local.game.util.JobRow;
+import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.Grid;
@@ -28,7 +29,7 @@ import com.twisted.net.msg.gameReq.MShipUndockReq;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public class SecIndustry extends Sector{
+public class SecIndustry extends Sector {
 
     //constants
     private final static float QUEUE_WIDTHS = 130f;
@@ -74,9 +75,12 @@ public class SecIndustry extends Sector{
         parent.setBounds(Main.WIDTH-275, 260, 275, 410); //original height=395
 
         //main background
-        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
-        main.setSize(parent.getWidth(), parent.getHeight());
-        parent.addActor(main);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        ribbon.setSize(parent.getWidth(), parent.getHeight());
+        parent.addActor(ribbon);
+        Image band = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        band.setBounds(0, 3+FOCUS_HEIGHT, parent.getWidth(), 3);
+        parent.addActor(band);
 
         /* Primary scroll pane */
 
@@ -108,23 +112,25 @@ public class SecIndustry extends Sector{
         focusGroup.addActor(focusBackground);
 
         //name of the station currently in focus
-        focusStationName = new Label("[Station]", skin, "small", Color.WHITE);
+        focusStationName = new Label("[Station]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         focusStationName.setPosition(3, FOCUS_HEIGHT- focusStationName.getHeight()-3);
         focusGroup.addActor(focusStationName);
 
         //title of scroll panes
-        Label jobQueueTitle = new Label("Job Queue", skin, "small", Color.GRAY);
+        Label jobQueueTitle = new Label("Job Queue", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        jobQueueTitle.setColor(Color.LIGHT_GRAY);
         jobQueueTitle.setPosition(focusGroup.getWidth()-3-QUEUE_WIDTHS, focusStationName.getY()-jobQueueTitle.getHeight());
         focusGroup.addActor(jobQueueTitle);
-        Label dockedShipsTitle = new Label("Docked", skin, "small", Color.GRAY);
+        Label dockedShipsTitle = new Label("Docked", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        dockedShipsTitle.setColor(Color.LIGHT_GRAY);
         dockedShipsTitle.setPosition(3, focusStationName.getY()-dockedShipsTitle.getHeight());
         focusGroup.addActor(dockedShipsTitle);
 
         //cosmetic squares
-        Image dockingBox = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+        Ribbon dockingBox = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 1);
         dockingBox.setBounds(2, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(dockingBox);
-        Image jobBox = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+        Ribbon jobBox = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 1);
         jobBox.setBounds(focusGroup.getWidth()-3-QUEUE_WIDTHS-1, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(jobBox);
 
@@ -198,12 +204,14 @@ public class SecIndustry extends Sector{
             HorizontalGroup stationTitleBar = new HorizontalGroup();
 
             //create and add the dropdown icon
-            Image dropdown = new Image(Asset.retrieve(Asset.UiBasic.GRAY_ARROW_3));
+            Image dropdown = new Image(Asset.retrieve(Asset.UiBasic.ARROW_3));
+            dropdown.setColor(Color.GRAY);
             dropdown.setOrigin(dropdown.getWidth()/2f, dropdown.getHeight()/2f);
             stationTitleBar.addActor(dropdown);
 
             //create and add the name label
-            Label stationNameLabel = new Label(g.station.getFullName(), skin, "small", Color.LIGHT_GRAY);
+            Label stationNameLabel = new Label(g.station.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+            stationNameLabel.setColor(Color.LIGHT_GRAY);
             stationNameLabel.setAlignment(Align.left);
             stationTitleBar.addActor(stationNameLabel);
 
@@ -215,10 +223,10 @@ public class SecIndustry extends Sector{
             child.columnAlign(Align.left);
 
             Table resourceBar = new Table();
-            resourceBar.padLeft(16);
+            resourceBar.padLeft(18);
 
             //calculate widths for resource bar
-            int allowedImageWidth = 18;
+            int allowedImageWidth = 16;
             int allowedLabelWidth = (int) Math.floor((vertical.getWidth()-10-16-18*4)/4);
 
             //loop through gem files
@@ -227,9 +235,13 @@ public class SecIndustry extends Sector{
             int index=0;
             for(Asset.Gem asset : Asset.Gem.values()){
                 Image image = new Image(Asset.retrieve(asset));
-                Label label = new Label("0", skin, "small");
+                Actor filler = new Actor();
+                filler.setWidth(6);
+                Label label = new Label("0", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+                label.setColor(Color.LIGHT_GRAY);
 
                 resourceBar.add(image).minWidth(allowedImageWidth);
+                resourceBar.add(filler);
                 resourceBar.add(label).minWidth(allowedLabelWidth);
 
                 //add to the station object
@@ -245,8 +257,8 @@ public class SecIndustry extends Sector{
             child.addActor(jobTable);
 
             //loop through all the jobs
-            for(Station.Job job : g.station.getPossibleJobs()){
-                Label nameLabel = new Label(job.name(), skin, "small", Color.WHITE);
+            for(Station.Job job : g.station.model.getPossibleJobs()){
+                Label nameLabel = new Label(job.name(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
                 nameLabel.setColor(Color.GRAY);
                 jobTable.add(nameLabel).align(Align.left).padRight(10);
 
@@ -254,7 +266,7 @@ public class SecIndustry extends Sector{
                 Label[] costLabels = new Label[4];
                 int i=0;
                 for(Gem gem : com.twisted.logic.descriptors.Gem.orderedGems){
-                    costLabels[i] = new Label(""+job.getGemCost(gem), skin, "small", Color.WHITE);
+                    costLabels[i] = new Label(""+job.getGemCost(gem), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
                     costLabels[i].setColor(Color.GRAY);
                     jobTable.add(costLabels[i]).width(40);
                     i++;
@@ -412,7 +424,7 @@ public class SecIndustry extends Sector{
         }
         //add the job
         else {
-            JobRow row = new JobRow(skin, Main.glyph);
+            JobRow row = new JobRow();
             row.updateName(job.jobType.name());
             row.updateTimer(Integer.toString( Math.round(job.timeLeft) ));
 
@@ -443,7 +455,7 @@ public class SecIndustry extends Sector{
         if(!ship.docked || ship.grid != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
-            IndShipRow row = new IndShipRow(this, skin, Main.glyph, QUEUE_WIDTHS, ship);
+            IndShipRow row = new IndShipRow(this, QUEUE_WIDTHS, ship);
             dockInvGroup.addActor(row);
         });
     }
@@ -469,12 +481,11 @@ public class SecIndustry extends Sector{
     /**
      * Adds a packed station.
      */
-    void checkAddPackedStation(int stationId, Station.Type type){
+    void checkAddPackedStation(int stationId, Station.Model type){
         if(stationId != focusStationId) return;
 
         Gdx.app.postRunnable(() -> {
-            IndPackedStationRow row = new IndPackedStationRow(this, skin, Main.glyph, QUEUE_WIDTHS,
-                    type);
+            IndPackedStationRow row = new IndPackedStationRow(this, QUEUE_WIDTHS, type);
             dockInvGroup.addActor(row);
         });
     }
@@ -482,7 +493,7 @@ public class SecIndustry extends Sector{
     /**
      * Removes a packed station
      */
-    void checkRemovePackedStation(int stationId, Station.Type type){
+    void checkRemovePackedStation(int stationId, Station.Model type){
         if(stationId != focusStationId) return;
 
         //remove it if it exists
@@ -546,7 +557,7 @@ public class SecIndustry extends Sector{
             for(Ship s : station.dockedShips.values()){
                 addDockedShip(s);
             }
-            for(Station.Type t : station.packedStations){
+            for(Station.Model t : station.packedStations){
                 if(t != null) checkAddPackedStation(focusStationId, t);
             }
 

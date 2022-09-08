@@ -1,33 +1,32 @@
 package com.twisted.local.game.util;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.twisted.Asset;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.Station;
 
 public class IndPackedStationRow extends IndustryRow {
 
     //storage
-    private final Station.Type type;
+    private final Station.Model type;
 
 
     //constructor
-    public IndPackedStationRow(SecIndustry sector, Skin skin, GlyphLayout glyph, float width,
-                               Station.Type type){
-        super(sector, skin, glyph, width);
+    public IndPackedStationRow(SecIndustry sector, float width, Station.Model type){
+        super(sector, width);
 
         //copy
         this.type = type;
 
         //initialize
-        initGraphics(skin);
+        initGraphics();
     }
 
-    private void initGraphics(Skin skin){
-        Label nameLabel = new Label(type.name(), skin, "small", Color.LIGHT_GRAY);
+    private void initGraphics(){
+        Label nameLabel = new Label(type.name(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        nameLabel.setColor(Color.LIGHT_GRAY);
         this.addActor(nameLabel);
 
         Actor filler = new Actor();
@@ -39,7 +38,7 @@ public class IndPackedStationRow extends IndustryRow {
     public void update() {}
 
     @Override
-    public boolean matches(Station.Type check){
+    public boolean matches(Station.Model check){
         return type == check;
     }
 

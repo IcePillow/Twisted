@@ -12,6 +12,9 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 
+/**
+ * Legacy class. Not used right now. Saved in case it is wanted in the future.
+ */
 public class ActorHint {
 
     private Group group;

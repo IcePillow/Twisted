@@ -112,7 +112,7 @@ public class NetworkClient {
         try {
             output.writeObject(transmission);
         } catch (IOException e) {
-            if(!server.getShutdown()) e.printStackTrace();
+            if(!server.getShutdown() && !closing) e.printStackTrace();
         }
     }
 

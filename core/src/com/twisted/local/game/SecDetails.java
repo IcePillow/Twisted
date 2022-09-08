@@ -9,6 +9,7 @@ import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.util.*;
+import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Ship;
@@ -78,9 +79,10 @@ public class SecDetails extends Sector {
         Group decoration = new Group();
 
         //add the main window background
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
         ribbon.setSize(parent.getWidth(), parent.getHeight());
         decoration.addActor(ribbon);
+
         Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
         decoration.addActor(embedded);
@@ -91,11 +93,11 @@ public class SecDetails extends Sector {
 
     private void initDisplayGroups(Vector2 size){
         //create the display groups
-        displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, Main.glyph, size));
-        displayGroups.put(Display.SHIP_IN_SPACE, new DetsShipInSpace(this, skin, Main.glyph, size));
-        displayGroups.put(Display.SHIP_DOCKED, new DetsShipDocked(this, skin, Main.glyph, size));
-        displayGroups.put(Display.SHIP_IN_WARP, new DetsShipInWarp(this, skin, Main.glyph, size));
-        displayGroups.put(Display.STATION_BASIC, new DetsStation(this, skin, Main.glyph, size));
+        displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, size));
+        displayGroups.put(Display.SHIP_IN_SPACE, new DetsShipInSpace(this, skin, size));
+        displayGroups.put(Display.SHIP_DOCKED, new DetsShipDocked(this, skin, size));
+        displayGroups.put(Display.SHIP_IN_WARP, new DetsShipInWarp(this, skin, size));
+        displayGroups.put(Display.STATION_BASIC, new DetsStation(this, skin, size));
 
         //add the default actor
         parent.addActor(displayGroups.get(Display.EMPTY));
@@ -435,7 +437,7 @@ public class SecDetails extends Sector {
                     if(station.owner != ent.owner) break;
 
                     game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                            EntPtr.createFromEntity(station), Color.GREEN, station.getDockingRadius());
+                            EntPtr.createFromEntity(station), Color.GREEN, station.model.getDockingRadius());
                 }
                 break;
             }
@@ -448,7 +450,7 @@ public class SecDetails extends Sector {
             case SHIP_TARGET_HOVER_ON: {
                 //TODO set this color based on weapon type
                 game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).getTargetRange());
+                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).model.getTargetRange());
                 break;
             }
             case SHIP_DOCK_HOVER_OFF:

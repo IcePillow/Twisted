@@ -10,7 +10,7 @@ import com.twisted.logic.host.game.ServerGameState;
 
 public class StationTransport extends Weapon {
 
-    public Station.Type cargo;
+    public Station.Model cargo;
 
     //state
     public boolean deploying;
@@ -56,7 +56,7 @@ public class StationTransport extends Weapon {
                     //update the station
                     st.owner = ship.owner;
                     st.stage = Station.Stage.ARMORED;
-                    st.hullHealth = st.getMaxHull();
+                    st.hullHealth = st.model.getMaxHull();
                     st.stageTimer = 30;
 
                     //update the transport

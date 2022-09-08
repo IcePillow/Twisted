@@ -44,7 +44,7 @@ public class Blaster extends Weapon {
         else if(target != null && targeting == Ship.Targeting.Locked
                 && ship.pos.dst(target.pos) <= range && active) {
             BlasterBolt bolt = new BlasterBolt(state.useNextMobileId(), ship.pos.cpy(), this,
-                    target.getEntityType(), target.getId());
+                    target.entityType(), target.getId());
             grid.mobiles.put(bolt.id, bolt);
 
             timer = fullCooldown;

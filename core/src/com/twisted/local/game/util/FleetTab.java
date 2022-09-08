@@ -12,6 +12,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.VerticalGroup;
 import com.badlogic.gdx.utils.Align;
+import com.twisted.Asset;
+import com.twisted.Main;
 
 public class FleetTab {
 
@@ -26,23 +28,18 @@ public class FleetTab {
     //graphical stuff
     private Label label;
     private Image black;
-    private final Skin skin;
 
     /**
      * Creates a header object for a SecFleet object. Does not add any listeners.
      * Also creates a vertical group for the scroll pane.
      */
-    public FleetTab(String name, Skin skin, GlyphLayout glyph, Vector2 headerPos,
+    public FleetTab(String name, Vector2 headerPos,
                     Vector2 headerSize) {
-        //copy
-        this.skin = skin;
-
         //graphics
-        createGraphics(name, glyph, headerPos, headerSize);
+        createGraphics(name, headerPos, headerSize);
     }
 
-    private void createGraphics(String name, GlyphLayout glyph, Vector2 headerPos,
-                                Vector2 headerSize) {
+    private void createGraphics(String name, Vector2 headerPos, Vector2 headerSize) {
         //creates a group
         header = new Group();
         header.setPosition(headerPos.x, headerPos.y);
@@ -56,9 +53,10 @@ public class FleetTab {
         header.addActor(black);
 
         //create the label
-        label = new Label(name, skin, "small", Color.LIGHT_GRAY);
-        glyph.setText(skin.getFont("small"), name);
-        label.setPosition(headerSize.x / 2f - glyph.width / 2f, -2);
+        label = new Label(name, Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        label.setColor(Color.LIGHT_GRAY);
+        Main.glyph.setText(label.getStyle().font, name);
+        label.setPosition(headerSize.x / 2f - Main.glyph.width / 2f, -2);
         header.addActor(label);
     }
 

@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.twisted.Asset;
 import com.twisted.local.game.state.ClientGameState;
 
 public class EvGameEnd extends GameEvent {
@@ -27,12 +28,12 @@ public class EvGameEnd extends GameEvent {
         HorizontalGroup group = super.displayForCurtain(state, skin);
 
         //name label
-        Label label1 = new Label(state.players.get(winnerId).getName(), skin, "small", Color.WHITE);
+        Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         label1.setColor(state.players.get(winnerId).getFile().color);
         group.addActor(label1);
 
         //text label
-        Label label2 = new Label(" has won the game!", skin, "small", Color.WHITE);
+        Label label2 = new Label(" has won the game!", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         label2.setColor(Color.LIGHT_GRAY);
         group.addActor(label2);
 

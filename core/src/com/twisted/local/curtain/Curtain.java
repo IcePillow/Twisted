@@ -16,8 +16,8 @@ import com.twisted.Main;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.state.GamePlayer;
 import com.twisted.local.lib.RectTextButton;
+import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lobby.Lobby;
-import com.twisted.logic.Player;
 import com.twisted.logic.descriptors.events.GameEvent;
 import com.twisted.logic.entities.Ship;
 import com.twisted.logic.entities.Station;
@@ -155,7 +155,8 @@ public class Curtain implements Screen {
         Group parent = new Group();
 
         //continue button
-        RectTextButton contButton = new RectTextButton("Continue", skin, "medium");
+        RectTextButton contButton = new RectTextButton("Continue", Asset.labelStyle(Asset.Avenir.HEAVY_16),
+                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
         contButton.setPosition(720, 50);
         contButton.setPadding(32, 24, 3);
         parent.addActor(contButton);
@@ -190,8 +191,7 @@ public class Curtain implements Screen {
         parent.addActor(leftText);
 
         //result text
-        Label resultLabel = new Label("", skin, "medium", Color.WHITE);
-        resultLabel.setFontScale(1.5f);
+        Label resultLabel = new Label("", Asset.labelStyle(Asset.Avenir.BLACK_24));
         resultLabel.setAlignment(Align.bottomLeft);
         if(state.myId == end.winnerId){
             resultLabel.setText("VICTORY");
@@ -207,10 +207,10 @@ public class Curtain implements Screen {
         int durMin = ((int) end.timeElapsed) / 60;
         int durSec = ((int) end.timeElapsed) % 60;
         Label durationLabel = new Label(durMin + ":" + ((durSec<10?("0"+durSec):(durSec))),
-                skin, "small", Color.WHITE);
+                Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         durationLabel.setColor(Color.LIGHT_GRAY);
         Main.glyph.setText(resultLabel.getStyle().font, resultLabel.getText());
-        durationLabel.setPosition(resultLabel.getX() + Main.glyph.width*resultLabel.getFontScaleX() + 12,
+        durationLabel.setPosition(resultLabel.getX() + Main.glyph.width + 12,
                 2);
         leftText.addActor(durationLabel);
 
@@ -223,7 +223,7 @@ public class Curtain implements Screen {
         //names of players
         Label nameLabel, versusLabel;
         for(GamePlayer p : state.players.values()){
-            nameLabel = new Label(p.getName(), skin, "medium", Color.WHITE);
+            nameLabel = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
             nameLabel.setColor(p.getFile().color);
             rightText.addActor(nameLabel);
 
@@ -232,7 +232,7 @@ public class Curtain implements Screen {
 
             //add the versus
             if(rightText.getChildren().size < 2*state.players.size()-1){
-                versusLabel = new Label(" vs ", skin, "medium", Color.WHITE);
+                versusLabel = new Label(" vs ", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
                 versusLabel.setColor(Color.LIGHT_GRAY);
                 rightText.addActor(versusLabel);
 
@@ -257,12 +257,12 @@ public class Curtain implements Screen {
         decoration.setSize(parent.getWidth(), parent.getHeight()-20);
         parent.addActor(decoration);
 
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
 
         //title text
-        Label titleLabel = new Label("Timeline", skin, "medium", Color.WHITE);
+        Label titleLabel = new Label("Timeline", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         titleLabel.setColor(Color.LIGHT_GRAY);
         Main.glyph.setText(titleLabel.getStyle().font, titleLabel.getText());
         titleLabel.setPosition(parent.getWidth()/2-Main.glyph.width/2, decoration.getHeight());
@@ -271,6 +271,7 @@ public class Curtain implements Screen {
         //create the pane's child
         VerticalGroup vertical = new VerticalGroup();
         vertical.top().left();
+        vertical.space(4f);
         vertical.columnAlign(Align.left);
 
         //create the pane
@@ -303,7 +304,7 @@ public class Curtain implements Screen {
             parent.addActor(child);
 
             //player name
-            Label name = new Label(p.getName(), skin, "medium", Color.WHITE);
+            Label name = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
             name.setColor(p.getFile().color);
             child.addActor(name);
 
@@ -314,7 +315,7 @@ public class Curtain implements Screen {
             child.addActor(table);
 
             //prep for filling the table
-            int kBound = 1+Ship.Type.values().length+ Station.Type.values().length;
+            int kBound = 1+ Ship.Model.values().length+ Station.Model.values().length;
             Cell<Label> cell;
             //fill the table
             for(int j=0; j<3; j++){
@@ -323,17 +324,17 @@ public class Curtain implements Screen {
                     //first column
                     if(k==0){
                         if(j==0) cell = table.add("");
-                        else if(j==1) cell = table.add("Built", "small", Color.WHITE);
-                        else cell = table.add("Killed", "small", Color.WHITE);
+                        else if(j==1) cell = table.add(new Label("Built", Asset.labelStyle(Asset.Avenir.LIGHT_16)));
+                        else cell = table.add(new Label("Killed", Asset.labelStyle(Asset.Avenir.LIGHT_16)));
 
                         cell.getActor().setColor(Color.GRAY);
                         cell.left().padRight(12);
                     }
                     //ship columns
-                    else if(k<Ship.Type.values().length+1){
-                        Ship.Type sh = Ship.Type.values()[k-1];
+                    else if(k< Ship.Model.values().length+1){
+                        Ship.Model sh = Ship.Model.values()[k-1];
                         if(j==0){
-                            Image img = new Image(Asset.retrieve(sh.getIcon()));
+                            Image img = new Image(Asset.retrieveEntityIcon(sh));
                             img.setColor(p.getFile().color);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
@@ -350,9 +351,9 @@ public class Curtain implements Screen {
                     }
                     //station columns
                     else {
-                        Station.Type st = Station.Type.values()[k-Ship.Type.values().length-1];
+                        Station.Model st = Station.Model.values()[k- Ship.Model.values().length-1];
                         if(j==0){
-                            Image img = new Image(Asset.retrieve(st.getIcon()));
+                            Image img = new Image(Asset.retrieveEntityIcon(st));
                             img.setColor(p.getFile().color);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
