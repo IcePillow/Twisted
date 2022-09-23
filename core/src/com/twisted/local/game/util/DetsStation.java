@@ -2,7 +2,6 @@ package com.twisted.local.game.util;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
@@ -10,20 +9,17 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.Paint;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.station.Station;
 
 public class DetsStation extends DetsGroup {
 
-    //constants
-    private final static Color BLUE_TEXT_COLOR = new Color(0,0.48f,0.84f,1);
-    private final static Color GREEN_TEXT_COLOR = new Color(0,0.49f,0,1);
-
     //tree
     private Label stationGrid, stationName, stageTimer;
-    private Image stageImage;
-    private Image hullHealthFill, shieldHealthFill;
+    private Image stageImage, stationIcon;
+    private Image healthFill;
     private Label healthLabel;
 
     //selection
@@ -47,13 +43,18 @@ public class DetsStation extends DetsGroup {
     private Group createTopTextGroup(){
         Group group = new Group();
 
+        stationIcon = new Image(Asset.retrieveEntityIcon(Station.Tier.Station));
+        stationIcon.setColor(Color.GRAY);
+        stationIcon.setPosition(0, 2);
+        group.addActor(stationIcon);
+
         stationGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         stationGrid.setColor(Color.LIGHT_GRAY);
-
+        stationGrid.setX(18);
         group.addActor(stationGrid);
 
         stationName = new Label("[Station Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        stationName.setX(30);
+        stationName.setX(48);
         group.addActor(stationName);
 
         stageTimer = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
@@ -62,6 +63,7 @@ public class DetsStation extends DetsGroup {
         group.addActor(stageTimer);
 
         stageImage = new Image(Asset.retrieve(Asset.UiIcon.STATION_SHIELDED));
+        stageImage.setColor(Color.LIGHT_GRAY);
         stageImage.setX(270);
         group.addActor(stageImage);
 
@@ -71,24 +73,22 @@ public class DetsStation extends DetsGroup {
     private Group createHealthGroup(){
         Group group = new Group();
 
-        Image healthOutline = new Image(new Texture(Gdx.files.internal("images/pixels/gray.png")));
+        Image healthOutline = new Image(Asset.retrieve(Asset.Pixel.GRAY));
         healthOutline.setBounds(0, 0, 202, 10);
         group.addActor(healthOutline);
 
-        Image healthInline = new Image(new Texture(Gdx.files.internal("images/pixels/darkgray.png")));
+        Image healthInline = new Image(Asset.retrieve(Asset.Pixel.DARKGRAY));
         healthInline.setBounds(1, 1, 200, 8);
         group.addActor(healthInline);
 
-        hullHealthFill = new Image(new Texture(Gdx.files.internal("images/pixels/green.png")));
-        hullHealthFill.setBounds(1, 1, 200, 8);
-        group.addActor(hullHealthFill);
-
-        shieldHealthFill = new Image(new Texture(Gdx.files.internal("images/pixels/blue.png")));
-        shieldHealthFill.setBounds(1, 1, 200, 8);
-        group.addActor(shieldHealthFill);
+        healthFill = new Image(Asset.retrieve(Asset.Pixel.WHITE));
+        healthFill.setColor(Paint.HEALTH_GREEN.col);
+        healthFill.setBounds(1, 1, 200, 8);
+        group.addActor(healthFill);
 
         healthLabel = new Label("[health]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         healthLabel.setPosition(204, -3);
+        healthLabel.setColor(Paint.HEALTH_GREEN.col);
         group.addActor(healthLabel);
 
         return group;
@@ -108,8 +108,9 @@ public class DetsStation extends DetsGroup {
         sel = (Station) entity;
 
         //update the name
-        stationName.setText(sel.subtype().toString());
+        stationName.setText(sel.entityModel().toString());
         stationName.setColor(state.findColorForOwner(sel.owner));
+        stationIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
         //update the grid
         stationGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
@@ -143,31 +144,22 @@ public class DetsStation extends DetsGroup {
         }
 
         //update health
-        shieldHealthFill.setWidth(200 * sel.shieldHealth / sel.model.getMaxShield());
-        hullHealthFill.setWidth(200 * sel.hullHealth / sel.model.getMaxHull());
         switch(sel.stage){
             case SHIELDED:
-                shieldHealthFill.setVisible(true);
-                hullHealthFill.setVisible(false);
+                healthFill.setWidth(200 * sel.shieldHealth / sel.model.maxShield);
                 healthLabel.setVisible(true);
-                healthLabel.setColor(BLUE_TEXT_COLOR);
-
-                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxShield())+1)) + "s",
-                        ((int) Math.ceil(sel.shieldHealth)) + "/" + sel.model.getMaxShield()));
+                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.maxShield)+1)) + "s",
+                        ((int) Math.ceil(sel.shieldHealth)) + "/" + sel.model.maxShield));
                 break;
             case ARMORED:
             case VULNERABLE:
-                shieldHealthFill.setVisible(false);
-                hullHealthFill.setVisible(true);
+                healthFill.setWidth(200 * sel.hullHealth / sel.model.maxHull);
                 healthLabel.setVisible(true);
-                healthLabel.setColor(GREEN_TEXT_COLOR);
-
-                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxHull())+1)) + "s",
-                        ((int) Math.ceil(sel.hullHealth)) + "/" + sel.model.getMaxHull()));
+                healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.maxHull)+1)) + "s",
+                        ((int) Math.ceil(sel.hullHealth)) + "/" + sel.model.maxHull));
                 break;
             case RUBBLE:
-                shieldHealthFill.setVisible(false);
-                hullHealthFill.setVisible(false);
+                healthFill.setVisible(false);
                 healthLabel.setVisible(false);
                 break;
         }

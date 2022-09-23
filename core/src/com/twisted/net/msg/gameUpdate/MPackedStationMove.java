@@ -1,7 +1,7 @@
 package com.twisted.net.msg.gameUpdate;
 
 import com.twisted.logic.descriptors.EntPtr;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.station.Station;
 
 public class MPackedStationMove implements MGameUpd {
 

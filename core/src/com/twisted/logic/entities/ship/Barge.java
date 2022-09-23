@@ -1,8 +1,7 @@
-package com.twisted.logic.entities;
+package com.twisted.logic.entities.ship;
 
 import com.twisted.logic.descriptors.Gem;
-import com.twisted.logic.entities.attach.StationTransport;
-import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.entities.attach.StationTrans;
 
 public class Barge extends Ship {
 
@@ -13,10 +12,8 @@ public class Barge extends Ship {
 
     /* Constructor */
 
-    public Barge(int shipId, int gridId, int owner, boolean docked) {
-        super(Model.Barge, shipId, gridId, owner, docked);
-
-        weapons[0] = new StationTransport(this);
+    public Barge(Model model, int shipId, int gridId, int owner, boolean docked) {
+        super(model, shipId, gridId, owner, docked);
 
         resources = new int[4];
     }

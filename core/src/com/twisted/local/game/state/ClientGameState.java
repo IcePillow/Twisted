@@ -1,11 +1,12 @@
 package com.twisted.local.game.state;
 
 import com.badlogic.gdx.graphics.Color;
+import com.twisted.Paint;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.ship.Ship;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -21,7 +22,7 @@ public class ClientGameState {
     public boolean readyToRender;
     public boolean ending;
 
-    public int serverTickDelay;
+    public float serverTickDelay;
 
 
     /* Player Details */
@@ -47,7 +48,7 @@ public class ClientGameState {
     /**
      * Basic constructor.
      */
-    public ClientGameState(HashMap<Integer, String> playerNames, HashMap<Integer, PlayerFile> playerFiles){
+    public ClientGameState(HashMap<Integer, String> playerNames, HashMap<Integer, Paint> playerFiles){
         this.readyToRender = false;
         this.ending = false;
 
@@ -106,10 +107,10 @@ public class ClientGameState {
         GamePlayer player = players.get(owner);
 
         if(player != null){
-            return player.getFile().color;
+            return player.getPaint().col;
         }
         else {
-            return PlayerFile.GRAY.color;
+            return Paint.PL_GRAY.col;
         }
     }
 

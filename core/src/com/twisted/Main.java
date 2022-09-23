@@ -17,7 +17,6 @@ public class Main extends Game {
 	public static final int HEIGHT = 800;
 
 	//color values TODO refactor into enum tree with all useful colors
-	public static final Color SPACE = new Color(0x0c0c26ff);
 
 	//utility objects
 	public static final DecimalFormat df1 = new DecimalFormat("0.0");

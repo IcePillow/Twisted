@@ -4,22 +4,30 @@ import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.host.game.ServerGameState;
 
-public class StationTransport extends Weapon {
+/**
+ * Station transport.
+ */
+public class StationTrans extends Weapon {
 
     public Station.Model cargo;
 
     //state
     public boolean deploying;
 
+    //data
+    public final Model model;
+
 
     /* Construction */
 
-    public StationTransport(Entity attached){
+    public StationTrans(Ship attached, Model model){
         super(attached);
+
+        this.model = model;
 
         cargo = null;
 
@@ -56,7 +64,7 @@ public class StationTransport extends Weapon {
                     //update the station
                     st.owner = ship.owner;
                     st.stage = Station.Stage.ARMORED;
-                    st.hullHealth = st.model.getMaxHull();
+                    st.hullHealth = st.model.maxHull;
                     st.stageTimer = 30;
 
                     //update the transport
@@ -71,7 +79,7 @@ public class StationTransport extends Weapon {
             }
             else {
                 deploying = true;
-                timer = cargo.getDeployTime();
+                timer = cargo.deployTime;
             }
         }
         else {
@@ -90,12 +98,15 @@ public class StationTransport extends Weapon {
     }
 
 
+    /* Typing Methods */
+
+    public Weapon.Model subtype(){
+        return model;
+    }
+
+
     /* Data Methods */
 
-    @Override
-    public float getMaxRange() {
-        return 1.5f;
-    }
     @Override
     public Asset.UiButton getOffButtonAsset() {
         if(cargo == null) return Asset.UiButton.DEFAULT;
@@ -126,9 +137,37 @@ public class StationTransport extends Weapon {
                 return Asset.UiButton.DEFAULT;
         }
     }
+
     @Override
     public float getFullTimer(){
         if(cargo == null) return 0;
-        else return cargo.getDeployTime();
+        else return cargo.deployTime;
     }
+
+
+    public enum Model implements Weapon.Model {
+
+        Medium(1.5f);
+
+        //data
+        public final float range;
+
+        //overrides
+        @Override
+        public Weapon.Type getType(){
+            return Type.StationTrans;
+        }
+        @Override
+        public float getRange(){
+            return range;
+        }
+
+        /**
+         * Constructor
+         */
+        Model(float range){
+            this.range = range;
+        }
+    }
+
 }

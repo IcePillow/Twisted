@@ -13,14 +13,15 @@ import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.Paint;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.state.GamePlayer;
 import com.twisted.local.lib.RectTextButton;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lobby.Lobby;
 import com.twisted.logic.descriptors.events.GameEvent;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameUpdate.MGameEnd;
 
 public class Curtain implements Screen {
@@ -120,7 +121,7 @@ public class Curtain implements Screen {
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
         //draw background
-        shape.setColor(Main.SPACE);
+        shape.setColor(Paint.SPACE.col);
         shape.rect(0, 0, stage.getWidth(), stage.getHeight());
 
         for(float[] s : stars){
@@ -156,7 +157,7 @@ public class Curtain implements Screen {
 
         //continue button
         RectTextButton contButton = new RectTextButton("Continue", Asset.labelStyle(Asset.Avenir.HEAVY_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         contButton.setPosition(720, 50);
         contButton.setPadding(32, 24, 3);
         parent.addActor(contButton);
@@ -182,7 +183,7 @@ public class Curtain implements Screen {
         parent.setPosition(100, 700);
 
         //line image
-        Image lineImage = new Image(Asset.retrieve(Asset.Shape.PIXEL_LIGHTGRAY));
+        Image lineImage = new Image(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
         lineImage.setSize(Main.WIDTH-200, 2);
         parent.addActor(lineImage);
 
@@ -224,7 +225,7 @@ public class Curtain implements Screen {
         Label nameLabel, versusLabel;
         for(GamePlayer p : state.players.values()){
             nameLabel = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-            nameLabel.setColor(p.getFile().color);
+            nameLabel.setColor(p.getPaint().col);
             rightText.addActor(nameLabel);
 
             Main.glyph.setText(nameLabel.getStyle().font, nameLabel.getText());
@@ -257,7 +258,7 @@ public class Curtain implements Screen {
         decoration.setSize(parent.getWidth(), parent.getHeight()-20);
         parent.addActor(decoration);
 
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
 
@@ -305,7 +306,7 @@ public class Curtain implements Screen {
 
             //player name
             Label name = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-            name.setColor(p.getFile().color);
+            name.setColor(p.getPaint().col);
             child.addActor(name);
 
             //ship summaries
@@ -315,7 +316,7 @@ public class Curtain implements Screen {
             child.addActor(table);
 
             //prep for filling the table
-            int kBound = 1+ Ship.Model.values().length+ Station.Model.values().length;
+            int kBound = 1+Ship.Tier.values().length+Station.Tier.values().length;
             Cell<Label> cell;
             //fill the table
             for(int j=0; j<3; j++){
@@ -331,11 +332,11 @@ public class Curtain implements Screen {
                         cell.left().padRight(12);
                     }
                     //ship columns
-                    else if(k< Ship.Model.values().length+1){
-                        Ship.Model sh = Ship.Model.values()[k-1];
+                    else if(k<Ship.Tier.values().length+1){
+                        Ship.Tier sh = Ship.Tier.values()[k-1];
                         if(j==0){
                             Image img = new Image(Asset.retrieveEntityIcon(sh));
-                            img.setColor(p.getFile().color);
+                            img.setColor(p.getPaint().col);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
                         else if(j==1) {
@@ -351,10 +352,10 @@ public class Curtain implements Screen {
                     }
                     //station columns
                     else {
-                        Station.Model st = Station.Model.values()[k- Ship.Model.values().length-1];
+                        Station.Tier st = Station.Tier.values()[k-Ship.Tier.values().length-1];
                         if(j==0){
                             Image img = new Image(Asset.retrieveEntityIcon(st));
-                            img.setColor(p.getFile().color);
+                            img.setColor(p.getPaint().col);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
                         else if(j==1){

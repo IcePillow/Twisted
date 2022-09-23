@@ -1,4 +1,6 @@
-package com.twisted.logic.entities;
+package com.twisted.logic.entities.station;
+
+import com.twisted.logic.entities.station.Station;
 
 public class Harvester extends Station {
 

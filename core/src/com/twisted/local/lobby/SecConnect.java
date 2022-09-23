@@ -2,11 +2,8 @@ package com.twisted.local.lobby;
 
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
-import com.twisted.Main;
 import com.twisted.local.lib.RectTextButton;
 import com.twisted.local.lib.Ribbon;
 
@@ -54,7 +51,7 @@ class SecConnect extends Sector {
         parent.addActor(joinGroup);
 
         valleyGroup = initValley();
-        valleyGroup.setPosition(190, 250);
+        valleyGroup.setPosition(190, 230);
         valleyGroup.setVisible(false);
         parent.addActor(valleyGroup);
 
@@ -77,13 +74,13 @@ class SecConnect extends Sector {
 
         //join as a client
         joinButton = new RectTextButton("Join", Asset.labelStyle(Asset.Avenir.HEAVY_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         joinButton.setPadding(30, 24, 2);
         group.addActor(joinButton);
 
         //create a server
         hostButton = new RectTextButton("Host", Asset.labelStyle(Asset.Avenir.HEAVY_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         hostButton.setPadding(30, 24, 2);
         hostButton.setPosition(140, 0);
         group.addActor(hostButton);
@@ -108,13 +105,13 @@ class SecConnect extends Sector {
 
         //cancel button
         RectTextButton cancelButton = new RectTextButton("Cancel", Asset.labelStyle(Asset.Avenir.MEDIUM_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         cancelButton.setPosition(130, 0);
         cancelButton.setPadding(24, 16, 2);
 
         //connect button
         connectButton = new RectTextButton("Connect", Asset.labelStyle(Asset.Avenir.MEDIUM_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         connectButton.setPosition(250, 0);
         connectButton.setPadding(24, 16, 2);
 
@@ -123,7 +120,7 @@ class SecConnect extends Sector {
         joinAddressField.setBounds(90, 90, 200, 30);
         joinAddressField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
         joinAddressField.setMessageText("Address");
-        Ribbon addressRibbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon addressRibbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         addressRibbon.setBounds(joinAddressField.getX()-3, joinAddressField.getY()-3,
                 joinAddressField.getWidth()+6, joinAddressField.getHeight()+6);
 
@@ -132,7 +129,7 @@ class SecConnect extends Sector {
         joinUserField.setBounds(90, 40, 200, 30);
         joinUserField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
         joinUserField.setMessageText("Username");
-        Ribbon userRibbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon userRibbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         userRibbon.setBounds(joinUserField.getX()-3, joinUserField.getY()-3,
                 joinUserField.getWidth()+6, joinUserField.getHeight()+6);
 
@@ -172,13 +169,13 @@ class SecConnect extends Sector {
 
         //cancel button
         RectTextButton cancelButton = new RectTextButton("Cancel",
-                Asset.labelStyle(Asset.Avenir.MEDIUM_16), Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.labelStyle(Asset.Avenir.MEDIUM_16), Asset.retrieve(Asset.Pixel.BLACK));
         cancelButton.setPosition(140, 0);
         cancelButton.setPadding(24, 16, 2);
 
         //connect button
         launchButton = new RectTextButton("Launch", Asset.labelStyle(Asset.Avenir.MEDIUM_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         launchButton.setPosition(240, 0);
         launchButton.setPadding(24, 16, 2);
 
@@ -187,7 +184,7 @@ class SecConnect extends Sector {
         userField.setBounds(90, 37, 200, 30);
         userField.setColor(new Color(1.2f*54/255f, 1.2f*56/255f, 1.2f*68/255f, 1));
         userField.setMessageText("Username");
-        Ribbon userRibbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon userRibbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         userRibbon.setBounds(userField.getX()-3, userField.getY()-3,
                 userField.getWidth()+6, userField.getHeight()+6);
 
@@ -224,7 +221,7 @@ class SecConnect extends Sector {
         Group group = new Group();
 
         terminateButton = new RectTextButton("Terminate", Asset.labelStyle(Asset.Avenir.MEDIUM_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         terminateButton.setPadding(24, 16, 2);
         group.addActor(terminateButton);
 

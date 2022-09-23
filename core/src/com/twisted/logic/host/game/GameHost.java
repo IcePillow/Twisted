@@ -1,8 +1,8 @@
 package com.twisted.logic.host.game;
 
-import com.twisted.local.game.state.PlayerFile;
+import com.twisted.Paint;
 import com.twisted.logic.Player;
-import com.twisted.logic.entities.*;
+import com.twisted.logic.entities.ship.*;
 import com.twisted.net.msg.*;
 import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
@@ -17,8 +17,9 @@ public class GameHost implements ServerContact {
 
     /* Constants */
 
-    public static final int TICK_DELAY = 50; //millis between each tick
-    public static final float FRAC = TICK_DELAY / 1000f; //fraction of a second per tick
+    public static final int TPS = 20; //ticks per second
+    public static final int TICK_DELAY = (int) (1000f/TPS); //millis between each tick
+    public static final float FRAC = 1f/TPS; //fraction of a second per tick
 
 
     /* Exterior Reference Variables */
@@ -118,14 +119,14 @@ public class GameHost implements ServerContact {
         for (Player p : state.players.values()){
             idToName.put(p.getId(), p.name);
         }
-        HashMap<Integer, PlayerFile> idToFile = new HashMap<>();
+        HashMap<Integer, Paint> idToFile = new HashMap<>();
         int i = 0;
         for(Player p : state.players.values()){
             if(i==0){
-                idToFile.put(p.getId(), PlayerFile.BLUE);
+                idToFile.put(p.getId(), Paint.PL_BLUE);
             }
             else if(i==1){
-                idToFile.put(p.getId(), PlayerFile.ORANGE);
+                idToFile.put(p.getId(), Paint.PL_ORANGE);
             }
             else break;
             i++;
@@ -150,17 +151,59 @@ public class GameHost implements ServerContact {
      */
     private void preLoopCalls(){
         //dev ships
-        Ship s1 = new Frigate(state.useNextShipId(), 0, 2, false);
+        Ship s1 = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 2, false);
         s1.pos.set(1, 1);
         s1.rot = (float) Math.PI/2;
         state.grids[0].ships.put(s1.id, s1);
         server.broadcastMessage(MAddShip.createFromShipBody(s1));
 
-        Ship s2 = new Frigate(state.useNextShipId(), 0, 1, false);
-        s2.pos.set(-0.9f, 0.9f);
+        Ship s2 = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 1, false);
+        s2.pos.set(-1f, 1f);
         s2.rot = (float) -Math.PI/2;
         state.grids[0].ships.put(s2.id, s2);
         server.broadcastMessage(MAddShip.createFromShipBody(s2));
+
+        Ship s3 = new Battleship(Ship.Model.Themis, state.useNextShipId(), 0, 1, false);
+        s3.pos.set(0, -1.5f);
+        state.grids[0].ships.put(s3.id, s3);
+        server.broadcastMessage(MAddShip.createFromShipBody(s3));
+
+        //gallery
+        Ship alke = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 2, false);
+        alke.pos.set(-2, -2);
+        alke.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(alke.id, alke);
+        server.broadcastMessage(MAddShip.createFromShipBody(alke));
+
+        Ship sparrow = new Frigate(Ship.Model.Sparrow, state.useNextShipId(), 0, 2, false);
+        sparrow.pos.set(-1.8f, -2);
+        sparrow.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(sparrow.id, sparrow);
+        server.broadcastMessage(MAddShip.createFromShipBody(sparrow));
+
+        Ship helios = new Cruiser(Ship.Model.Helios, state.useNextShipId(), 0, 2, false);
+        helios.pos.set(-1.4f, -2);
+        helios.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(helios.id, helios);
+        server.broadcastMessage(MAddShip.createFromShipBody(helios));
+
+        Ship heron = new Barge(Ship.Model.Heron, state.useNextShipId(), 0, 2, false);
+        heron.pos.set(-0.8f, -2);
+        heron.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(heron.id, heron);
+        server.broadcastMessage(MAddShip.createFromShipBody(heron));
+
+        Ship themis = new Battleship(Ship.Model.Themis, state.useNextShipId(), 0, 2, false);
+        themis.pos.set(-0.3f, -2);
+        themis.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(themis.id, themis);
+        server.broadcastMessage(MAddShip.createFromShipBody(themis));
+
+        Ship nyx = new Titan(Ship.Model.Nyx, state.useNextShipId(), 0, 2, false);
+        nyx.pos.set(0.5f, -2f);
+        nyx.rot = (float) Math.PI/2;
+        state.grids[0].ships.put(nyx.id, nyx);
+        server.broadcastMessage(MAddShip.createFromShipBody(nyx));
     }
 
 

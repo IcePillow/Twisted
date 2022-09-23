@@ -3,8 +3,12 @@ package com.twisted.logic.entities;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 
-public abstract class Entity {
+import java.io.Serializable;
+
+public abstract class Entity implements Serializable {
 
     /* Metadata */
 
@@ -52,7 +56,7 @@ public abstract class Entity {
         else return null;
     }
 
-    public abstract Subtype subtype();
+    public abstract Model entityModel();
 
     /**
      * These ids are not unique across entities, but they are unique across each subclass
@@ -107,18 +111,20 @@ public abstract class Entity {
         Ship;
     }
 
-    /**
-     * Should be implemented by Type enums in subclasses of Entity.
-     */
-    public interface Subtype {
+    public interface Tier {
         String getFilename();
+    }
+    public interface Model {
+        String getFilename();
+        Tier getTier();
 
         float[] getVertices();
         /**
-         * Returns the logical radius (i.e. not in visual coords) padded a little. Currently used
+         * Returns the logical radius (i.e. not in visual coords) padded a little. Currently, used
          * to display the selection circle on the viewport.
          */
         float getPaddedLogicalRadius();
     }
+
 
 }

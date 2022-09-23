@@ -3,9 +3,9 @@ package com.twisted.net.msg.gameUpdate;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
-import com.twisted.logic.entities.attach.StationTransport;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
+import com.twisted.logic.entities.attach.StationTrans;
 
 public class MShipUpd implements MGameUpd {
 
@@ -76,8 +76,8 @@ public class MShipUpd implements MGameUpd {
             s.weapons[i].active = weaponsActive[i];
             s.weapons[i].timer = weaponsTimers[i];
 
-            if(s.weapons[i] instanceof StationTransport){
-                ((StationTransport) s.weapons[i]).cargo = weaponsCargo[i];
+            if(s.weapons[i] instanceof StationTrans){
+                ((StationTrans) s.weapons[i]).cargo = weaponsCargo[i];
             }
         }
     }
@@ -125,8 +125,8 @@ public class MShipUpd implements MGameUpd {
             upd.weaponsActive[i] = s.weapons[i].active;
             upd.weaponsTimers[i] = s.weapons[i].timer;
 
-            if(s.weapons[i] instanceof StationTransport) {
-                upd.weaponsCargo[i] = ((StationTransport) s.weapons[i]).cargo;
+            if(s.weapons[i] instanceof StationTrans) {
+                upd.weaponsCargo[i] = ((StationTrans) s.weapons[i]).cargo;
             }
         }
 

@@ -1,9 +1,3 @@
-Colors
-    Light blue - 0x42a5f5ff
-    Orange - 0xfb8c00ff
-    Light green - 0x4caf50ff
-    Purple - 0xab47bcff
-    Gray - 0x9d9d9dff
 Skins & Fonts
     Modifications to sgx
         sgx-ui.atlas
@@ -39,11 +33,3 @@ Gameplay
         Missiles -- have travel time, can time out, deals aoe, shoot discretely
 Misc
     Use "git ls-files | grep '\.java' | xargs wc -l" to get total java line count
-
-New Lobby Design
-    Sectors
-        Decoration (all)
-            - Star background
-            - Title card
-        Chat (bottom left)
-            -

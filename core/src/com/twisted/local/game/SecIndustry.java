@@ -21,8 +21,9 @@ import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.Gem;
 import com.twisted.logic.descriptors.Grid;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.descriptors.JobType;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameReq.MShipUndockReq;
 
@@ -45,7 +46,8 @@ public class SecIndustry extends Sector {
     private VerticalGroup vertical;
     private VerticalGroup jobQueue; //should only have JobRow children
     private VerticalGroup dockInvGroup; //should only have IndustryRow children
-    private Label focusStationName;
+    private Label focusStationName, focusStationTimer;
+    private Image focusStationStage;
     private HashMap<Integer, VerticalGroup> stationGroups;
     private HashMap<Integer, Label[]> resourceLabels; //indices in label are for each resource
 
@@ -75,10 +77,10 @@ public class SecIndustry extends Sector {
         parent.setBounds(Main.WIDTH-275, 260, 275, 410); //original height=395
 
         //main background
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(ribbon);
-        Image band = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Image band = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
         band.setBounds(0, 3+FOCUS_HEIGHT, parent.getWidth(), 3);
         parent.addActor(band);
 
@@ -107,14 +109,27 @@ public class SecIndustry extends Sector {
         parent.addActor(focusGroup);
 
         //make the background image
-        Image focusBackground = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image focusBackground = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         focusBackground.setSize(focusGroup.getWidth(), focusGroup.getHeight());
         focusGroup.addActor(focusBackground);
 
         //name of the station currently in focus
-        focusStationName = new Label("[Station]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        focusStationName.setPosition(3, FOCUS_HEIGHT- focusStationName.getHeight()-3);
+        Label.LabelStyle focusStationNameStyle = Asset.labelStyle(Asset.Avenir.HEAVY_16);
+        focusStationNameStyle.fontColor = Color.LIGHT_GRAY;
+        focusStationName = new Label("[Station]", focusStationNameStyle);
+        focusStationName.setPosition(3, FOCUS_HEIGHT-focusStationName.getHeight()-3);
         focusGroup.addActor(focusStationName);
+
+        //station stage and stage timer
+        focusStationStage = new Image(Asset.retrieve(Asset.UiIcon.STATION_DEPLOYMENT));
+        focusStationStage.setColor(Color.GRAY);
+        focusStationStage.setPosition(focusGroup.getWidth()-20, focusStationName.getY());
+        focusStationStage.setVisible(false);
+        focusGroup.addActor(focusStationStage);
+        focusStationTimer = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        focusStationTimer.setPosition(focusStationStage.getX(), focusStationName.getY()+8);
+        focusStationTimer.setVisible(false);
+        focusGroup.addActor(focusStationTimer);
 
         //title of scroll panes
         Label jobQueueTitle = new Label("Job Queue", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
@@ -127,10 +142,10 @@ public class SecIndustry extends Sector {
         focusGroup.addActor(dockedShipsTitle);
 
         //cosmetic squares
-        Ribbon dockingBox = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 1);
+        Ribbon dockingBox = new Ribbon(Asset.retrieve(Asset.Pixel.DARKGRAY), 1);
         dockingBox.setBounds(2, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(dockingBox);
-        Ribbon jobBox = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 1);
+        Ribbon jobBox = new Ribbon(Asset.retrieve(Asset.Pixel.DARKGRAY), 1);
         jobBox.setBounds(focusGroup.getWidth()-3-QUEUE_WIDTHS-1, 2, QUEUE_WIDTHS+2, dockedShipsTitle.getY()-3+2);
         focusGroup.addActor(jobBox);
 
@@ -188,8 +203,12 @@ public class SecIndustry extends Sector {
 
     @Override
     void load() {
+        //initialize hashmaps
         stationGroups = new HashMap<>();
         resourceLabels = new HashMap<>();
+
+        //update ui with state info
+        focusStationName.setColor(state.findColorForOwner(state.myId));
 
         //loop through the grids
         for(Grid g : state.grids){
@@ -253,11 +272,15 @@ public class SecIndustry extends Sector {
             // Jobs \\
             Table jobTable = new Table();
             jobTable.align(Align.left);
-            jobTable.padLeft(12).padBottom(5);
+            jobTable.padLeft(2).padBottom(5);
             child.addActor(jobTable);
 
             //loop through all the jobs
-            for(Station.Job job : g.station.model.getPossibleJobs()){
+            for(JobType job : g.station.model.possibleJobs){
+                Image tierIcon = new Image(Asset.retrieveEntityIcon(job.getModel().getTier()));
+                tierIcon.setColor(Color.GRAY);
+                jobTable.add(tierIcon).padRight(8);
+
                 Label nameLabel = new Label(job.name(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
                 nameLabel.setColor(Color.GRAY);
                 jobTable.add(nameLabel).align(Align.left).padRight(10);
@@ -306,6 +329,7 @@ public class SecIndustry extends Sector {
 
                     //changes the color to light gray and back
                     private void changeNodeColors(Color color){
+                        tierIcon.setColor(color);
                         nameLabel.setColor(color);
                         for(Label label : costLabels){
                             label.setColor(color);
@@ -385,21 +409,43 @@ public class SecIndustry extends Sector {
     }
 
     /**
-     * Called when a station's stage changes.
+     * Update the station's stage or stage timer.
      */
     void stationStageUpdate(Station s){
-        VerticalGroup g = stationGroups.get(s.getId());
-
-        if(s.owner == state.myId && !g.hasParent()){
-            vertical.addActor(g);
-        }
-        else if(s.owner != state.myId && g.hasParent()){
-            vertical.removeActor(g);
-
-            //deselecting
-            if(focusStationId == s.getId()){
-                industryFocusStation(null);
+        //update the vertical groups
+        if(stationGroups != null && state != null){
+            VerticalGroup g = stationGroups.get(s.getId());
+            if(s.owner == state.myId && g != null && !g.hasParent()){
+                vertical.addActor(g);
             }
+            else if(s.owner != state.myId && g!=null && g.hasParent()){
+                vertical.removeActor(g);
+
+                //deselecting
+                if(focusStationId == s.getId()){
+                    industryFocusStation(null);
+                }
+            }
+        }
+
+        //update focus
+        if(focusStationId == s.getId()){
+            //stage and timer
+            focusStationStage.setVisible(true);
+            focusStationStage.setDrawable(Asset.retrieve(Station.getStageIcon(s.stage)));
+            focusStationTimer.setVisible(true);
+            switch(s.stage){
+                case VULNERABLE:
+                case ARMORED:
+                    focusStationTimer.setText("" + (int) s.stageTimer);
+                    break;
+                case SHIELDED:
+                case RUBBLE:
+                    focusStationTimer.setText("");
+                    break;
+            }
+            Main.glyph.setText(focusStationTimer.getStyle().font, focusStationTimer.getText());
+            focusStationTimer.setX(focusStationStage.getX()-2-Main.glyph.width);
         }
     }
 
@@ -541,16 +587,34 @@ public class SecIndustry extends Sector {
 
             //reset actors
             focusStationName.setText("[Station]");
+            focusStationStage.setVisible(false);
+            focusStationTimer.setVisible(false);
             dockInvGroup.clearChildren();
             jobQueue.clearChildren();
             jobMappings.clear();
-
         }
         else {
             focusStationId = station.grid;
 
             //top text
             focusStationName.setText(station.getFullName());
+
+            //stage and timer
+            focusStationStage.setVisible(true);
+            focusStationStage.setDrawable(Asset.retrieve(Station.getStageIcon(station.stage)));
+            focusStationTimer.setVisible(true);
+            switch(station.stage){
+                case VULNERABLE:
+                case ARMORED:
+                    focusStationTimer.setText("" + (int) station.stageTimer);
+                    break;
+                case SHIELDED:
+                case RUBBLE:
+                    focusStationTimer.setText("");
+                    break;
+            }
+            Main.glyph.setText(focusStationTimer.getStyle().font, focusStationTimer.getText());
+            focusStationTimer.setX(focusStationStage.getX()-2-Main.glyph.width);
 
             //docked ships
             dockInvGroup.clearChildren();
@@ -573,7 +637,7 @@ public class SecIndustry extends Sector {
     /**
      * Called when the user attempts to start a job at a station.
      */
-    private void industryJobRequest(Station station, Station.Job job){
+    private void industryJobRequest(Station station, JobType job){
         game.client.send(new MJobReq(station.grid, job));
     }
 }

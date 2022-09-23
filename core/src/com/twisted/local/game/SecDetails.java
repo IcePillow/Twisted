@@ -6,14 +6,13 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.twisted.Asset;
-import com.twisted.Main;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.util.*;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameReq.*;
 
 import java.util.HashMap;
@@ -79,11 +78,11 @@ public class SecDetails extends Sector {
         Group decoration = new Group();
 
         //add the main window background
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(parent.getWidth(), parent.getHeight());
         decoration.addActor(ribbon);
 
-        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image embedded = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
         decoration.addActor(embedded);
 
@@ -437,20 +436,20 @@ public class SecDetails extends Sector {
                     if(station.owner != ent.owner) break;
 
                     game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                            EntPtr.createFromEntity(station), Color.GREEN, station.model.getDockingRadius());
+                            EntPtr.createFromEntity(station), Color.GREEN, station.model.dockingRadius);
                 }
                 break;
             }
             case SHIP_WEAPON_HOVER_ON: {
                 game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
                         EntPtr.createFromEntity(ent), Color.YELLOW,
-                        ((Ship)ent).weapons[value].getMaxRange());
+                        ((Ship)ent).weapons[value].subtype().getRange());
                 break;
             }
             case SHIP_TARGET_HOVER_ON: {
                 //TODO set this color based on weapon type
                 game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).model.getTargetRange());
+                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).model.targetRange);
                 break;
             }
             case SHIP_DOCK_HOVER_OFF:

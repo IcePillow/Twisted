@@ -10,12 +10,15 @@ import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Main;
+import com.twisted.Paint;
 import com.twisted.local.game.cosmetic.Cosmetic;
+import com.twisted.local.game.cosmetic.LaserBeam;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.attach.Laser;
+import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.mobs.Mobile;
 
 import java.util.*;
@@ -114,62 +117,22 @@ public class SecViewport extends Sector {
         sprite.setProjectionMatrix(camera.combined);
         shape.setProjectionMatrix(camera.combined);
 
-        //graphics
+        //graphics prep
         offset += delta;
 
         //access the grid and start drawing
         Grid g = state.grids[game.getGrid()];
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(Main.SPACE);
+        shape.setColor(Paint.SPACE.col);
         shape.rect(camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f, stage.getWidth(), stage.getHeight());
         shape.end();
 
         shape.begin(ShapeRenderer.ShapeType.Line);
 
-        //draw the cosmetics
+        renderStations(delta, g);
         renderCosmetics(delta, g);
-
-        //draw the station
-        if(g.station.owner == 0){
-            shape.setColor(NEUTRAL_COL);
-        }
-        else {
-            shape.setColor(state.players.get(g.station.owner).getFile().color);
-        }
-        Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
-        stationDrawable.scale(LTR);
-        shape.polygon(stationDrawable.getTransformedVertices());
-
-        //draw the mobiles
-        Polygon mobDrawable;
-        shape.setColor(Color.LIGHT_GRAY); //TODO color based on the particular mobile
-        for(Mobile m : g.mobiles.values()){
-            mobDrawable = new Polygon(m.getVertices());
-            mobDrawable.scale(LTR);
-            mobDrawable.translate(m.pos.x*LTR, m.pos.y*LTR);
-            mobDrawable.rotate((float) (m.rot*180/Math.PI)-90);
-            shape.polygon(mobDrawable.getTransformedVertices());
-        }
-
-        //draw the ships
-        Polygon shipDrawable;
-        for(Ship s : g.ships.values()){
-            if(s.owner == 0){
-                shape.setColor(NEUTRAL_COL);
-            }
-            else {
-                shape.setColor(state.players.get(s.owner).getFile().color);
-            }
-
-            //draw the ship
-            shipDrawable = new Polygon(s.subtype().getVertices());
-            shipDrawable.scale(LTR);
-            shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
-            shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
-            shape.polygon(shipDrawable.getTransformedVertices());
-        }
-
-        //draw the selection shapes
+        renderMobiles(delta, g);
+        renderShips(delta, g);
         renderSelections(delta, g);
 
         shape.end();
@@ -183,13 +146,70 @@ public class SecViewport extends Sector {
 
     /* Rendering Utility */
 
+    private void renderStations(float delta, Grid g){
+        if(g.station.owner == 0){
+            shape.setColor(NEUTRAL_COL);
+        }
+        else {
+            shape.setColor(state.players.get(g.station.owner).getPaint().col);
+        }
+        Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
+        stationDrawable.scale(LTR);
+        shape.polygon(stationDrawable.getTransformedVertices());
+    }
+
     private void renderCosmetics(float delta, Grid g){
+
+        //check for new cosmetics
+        for(Ship s : g.ships.values()){
+            for(Weapon w : s.weapons){
+                //check for laser beams
+                if(w instanceof Laser && w.active && !((Laser) w).cosmeticBeamExists){
+                    LaserBeam c = new LaserBeam(g.id, (Laser) w);
+                    cosmetics.add(c);
+                }
+            }
+        }
+
+        //draw the cosmetics
         Set<Cosmetic> cosmeticToRemove = new HashSet<>();
         for(Cosmetic c : cosmetics){
-            if(!c.renderShape(delta, shape)) cosmeticToRemove.add(c);
+            if(!c.tick(delta)) cosmeticToRemove.add(c);
+            else if(c.gridId == g.id) c.draw(shape, g);
         }
         for(Cosmetic c : cosmeticToRemove){
             cosmetics.remove(c);
+        }
+    }
+
+    private void renderMobiles(float delta, Grid g){
+        Polygon mobDrawable;
+        shape.setColor(Color.LIGHT_GRAY); //TODO color based on the particular mobile
+        for(Mobile m : g.mobiles.values()){
+            mobDrawable = new Polygon(m.getVertices());
+            mobDrawable.scale(LTR);
+            mobDrawable.translate(m.pos.x*LTR, m.pos.y*LTR);
+            mobDrawable.rotate((float) (m.rot*180/Math.PI)-90);
+            shape.polygon(mobDrawable.getTransformedVertices());
+        }
+    }
+
+    private void renderShips(float delta, Grid g){
+        Polygon shipDrawable;
+        for(Ship s : g.ships.values()){
+            if(s.owner == 0){
+                shape.setColor(NEUTRAL_COL);
+            }
+            else {
+                shape.setColor(state.players.get(s.owner).getPaint().col);
+            }
+
+            //draw the ship
+            shipDrawable = new Polygon(s.entityModel().getVertices());
+            shipDrawable.scale(LTR);
+            shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
+            shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
+            shape.polygon(shipDrawable.getTransformedVertices());
         }
     }
 
@@ -205,7 +225,7 @@ public class SecViewport extends Sector {
                 if(s != null){
                     shape.setColor(selectionColors.get(Select.BASE_SELECT));
                     shape.circle(s.pos.x*LTR, s.pos.y*LTR,
-                            s.subtype().getPaddedLogicalRadius()*LTR);
+                            s.entityModel().getPaddedLogicalRadius()*LTR);
                 }
             }
             else{
@@ -319,7 +339,7 @@ public class SecViewport extends Sector {
         //prep the variables that tell what is clicked on
         EntPtr ptr = null;
 
-        //figure out what was clicked on (mobiles ignored)
+        //check if something was directly clicked on
         if(g.station.polygon.contains(adjX, adjY)){
             ptr = new EntPtr(Entity.Type.Station, g.id, g.id, false);
         }
@@ -327,10 +347,18 @@ public class SecViewport extends Sector {
             //create slightly larger polygon
             Polygon sPoly = new Polygon(s.polygon.getVertices());
             sPoly.translate(s.pos.x, s.pos.y);
-            sPoly.scale(1.35f);
             //check if it contains
             if(sPoly.contains(adjX, adjY)){
                 ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+            }
+        }
+
+        //otherwise, check if a ship was near to being clicked on
+        if(ptr == null){
+            for(Ship s : g.ships.values()){
+                if(s.pos.dst(adjX, adjY) < s.model.getPaddedLogicalRadius()){
+                    ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+                }
             }
         }
 

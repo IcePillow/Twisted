@@ -5,7 +5,7 @@ import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.twisted.Asset;
 import com.twisted.local.game.SecIndustry;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.station.Station;
 
 public class IndPackedStationRow extends IndustryRow {
 

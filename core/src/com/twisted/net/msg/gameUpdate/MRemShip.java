@@ -1,6 +1,6 @@
 package com.twisted.net.msg.gameUpdate;
 
-import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.ship.Ship;
 
 /**
  * Removing a ship.

@@ -3,32 +3,21 @@ package com.twisted.logic.entities.attach;
 import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.host.game.ServerGameState;
 import com.twisted.logic.mobs.BlasterBolt;
 
 public class Blaster extends Weapon {
 
-    //data
-    public final float damage;
-    public final float missileSpeed;
-    private final float range;
-    private final float fullCooldown;
-
+    public final Model model;
 
     /**
      * Constructor
-     * @param speed In units per second
-     * @param fullCooldown In seconds
      */
-    public Blaster(Entity attached, float range, float damage, float speed, float fullCooldown) {
+    public Blaster(Ship attached, Model model) {
         super(attached);
 
-        this.range = range;
-        this.damage = damage;
-        this.missileSpeed = speed;
-        this.fullCooldown = fullCooldown;
-
+        this.model = model;
         this.active = false;
     }
 
@@ -42,26 +31,30 @@ public class Blaster extends Weapon {
             timer -= delta;
         }
         else if(target != null && targeting == Ship.Targeting.Locked
-                && ship.pos.dst(target.pos) <= range && active) {
+                && ship.pos.dst(target.pos) <= model.range && active) {
             BlasterBolt bolt = new BlasterBolt(state.useNextMobileId(), ship.pos.cpy(), this,
                     target.entityType(), target.getId());
             grid.mobiles.put(bolt.id, bolt);
 
-            timer = fullCooldown;
+            timer = model.cooldown;
         }
     }
     @Override
     public void putOnFullCooldown(){
-        this.timer = fullCooldown;
+        this.timer = model.cooldown;
+    }
+
+
+    /* Typing Methods */
+
+    @Override
+    public Weapon.Model subtype(){
+        return model;
     }
 
 
     /* Data Methods */
 
-    @Override
-    public float getMaxRange() {
-        return range;
-    }
     @Override
     public Asset.UiButton getOffButtonAsset(){
         return Asset.UiButton.BLASTER_OFF;
@@ -72,7 +65,42 @@ public class Blaster extends Weapon {
     }
     @Override
     public float getFullTimer(){
-        return fullCooldown;
+        return model.cooldown;
+    }
+
+
+    /* Enums */
+
+    public enum Model implements Weapon.Model {
+
+        Small(3, 2, 1.4f, 2),  //1 dps
+        Medium(4, 5, 1.3f, 3),  //1.7 dps
+        Large(5, 15, 1f, 6);  //2.5 dps
+
+        //data
+        public final float range;
+        public final float damage;
+        public final float speed;
+        public final float cooldown;
+
+        //overrides
+        @Override
+        public Weapon.Type getType(){
+            return Type.Blaster;
+        }
+        @Override
+        public float getRange(){
+            return range;
+        }
+
+        //constructor
+        Model(float range, float damage, float speed, float cooldown){
+            this.range = range;
+            this.damage = damage;
+            this.speed = speed;
+            this.cooldown = cooldown;
+        }
+
     }
 
 }

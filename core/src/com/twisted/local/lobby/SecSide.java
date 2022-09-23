@@ -57,7 +57,7 @@ class SecSide extends Sector {
 
         buttonChild = initButton();
         buttonChild.setVisible(false);
-        buttonChild.setPosition(0, SecTerminal.TERMINAL_HEIGHT+5+16);
+        buttonChild.setPosition(0, SecTerminal.TERMINAL_HEIGHT+5+20);
         parent.addActor(buttonChild);
 
         return parent;
@@ -78,10 +78,10 @@ class SecSide extends Sector {
         Group group = new Group();
 
         //ribbon of the terminal
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(WIDTH+6, SecTerminal.TERMINAL_HEIGHT/2f+3-2);
         group.addActor(ribbon);
-        Image band = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Image band = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
         band.setBounds(0, ribbon.getHeight()-20-6, WIDTH+6, 3);
         group.addActor(band);
 
@@ -97,7 +97,7 @@ class SecSide extends Sector {
         group.addActor(pane);
 
         //title decor
-        Image titleBground = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image titleBground = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         titleBground.setBounds(3, ribbon.getHeight()-3-20, 150, 20);
         group.addActor(titleBground);
 
@@ -114,10 +114,10 @@ class SecSide extends Sector {
         Group group = new Group();
 
         //ribbon of the terminal
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(WIDTH+6, SecTerminal.TERMINAL_HEIGHT/2f+3-2);
         group.addActor(ribbon);
-        Image band = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Image band = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
         band.setBounds(0, ribbon.getHeight()-20-6, WIDTH+6, 3);
         group.addActor(band);
 
@@ -133,7 +133,7 @@ class SecSide extends Sector {
         group.addActor(pane);
 
         //title decor
-        Image titleBground = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image titleBground = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         titleBground.setBounds(3, ribbon.getHeight()-3-20, 150, 20);
         group.addActor(titleBground);
         //title
@@ -203,7 +203,7 @@ class SecSide extends Sector {
 
         //tree
         RectTextButton startButton = new RectTextButton("Start", Asset.labelStyle(Asset.Avenir.MEDIUM_16),
-                Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+                Asset.retrieve(Asset.Pixel.BLACK));
         startButton.setPadding(12, 8, 2);
         startButton.setX(WIDTH/2);
         group.addActor(startButton);
@@ -226,12 +226,12 @@ class SecSide extends Sector {
     void addPlayer(int id, String name, boolean isHost){
         HorizontalGroup group = new HorizontalGroup();
 
-        Label nameLabel = new Label(name, skin, "small", Color.WHITE);
+        Label nameLabel = new Label(name, Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         nameLabel.setColor(Color.LIGHT_GRAY);
         group.addActor(nameLabel);
 
         if(isHost){
-            Label hostLabel = new Label("(H)", skin, "small", Color.WHITE);
+            Label hostLabel = new Label(" (H)", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
             hostLabel.setColor(Color.GRAY);
             group.addActor(hostLabel);
         }

@@ -10,24 +10,27 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.Paint;
+import com.twisted.local.lib.Ribbon;
+import com.twisted.local.lobby.util.TeaserModelList;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 
-class SecTeaser extends Sector {
+public class SecTeaser extends Sector {
 
     //constants
-    private static final Color LIGHT_GRAY = new Color(0.9f, 0.9f, 0.9f, 1f);
-    private static final float TEXT_WIDTH=320;
+    private static final float HEIGHT=330, TEXT_WIDTH=320, CUSHION=8, WIDTH=4*CUSHION+TEXT_WIDTH+35;
 
     //tree
-    private Image selectedImage, selectionArrow;
-    private Label titleLabel;
-    private final Label[] text; //body, flavor
-
+    private Image selectTierImage, selectModelImage;
+    private final Label[] text;
+    private Group modelBar, textGroup;
+    private final HashMap<Entity.Tier, TeaserModelList> modelLists;
 
 
     /**
@@ -36,7 +39,8 @@ class SecTeaser extends Sector {
     public SecTeaser(Lobby lobby){
         super(lobby);
 
-        text = new Label[2];
+        text = new Label[4];
+        modelLists = new HashMap<>();
     }
 
 
@@ -45,14 +49,22 @@ class SecTeaser extends Sector {
     @Override
     protected Group init(){
         Group parent = super.init();
-        parent.setPosition(1010, 380);
-        
-        Group entityGroup = initEntitySprites();
-        entityGroup.setPosition(350, 0);
-        parent.addActor(entityGroup);
+        parent.setPosition(1040, 20);
 
-        Group textGroup = initText();
-        textGroup.setPosition(0, 0);
+        Group decorGroup = initDecor();
+        decorGroup.setPosition(-3, -3);
+        parent.addActor(decorGroup);
+
+        Group tierGroup = initTiers();
+        tierGroup.setPosition(TEXT_WIDTH+3*CUSHION+3, HEIGHT);
+        parent.addActor(tierGroup);
+
+        Group modelGroup = initModels();
+        modelGroup.setPosition(CUSHION+TEXT_WIDTH/2f, HEIGHT-40);
+        parent.addActor(modelGroup);
+
+        textGroup = initText();
+        textGroup.setPosition(CUSHION, HEIGHT-65);
         parent.addActor(textGroup);
 
         return parent;
@@ -65,43 +77,81 @@ class SecTeaser extends Sector {
     void dispose() {
 
     }
-    
-    private Group initEntitySprites(){
+
+
+    /* Initializing */
+
+    private Group initDecor(){
         Group group = new Group();
 
-        //selection arrow
-        selectionArrow = new Image(Asset.retrieve(Asset.UiBasic.ARROW_2));
-        selectionArrow.setOrigin(selectionArrow.getWidth()/2f, selectionArrow.getHeight()/2f);
-        selectionArrow.rotateBy(180);
-        selectionArrow.setColor(LIGHT_GRAY);
-        selectionArrow.setPosition(40, -30);
-        selectionArrow.setVisible(false);
-        group.addActor(selectionArrow);
+        Image background = new Image(Asset.retrieve(Asset.Pixel.MENU_A2));
+        background.setSize(WIDTH+6, HEIGHT+6);
+        group.addActor(background);
 
-        float yPos = 0;
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
+        ribbon.setSize(WIDTH+6, HEIGHT+6);
+        group.addActor(ribbon);
 
-        ArrayList<Entity.Subtype> subtypes = new ArrayList<>();
-        subtypes.addAll(Arrays.asList(Ship.Model.values()).subList(0, Ship.Model.values().length-1));
-        subtypes.addAll(Arrays.asList(Station.Model.values()));
-        subtypes.add(Ship.Model.Titan);
+        Image strip = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
+        strip.setBounds(3+CUSHION+TEXT_WIDTH+CUSHION, 0, 3, HEIGHT+6);
+        group.addActor(strip);
 
-        for(Entity.Subtype s : subtypes){
-            Image img = new Image(Asset.retrieveEntityIcon(s));
+        return group;
+    }
+
+    private Group initTiers(){
+        Group group = new Group();
+
+        float yPos = -42;
+
+        ArrayList<Entity.Tier> tiers = new ArrayList<>();
+        tiers.addAll(Arrays.asList(Ship.Tier.values()).subList(0, Ship.Tier.values().length-1));
+        tiers.addAll(Arrays.asList(Station.Tier.values()));
+        tiers.add(Ship.Tier.Titan);
+
+        for(Entity.Tier t : tiers){
+            Image img = new Image(Asset.retrieveEntityIcon(t));
             img.setColor(Color.GRAY);
-            img.setScale(2f);
+            img.setSize(32, 32);
             img.setPosition(0, yPos);
             group.addActor(img);
 
-            float tempPos = yPos;
             img.addListener(new ClickListener(Input.Buttons.LEFT){
                 @Override
                 public void clicked(InputEvent event, float x, float y){
-                    selectEntity(s, img, tempPos);
+                    selectEntityTier(t, img);
                     event.handle();
                 }
             });
 
-            yPos -= 50;
+            yPos -= 42;
+        }
+
+        return group;
+    }
+
+    private Group initModels(){
+        Group group = new Group();
+
+        //prep
+        TeaserModelList subgroup;
+
+        //loop through tiers
+        for(Ship.Tier t : Ship.Tier.values()){
+            subgroup = new TeaserModelList(t, this);
+
+            subgroup.setX(-48*subgroup.getChildren().size/2f+8);
+            subgroup.setVisible(false);
+            group.addActor(subgroup);
+            modelLists.put(t, subgroup);
+        }
+        for(Station.Tier t : Station.Tier.values()){
+            subgroup = new TeaserModelList(t, this);
+
+            subgroup.setX(-48*subgroup.getChildren().size/2f+8);
+            subgroup.setVisible(false);
+            group.addActor(subgroup);
+            modelLists.put(t, subgroup);
         }
 
         return group;
@@ -110,24 +160,33 @@ class SecTeaser extends Sector {
     private Group initText(){
         Group group = new Group();
 
-        titleLabel = new Label("", Asset.labelStyle(Asset.Avenir.HEAVY_20));
-        titleLabel.setPosition(TEXT_WIDTH/2f, 0);
-        group.addActor(titleLabel);
+        Label titleLab = new Label("", Asset.labelStyle(Asset.Avenir.HEAVY_20));
+        titleLab.setPosition(TEXT_WIDTH/2f, 0);
+        group.addActor(titleLab);
+        text[0] = titleLab;
 
-        text[0] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        text[0].setColor(Color.LIGHT_GRAY);
-        text[0].setAlignment(Align.top);
-        text[0].setWrap(true);
-        text[0].setWidth(TEXT_WIDTH);
-        text[0].setPosition(0, -20);
-        group.addActor(text[0]);
+        Label tierLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+        tierLab.setColor(Color.LIGHT_GRAY);
+        tierLab.setAlignment(Align.top);
+        tierLab.setWidth(TEXT_WIDTH);
+        group.addActor(tierLab);
+        text[1] = tierLab;
 
-        text[1] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12_ITALIC));
-        text[1].setColor(Color.GRAY);
-        text[1].setAlignment(Align.top);
-        text[1].setWrap(true);
-        text[1].setWidth(TEXT_WIDTH);
-        group.addActor(text[1]);
+        Label bodyLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        bodyLab.setColor(Color.LIGHT_GRAY);
+        bodyLab.setAlignment(Align.top);
+        bodyLab.setWrap(true);
+        bodyLab.setWidth(TEXT_WIDTH);
+        group.addActor(bodyLab);
+        text[2] = bodyLab;
+
+        Label flavorLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12_ITALIC));
+        flavorLab.setColor(Color.GRAY);
+        flavorLab.setAlignment(Align.top);
+        flavorLab.setWrap(true);
+        flavorLab.setWidth(TEXT_WIDTH);
+        group.addActor(flavorLab);
+        text[3] = flavorLab;
 
         return group;
     }
@@ -135,40 +194,71 @@ class SecTeaser extends Sector {
 
     /* Internal Events */
 
-    private void selectEntity(Entity.Subtype subtype, Image image, float height){
+    private void selectEntityTier(Entity.Tier tier, Image tierImage){
         //update the image colors
-        if(selectedImage != null) selectedImage.setColor(Color.GRAY);
-        image.setColor(LIGHT_GRAY);
-        selectedImage = image;
+        if(selectTierImage != null) selectTierImage.setColor(Color.GRAY);
+        tierImage.setColor(Paint.VERY_LIGHT_GRAY.col);
+        selectTierImage = tierImage;
 
-        //update the arrow
-        selectionArrow.setVisible(true);
-        selectionArrow.setY(height+7);
+        //model bar
+        if(modelBar != null) modelBar.setVisible(false);
+        modelBar = modelLists.get(tier);
+        modelBar.setVisible(true);
 
-        //update the title text
-        if(subtype instanceof Ship.Model){
-            titleLabel.setText(((Ship.Model) subtype).name());
+        //model selection
+        TeaserModelList modelList = modelLists.get(tier);
+        selectEntityModel(modelList.getCurrentModel(), modelList.getCurrentImage());
+    }
+
+    /**
+     * Accepts null values for its parameters.
+     */
+    public void selectEntityModel(Entity.Model model, Image modelImage){
+        //update the image
+        if(selectModelImage != null) selectModelImage.setColor(Color.GRAY);
+        if(modelImage != null) modelImage.setColor(Paint.VERY_LIGHT_GRAY.col);
+        selectModelImage = modelImage;
+
+        if(model == null){
+            textGroup.setVisible(false);
         }
-        else if(subtype instanceof Station.Model){
-            titleLabel.setText(((Station.Model) subtype).name());
-        }
-        Main.glyph.setText(titleLabel.getStyle().font, titleLabel.getText());
-        titleLabel.setX(TEXT_WIDTH/2f-Main.glyph.width/2f);
+        else {
+            //visibility
+            textGroup.setVisible(true);
 
-        //update the body of the text
-        String[] blurb = Asset.retrieveEntityBlurb(subtype).split("<>");
-        for(int i=0; i< text.length; i++){
-            if(blurb.length > i){
-                text[i].setText(blurb[i].trim());
-                if(i > 0){
-                    Main.glyph.setText(text[i-1].getStyle().font, text[i-1].getText(), text[i-1].getColor(),
-                            TEXT_WIDTH, text[i-1].getLabelAlign(), text[i-1].getWrap());
-                    text[i].setY(text[i-1].getY() - 30 - Main.glyph.height);
-                }
+            //grab the blurb
+            String[] blurb = Asset.retrieveEntityBlurb(model).split("<>");
+
+            //update the title text
+            if(model instanceof Ship.Model){
+                text[0].setText(((Ship.Model) model).name());
             }
-            else {
-                text[i].setText("");
+            else if(model instanceof Station.Model){
+                text[0].setText(((Station.Model) model).name());
             }
+            Main.glyph.setText(text[0].getStyle().font, text[0].getText());
+            text[0].setX(TEXT_WIDTH/2f-Main.glyph.width/2f);
+
+            //update the tier text
+            if(model instanceof Ship.Model){
+                text[1].setText(((Ship.Model) model).tier.name() + " Class");
+            }
+            else if(model instanceof Station.Model) {
+                text[1].setText("Station Class");
+            }
+            Main.glyph.setText(text[0].getStyle().font, text[0].getText());
+            text[1].setY(text[0].getY() - 4 - Main.glyph.height/2f);
+
+            //update the body text
+            text[2].setText(blurb[0].trim());
+            Main.glyph.setText(text[1].getStyle().font, text[1].getText());
+            text[2].setY(text[1].getY() - 25 - Main.glyph.height/2f);
+
+            //update the flavor text
+            text[3].setText(blurb[1].trim());
+            Main.glyph.setText(text[2].getStyle().font, text[2].getText(), text[2].getColor(), TEXT_WIDTH,
+                    text[2].getLabelAlign(), text[2].getWrap());
+            text[3].setY(text[2].getY() - 30 - Main.glyph.height);
         }
     }
 }

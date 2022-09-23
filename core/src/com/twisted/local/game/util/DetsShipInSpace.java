@@ -21,8 +21,8 @@ import com.twisted.local.game.SecDetails;
 import com.twisted.local.lib.ProgressButton;
 import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 
 public class DetsShipInSpace extends DetsGroup {
 
@@ -35,7 +35,7 @@ public class DetsShipInSpace extends DetsGroup {
     private Label shipPosition, shipVelocity, healthLabel;
     private Label targetLabel;
     private TogImgButton targetButton;
-    private Image healthFill, targetImage;
+    private Image healthFill, targetImage, shipIcon;
     private ProgressButton[] weaponButtons;
 
     //selection
@@ -86,17 +86,23 @@ public class DetsShipInSpace extends DetsGroup {
     private Group createTopTextGroup(){
         Group group = new Group();
 
+        shipIcon = new Image(Asset.retrieveEntityIcon(Ship.Tier.Frigate));
+        shipIcon.setColor(Color.GRAY);
+        shipIcon.setPosition(0, 2);
+        group.addActor(shipIcon);
+
         shipGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        shipGrid.setPosition(18, 0);
         group.addActor(shipGrid);
 
         shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        shipName.setPosition(30, 0);
+        shipName.setPosition(40, 0);
         group.addActor(shipName);
 
         shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         shipMoveCommand.setColor(Color.LIGHT_GRAY);
         Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
-        shipMoveCommand.setPosition(288 - Main.glyph.width, 0);
+        shipMoveCommand.setPosition(288 - Main.glyph.width, 2);
         group.addActor(shipMoveCommand);
 
         return group;
@@ -319,16 +325,15 @@ public class DetsShipInSpace extends DetsGroup {
         }
         sel = (Ship) entity;
 
-        //update the name
-        shipName.setText(sel.subtype().toString());
+        //update the name and grid and icon
+        shipName.setText(sel.model.toString());
         shipName.setColor(state.findColorForOwner(sel.owner));
-
-        //update the grid
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
+        shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
-            weaponButtons[i].setVisible(i < sel.model.getWeaponSlots().length);
+            weaponButtons[i].setVisible(i < sel.model.weapons.length);
 
             //update the kind of each weapon
             if(weaponButtons[i].isVisible()){
@@ -353,9 +358,9 @@ public class DetsShipInSpace extends DetsGroup {
         shipMoveCommand.setX(288 - Main.glyph.width);
 
         //update the health
-        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.getMaxHealth())+1)) + "s",
-                ((int) Math.ceil(sel.health)) + "/" + sel.model.getMaxHealth()));
-        healthFill.setWidth(200 * sel.health / sel.model.getMaxHealth());
+        healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.maxHealth)+1)) + "s",
+                ((int) Math.ceil(sel.health)) + "/" + sel.model.maxHealth));
+        healthFill.setWidth(200 * sel.health / sel.model.maxHealth);
 
         //update targeting text and image
         if(sel.targetEntity != null){
@@ -367,7 +372,7 @@ public class DetsShipInSpace extends DetsGroup {
                     break;
                 case Locked:
                     Gdx.app.postRunnable(() -> {
-                        targetImage.setDrawable(Asset.retrieveEntityIcon(cacheTargetEnt().subtype()));
+                        targetImage.setDrawable(Asset.retrieveEntityIcon(cacheTargetEnt().entityModel().getTier()));
                         targetImage.setColor(state.findColorForOwner(cacheTargetEnt().owner));
                         targetImage.setVisible(true);
                     });

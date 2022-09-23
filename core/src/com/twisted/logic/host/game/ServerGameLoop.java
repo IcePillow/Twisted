@@ -5,11 +5,17 @@ import com.twisted.Main;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.descriptors.JobType;
 import com.twisted.logic.descriptors.events.EvGameEnd;
 import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.*;
-import com.twisted.logic.entities.attach.StationTransport;
+import com.twisted.logic.entities.attach.StationTrans;
 import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.entities.ship.Barge;
+import com.twisted.logic.entities.ship.Cruiser;
+import com.twisted.logic.entities.ship.Frigate;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
@@ -92,59 +98,63 @@ class ServerGameLoop {
                     boolean jobBlocking = false;
 
                     //create the ship or the packaged station
-                    Ship sh = null;
-                    switch(job.jobType){
-                        case Frigate:
-                            sh = new Frigate(state.useNextShipId(), grid.id, job.owner,true);
-                            break;
-                        case Barge:
-                            sh = new Barge(state.useNextShipId(), grid.id, job.owner, true);
-                            break;
-                        //TODO add the rest of the ship cases
-                        case Extractor:
-                        case Harvester:
-                        case Liquidator:
-                            //add the packed station to the inventory
-                            int idx;
-                            for(idx=0; idx<st.packedStations.length; idx++){
-                                if(st.packedStations[idx] == null){
-                                    st.packedStations[idx] = job.jobType.getPackedStationType();
+                    if(job.jobType.getType() == Entity.Type.Ship){
+                        Ship sh = null;
+                        switch((Ship.Tier) job.jobType.getTier()){
+                            case Frigate:
+                                sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner,true);
+                                break;
+                            case Cruiser:
+                                sh = new Cruiser((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner,true);
+                                break;
+                            case Barge:
+                                sh = new Barge((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                break;
+                        }
 
-                                    //tracking
-                                    state.players.get(st.owner).tracking.incrEntsBuilt(job.jobType.getPackedStationType());
-
-                                    //tell players
-                                    host.broadcastMessage(new MPackedStationMove(null,
-                                            -1, EntPtr.createFromEntity(st), idx,
-                                            job.jobType.getPackedStationType()));
-                                    break;
-                                }
-                                else if(idx == st.packedStations.length-1){
-                                    jobBlocking = true;
-                                    break;
-                                }
+                        if(sh != null){
+                            //add ship to world
+                            if(!sh.docked){
+                                grid.ships.put(sh.id, sh);
                             }
-                            break;
-                        default:
-                            System.out.println("Unexpected job type in GameHost.updateStationTimers()");
-                            break;
-                    }
+                            else {
+                                grid.station.dockedShips.put(sh.id, sh);
+                            }
 
-                    //deal with a created ship
-                    if(sh != null){
-                        //add ship to world
-                        if(!sh.docked){
-                            grid.ships.put(sh.id, sh);
+                            //tracking
+                            state.players.get(st.owner).tracking.incrEntsBuilt(sh.entityModel().getTier());
+
+                            //tell users
+                            host.broadcastMessage(MAddShip.createFromShipBody(sh));
                         }
                         else {
-                            grid.station.dockedShips.put(sh.id, sh);
+                            System.out.println("Unexpectedly not able to create ship");
+                            new Exception().printStackTrace();
                         }
+                    }
+                    else if(job.jobType.getType() == Entity.Type.Station) {
+                        int idx;
+                        for(idx=0; idx<st.packedStations.length; idx++){
+                            if(st.packedStations[idx] == null){
+                                st.packedStations[idx] = (Station.Model) job.jobType.getModel();
 
-                        //tracking
-                        state.players.get(st.owner).tracking.incrEntsBuilt(sh.subtype());
+                                //tracking
+                                state.players.get(st.owner).tracking.incrEntsBuilt(job.jobType.getModel().getTier());
 
-                        //tell users
-                        host.broadcastMessage(MAddShip.createFromShipBody(sh));
+                                //tell players
+                                host.broadcastMessage(new MPackedStationMove(null,
+                                        -1, EntPtr.createFromEntity(st), idx,
+                                        (Station.Model) job.jobType.getModel()));
+                                break;
+                            }
+                            else if(idx == st.packedStations.length-1){
+                                jobBlocking = true;
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                     }
 
                     //end the job and tell the user
@@ -171,11 +181,11 @@ class ServerGameLoop {
                 switch(st.stage){
                     case VULNERABLE:
                         st.stage = Station.Stage.SHIELDED;
-                        st.shieldHealth = (float) Math.ceil(0.25f * st.model.getMaxShield());
+                        st.shieldHealth = (float) Math.ceil(0.25f * st.model.maxShield);
                         break;
                     case ARMORED:
                         st.stage = Station.Stage.VULNERABLE;
-                        st.stageTimer = st.model.getVulnerableDuration();
+                        st.stageTimer = st.model.vulnerableDuration;
                         break;
                 }
             }
@@ -214,8 +224,8 @@ class ServerGameLoop {
                                 s.moveTargetPos.y - s.pos.y).nor();
 
                         //find the effective max speed (compare speed can stop from to actual max speed)
-                        float speedCanStopFrom = (float) Math.sqrt( 2*s.model.getMaxAccel()*distanceToTarget );
-                        float effectiveMaxSpeed = Math.min(0.8f*speedCanStopFrom, s.model.getMaxSpeed());
+                        float speedCanStopFrom = (float) Math.sqrt( 2*s.model.maxAccel*distanceToTarget );
+                        float effectiveMaxSpeed = Math.min(0.8f*speedCanStopFrom, s.model.maxSpeed);
 
                         //update the target velocity
                         s.trajectoryVel.x *= effectiveMaxSpeed;
@@ -226,7 +236,8 @@ class ServerGameLoop {
                     //placeholder, empty
                 }
                 else if(s.movement == Ship.Movement.ORBIT_ENT){
-                    Entity tar = g.retrieveEntity(s.moveTargetEntType, s.moveTargetEntId);
+                    Entity tar = null;
+                    if(s.moveTargetEnt != null) tar = s.moveTargetEnt.retrieveFromGrid(g);
 
                     //TODO handle orbiting better at smaller radii
                     if(tar == null){
@@ -247,7 +258,7 @@ class ServerGameLoop {
 
                         //vector to represent the direction of travel
                         Vector2 oPath = new Vector2(s.pos.x-tar.pos.x, s.pos.y-tar.pos.y)
-                                .nor().scl(0.9f*s.model.getMaxSpeed());
+                                .nor().scl(0.9f*s.model.maxSpeed);
 
                         if((velAng > relPosAng && velAng < relPosAng+180)
                                 || (velAng+360 > relPosAng && velAng+360 < relPosAng+180)){
@@ -271,9 +282,9 @@ class ServerGameLoop {
                     accel.set(s.trajectoryVel.x-s.vel.x, s.trajectoryVel.y-s.vel.y);
 
                     float length = accel.len();
-                    if(length > s.model.getMaxAccel() * GameHost.FRAC){
-                        accel.x *= s.model.getMaxAccel() * GameHost.FRAC /length;
-                        accel.y *= s.model.getMaxAccel() * GameHost.FRAC /length;
+                    if(length > s.model.maxAccel * GameHost.FRAC){
+                        accel.x *= s.model.maxAccel * GameHost.FRAC /length;
+                        accel.y *= s.model.maxAccel * GameHost.FRAC /length;
                     }
 
                     //update the velocity
@@ -336,7 +347,7 @@ class ServerGameLoop {
                 if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
                     Station st = g.station;
                     //dock
-                    if(s.pos.dst(st.pos) <= st.model.getDockingRadius() && st.owner == s.owner){
+                    if(s.pos.dst(st.pos) <= st.model.dockingRadius && st.owner == s.owner){
                         shipsToDock.add(s);
                     }
                     //owner changed
@@ -382,10 +393,10 @@ class ServerGameLoop {
                 s.movement = Ship.Movement.STOPPING;
 
                 //placing with correct physics (slightly varied)
-                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.model.getMaxSpeed()).rotateRad((float) Math.random()*0.15f);
+                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.model.maxSpeed).rotateRad((float) Math.random()*0.15f);
                 s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
 
-                warpVel.nor().scl(s.model.getMaxSpeed()*0.75f);
+                warpVel.nor().scl(s.model.maxSpeed*0.75f);
                 s.vel.set(warpVel.x, warpVel.y);
             }
         }
@@ -436,7 +447,7 @@ class ServerGameLoop {
                 Entity target = (s.targetEntity==null) ? null : s.targetEntity.retrieveFromGrid(g);
 
                 //stop targeting if not valid to target (doesn't exist or range checks)
-                if(target == null || target.pos.dst(s.pos) > s.model.getTargetRange()){
+                if(target == null || target.pos.dst(s.pos) > s.model.targetRange){
                     s.targetingState = null;
                     s.targetEntity = null;
                 }
@@ -453,7 +464,7 @@ class ServerGameLoop {
                     toBeRemoved.add(s);
 
                     //tracking
-                    state.players.get(s.lastHit).tracking.incrEntsKilled(s.subtype());
+                    state.players.get(s.lastHit).tracking.incrEntsKilled(s.entityModel().getTier());
                 }
             }
             //remove ships
@@ -465,7 +476,7 @@ class ServerGameLoop {
             Station st = g.station;
             if(st.stage == Station.Stage.SHIELDED && st.shieldHealth <= 0){
                 st.shieldHealth = 0;
-                st.stageTimer = st.model.getArmoredDuration();
+                st.stageTimer = st.model.armoredDuration;
                 st.stage = Station.Stage.ARMORED;
 
                 //add event
@@ -485,7 +496,7 @@ class ServerGameLoop {
                 //stop all ships from targeting it
                 for(Ship s : g.ships.values()){
                     if(s.targetingState != null && s.targetEntity.matches(g.station)
-                            && !(s.subtype() == Ship.Model.Barge)){
+                            && !(s.entityModel() == Ship.Model.Heron)){
                         s.targetingState = null;
                         s.targetEntity = null;
                         s.targetTimeToLock = 0;
@@ -493,7 +504,7 @@ class ServerGameLoop {
                 }
 
                 //tracking
-                state.players.get(st.lastHit).tracking.incrEntsKilled(st.subtype());
+                state.players.get(st.lastHit).tracking.incrEntsKilled(st.entityModel().getTier());
 
                 //other updates in station
                 st.currentJobs.clear();
@@ -563,7 +574,7 @@ class ServerGameLoop {
 
     private void handleJobReq(int userId, MJobReq msg){
         Station s = (Station) state.findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
-        Station.Job j = msg.job;
+        JobType j = msg.job;
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleJobRequest()");
             return;
@@ -666,8 +677,7 @@ class ServerGameLoop {
             if((ent = state.grids[msg.grid].retrieveEntity(msg.targetType, msg.targetId)) != null){
                 //set the ship's movement
                 s.movement = Ship.Movement.ORBIT_ENT;
-                s.moveTargetEntType = msg.targetType;
-                s.moveTargetEntId = msg.targetId;
+                s.moveTargetEnt = new EntPtr(msg.targetType, msg.targetId, msg.grid, false);
                 s.moveRelativeDist = msg.radius;
 
                 //set the description
@@ -675,7 +685,7 @@ class ServerGameLoop {
                     s.moveCommand = "Orbiting station";
                 }
                 else if(ent instanceof Ship) {
-                    s.moveCommand = "Orbiting " + ((Ship) ent).subtype();
+                    s.moveCommand = "Orbiting " + ((Ship) ent).entityModel();
                 }
             }
         }
@@ -709,8 +719,8 @@ class ServerGameLoop {
             //set the ship's movement
             s.movement = Ship.Movement.ALIGN_TO_ANG;
             s.trajectoryVel = s.trajectoryVel.set(
-                    (float) Math.cos(msg.angle) * s.model.getMaxSpeed() * 0.8f,
-                    (float) Math.sin(msg.angle) * s.model.getMaxSpeed() * 0.8f);
+                    (float) Math.cos(msg.angle) * s.model.maxSpeed * 0.8f,
+                    (float) Math.sin(msg.angle) * s.model.maxSpeed * 0.8f);
 
             //set the description of the movement
             int degrees = -((int) (msg.angle*180/Math.PI - 90));
@@ -753,8 +763,8 @@ class ServerGameLoop {
             float angle = (float) Math.atan2(state.grids[msg.targetGridId].pos.y-state.grids[msg.grid].pos.y,
                     state.grids[msg.targetGridId].pos.x-state.grids[msg.grid].pos.x);
             s.trajectoryVel = s.trajectoryVel.set(
-                    (float) Math.cos(angle) * s.model.getMaxSpeed() * 0.8f,
-                    (float) Math.sin(angle) * s.model.getMaxSpeed() * 0.8f);
+                    (float) Math.cos(angle) * s.model.maxSpeed * 0.8f,
+                    (float) Math.sin(angle) * s.model.maxSpeed * 0.8f);
         }
     }
 
@@ -787,7 +797,7 @@ class ServerGameLoop {
             Entity target = state.findEntityInState(msg.targetType, msg.targetId, msg.grid);
 
             //start locking on to the target
-            if(target != null && target.pos.dst(s.pos) <= s.model.getTargetRange()){
+            if(target != null && target.pos.dst(s.pos) <= s.model.targetRange){
                 s.targetingState = Ship.Targeting.Locking;
                 s.targetEntity = EntPtr.createFromEntity(target);
 
@@ -831,11 +841,12 @@ class ServerGameLoop {
         }
         else {
             switch(s.weapons[msg.weaponId].getType()){
-                case Blaster: {
+                case Blaster:
+                case Laser: {
                     s.weapons[msg.weaponId].active = msg.active;
                     break;
                 }
-                case StationTransport: {
+                case StationTrans: {
                     //check need to deny
                     MDenyRequest deny = new MDenyRequest(msg);
                     if(s.grid == -1){
@@ -850,10 +861,10 @@ class ServerGameLoop {
                         if(st.stage != Station.Stage.RUBBLE){
                             deny.reason = "Station must be rubble to deploy";
                         }
-                        else if(st.subtype() != ((StationTransport) s.weapons[msg.weaponId]).cargo){
+                        else if(st.entityModel() != ((StationTrans) s.weapons[msg.weaponId]).cargo){
                             deny.reason = "Station type must match to be able to deploy";
                         }
-                        else if(st.pos.dst(s.pos) > s.weapons[msg.weaponId].getMaxRange()){
+                        else if(st.pos.dst(s.pos) > ((StationTrans) s.weapons[msg.weaponId]).model.range){
                             deny.reason = "Barge must be within range to deploy";
                         }
                     }
@@ -936,7 +947,7 @@ class ServerGameLoop {
             //set physics TODO set to not intersect
             s.rot = (float) Math.random()*6.28f;
             s.pos.set(0.8f*(float)Math.cos(s.rot), 0.8f*(float)Math.sin(s.rot));
-            s.vel.set(s.model.getMaxSpeed()/3 * (float)Math.cos(s.rot), s.model.getMaxSpeed()/3 * (float)Math.sin(s.rot));
+            s.vel.set(s.model.maxSpeed/3 * (float)Math.cos(s.rot), s.model.maxSpeed/3 * (float)Math.sin(s.rot));
             s.docked = false;
 
             //set ai
@@ -1020,8 +1031,8 @@ class ServerGameLoop {
                 //final checks
                 Station.Model packedStationType = st.packedStations[msg.idxRemoveFrom];
                 int destIdx = -1;
-                for(int i=0; i< Ship.Model.Barge.getWeaponSlots().length; i++) {
-                    if(((StationTransport) sh.weapons[i]).cargo == null){
+                for(int i = 0; i< Ship.Model.Heron.weapons.length; i++) {
+                    if(((StationTrans) sh.weapons[i]).cargo == null){
                         destIdx = i;
                         break;
                     }
@@ -1046,7 +1057,7 @@ class ServerGameLoop {
 
                 //make the swap
                 st.packedStations[msg.idxRemoveFrom] = null;
-                ((StationTransport) sh.weapons[destIdx]).cargo = packedStationType;
+                ((StationTrans) sh.weapons[destIdx]).cargo = packedStationType;
 
                 //tell players
                 host.broadcastMessage(new MPackedStationMove(
@@ -1060,7 +1071,7 @@ class ServerGameLoop {
                 sh = (Barge) removeFrom;
 
                 //final checks
-                Station.Model packedStationType = ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo;
+                Station.Model packedStationType = ((StationTrans) sh.weapons[msg.idxRemoveFrom]).cargo;
                 int destIdx = -1;
                 for(int i=0; i<Station.PACKED_STATION_SLOTS; i++) {
                     if(st.packedStations[i] == null){
@@ -1087,7 +1098,7 @@ class ServerGameLoop {
                 }
 
                 //make the swap
-                ((StationTransport) sh.weapons[msg.idxRemoveFrom]).cargo = null;
+                ((StationTrans) sh.weapons[msg.idxRemoveFrom]).cargo = null;
                 st.packedStations[destIdx] = packedStationType;
 
                 //tell players

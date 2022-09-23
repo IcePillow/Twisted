@@ -4,6 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.local.game.Game;
+import com.twisted.logic.descriptors.Grid;
 
 public class Explosion extends Cosmetic {
 
@@ -32,10 +33,8 @@ public class Explosion extends Cosmetic {
         elapsed = 0;
     }
 
-
     @Override
-    public boolean renderShape(float delta, ShapeRenderer shape){
-
+    public void draw(ShapeRenderer shape, Grid g){
         float percent = elapsed / duration;
 
         shape.setColor(color);
@@ -53,8 +52,10 @@ public class Explosion extends Cosmetic {
                         LTR * (pos.y + (0.8f*percent-0.2f)*size*(float)Math.sin(Math.PI*i/180)));
             }
         }
+    }
 
-        //time step
+    @Override
+    public boolean tick(float delta){
         this.elapsed += delta;
         return !(elapsed > duration);
     }

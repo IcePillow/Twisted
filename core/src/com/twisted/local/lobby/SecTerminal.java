@@ -6,7 +6,6 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.twisted.Asset;
-import com.twisted.Main;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.net.msg.remaining.MChat;
 
@@ -42,10 +41,10 @@ class SecTerminal extends Sector {
         parent.setPosition(3, 3);
 
         //ribbon of the terminal
-        Image band = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Image band = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
         band.setBounds(0, 36+3, TERMINAL_WIDTH+6, 3);
         parent.addActor(band);
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(TERMINAL_WIDTH+6,TERMINAL_HEIGHT+36+9);
         parent.addActor(ribbon);
 

@@ -1,7 +1,6 @@
 package com.twisted.local.game.util;
 
 import com.badlogic.gdx.Input;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
@@ -43,7 +42,7 @@ class InventoryHorGroup extends Table {
             @Override
             public void clicked(InputEvent event, float x, float y) {
                 detsShipDocked.inventoryRowClicked(ihg.getParent(), parentIndex);
-                ihg.setBackground(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY));
+                ihg.setBackground(Asset.retrieve(Asset.Pixel.DARKGRAY));
             }
         });
     }

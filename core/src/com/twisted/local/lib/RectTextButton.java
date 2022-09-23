@@ -2,14 +2,12 @@ package com.twisted.local.lib;
 
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
@@ -34,7 +32,7 @@ public class RectTextButton extends Group {
     /* Construction */
 
     public RectTextButton(String text, Label.LabelStyle style){
-        this(text, style, Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        this(text, style, Asset.retrieve(Asset.Pixel.BLACK));
     }
 
     /**
@@ -57,11 +55,11 @@ public class RectTextButton extends Group {
 
     private void createActors(Label.LabelStyle style, TextureRegionDrawable background){
         //create trims and embedded
-        trimLight = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_LIGHTGRAY), 0);
+        trimLight = new Ribbon(Asset.retrieve(Asset.Pixel.LIGHTGRAY), 0);
         this.addActor(trimLight);
-        trimMed = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_GRAY), 0);
+        trimMed = new Ribbon(Asset.retrieve(Asset.Pixel.GRAY), 0);
         this.addActor(trimMed);
-        trimDark = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKGRAY), 0);
+        trimDark = new Ribbon(Asset.retrieve(Asset.Pixel.DARKGRAY), 0);
         trimDark.setVisible(false);
         this.addActor(trimDark);
         embedded = new Image(background);

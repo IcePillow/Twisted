@@ -1,7 +1,5 @@
 package com.twisted.logic.descriptors;
 
-import com.twisted.logic.entities.Station;
-
 import java.io.Serializable;
 
 public class CurrentJob implements Serializable {
@@ -10,13 +8,13 @@ public class CurrentJob implements Serializable {
 
     public final int jobId;
     public final int owner;
-    public final Station.Job jobType;
+    public final JobType jobType;
     public final int grid;
 
     public float timeLeft;
     public boolean blocking;
 
-    public CurrentJob(int jobId, int owner, Station.Job jobType, int grid, float timeLeft){
+    public CurrentJob(int jobId, int owner, JobType jobType, int grid, float timeLeft){
         this.jobId = jobId;
         this.owner = owner;
         this.jobType = jobType;

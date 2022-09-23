@@ -5,9 +5,9 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.logic.entities.Entity;
+import com.twisted.logic.entities.Faction;
 
 import java.util.HashMap;
 
@@ -22,14 +22,19 @@ public class Asset {
     private static final HashMap<TextureAsset, TextureRegionDrawable> textureAssets = new HashMap<>();
     private static final HashMap<FontAsset, BitmapFont> fontAssets = new HashMap<>();
 
-    //entities
-    private static final HashMap<Entity.Subtype, TextureRegionDrawable> entityIconAssets = new HashMap<>();
-    private static final HashMap<Entity.Subtype, String> entityBlurbAssets = new HashMap<>();
+    //entities and factions
+    private static final HashMap<Entity.Model, TextureRegionDrawable> entityIconAssets = new HashMap<>();
+    private static final HashMap<Entity.Tier, TextureRegionDrawable> entityTierIconAssets = new HashMap<>();
+    private static final HashMap<Entity.Model, String> entityBlurbAssets = new HashMap<>();
+    private static final HashMap<Faction, TextureRegionDrawable> factionIconAssets = new HashMap<>();
+
+    //empty
+    public static final TextureRegionDrawable permaAsset = retrieve(Pixel.WHITE);
 
 
     /* Accessing */
 
-    //normal retrieving
+    //basic retrieving
     public static TextureRegionDrawable retrieve(TextureAsset key){
         TextureRegionDrawable asset = textureAssets.get(key);
         if(asset == null){
@@ -47,33 +52,44 @@ public class Asset {
         return asset;
     }
 
-    //retrieving assets for modification
-    public static TextureRegionDrawable retrieveBlank(TextureAsset key){
-        return new TextureRegionDrawable(new Texture(Gdx.files.internal(key.getPath())));
-    }
-
-    //retrieving entity specific
-    public static TextureRegionDrawable retrieveEntityIcon(Entity.Subtype subtype){
-        TextureRegionDrawable asset = entityIconAssets.get(subtype);
+    //retrieving entity and faction specific
+    public static TextureRegionDrawable retrieveEntityIcon(Entity.Model model){
+        TextureRegionDrawable asset = entityIconAssets.get(model);
         if(asset == null){
             asset = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/entities/"
-                    + subtype.getFilename() + "-icon.png")));
-            entityIconAssets.put(subtype, asset);
+                    + model.getFilename() + "-icon.png")));
+            entityIconAssets.put(model, asset);
         }
         return asset;
     }
-    public static String retrieveEntityBlurb(Entity.Subtype subtype){
-        String asset = entityBlurbAssets.get(subtype);
+    public static TextureRegionDrawable retrieveEntityIcon(Entity.Tier tier){
+        TextureRegionDrawable asset = entityTierIconAssets.get(tier);
         if(asset == null){
-            asset = Gdx.files.internal("text/blurbs/" + subtype.getFilename() + ".txt").readString();
-            entityBlurbAssets.put(subtype, asset);
+            asset = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/entities/"
+                    + tier.getFilename() + "-icon.png")));
+            entityTierIconAssets.put(tier, asset);
+        }
+        return asset;
+    }
+    public static String retrieveEntityBlurb(Entity.Model model){
+        String asset = entityBlurbAssets.get(model);
+        if(asset == null){
+            asset = Gdx.files.internal("text/blurbs/" + model.getFilename() + ".txt").readString();
+            entityBlurbAssets.put(model, asset);
+        }
+        return asset;
+    }
+    public static TextureRegionDrawable retrieveFactionIcon(Faction faction){
+        TextureRegionDrawable asset = factionIconAssets.get(faction);
+        if(asset == null){
+            asset = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/factions/"
+                    + faction.getFilename() + "-icon.png")));
+            factionIconAssets.put(faction, asset);
         }
         return asset;
     }
 
-
-    /* Storage Management */
-
+    //remove
     public static void clear(){
         textureAssets.clear();
     }
@@ -109,31 +125,44 @@ public class Asset {
         }
 
     }
-    public enum Shape implements TextureAsset {
-        //TODO break this into two distinct enums: circles and pixels
-        CIRCLE_BLACK("circles/black"),
-        CIRCLE_BLUE("circles/blue"),
-        CIRCLE_GRAY("circles/gray"),
-        CIRCLE_ORANGE("circles/orange"),
-        PIXEL_BLACK("pixels/black"),
-        PIXEL_BLUE("pixels/blue"),
-        PIXEL_DARKGRAY("pixels/darkgray"),
-        PIXEL_DARKPURPLE("pixels/darkpurple"),
-        PIXEL_GRAY("pixels/gray"),
-        PIXEL_GREEN("pixels/green"),
-        PIXEL_LIGHTGRAY("pixels/lightgray"),
-        PIXEL_MAGENTA("pixels/magenta"),
-        PIXEL_NAVY("pixels/navy"),
-        PIXEL_SPACE("pixels/space"),
-        PIXEL_WHITE("pixels/white");
+
+    public enum Pixel implements TextureAsset {
+        BLACK("black"),
+        BLUE("blue"),
+        DARKGRAY("darkgray"),
+        DARKPURLE("darkpurple"),
+        GRAY("gray"),
+        GREEN("green"),
+        LIGHTGRAY("lightgray"),
+        MAGENTA("magenta"),
+        MENU_A1("menu-a1"),
+        MENU_A2("menu-a2"),
+        NAVY("navy"),
+        SPACE("space"),
+        WHITE("white");
 
         private final String path;
         public String getPath(){
             return path;
         }
 
-        Shape(String string){
-            this.path = "images/" + string + ".png";
+        Pixel(String string){
+            this.path = "images/pixels/" + string + ".png";
+        }
+    }
+    public enum Circle implements TextureAsset {
+        CIRCLE_BLACK("black"),
+        CIRCLE_BLUE("blue"),
+        CIRCLE_GRAY("gray"),
+        CIRCLE_ORANGE("orange");
+
+        private final String path;
+        public String getPath(){
+            return path;
+        }
+
+        Circle(String string){
+            this.path = "images/circles/" + string + ".png";
         }
     }
     public enum UiBasic implements TextureAsset {
@@ -181,6 +210,8 @@ public class Asset {
         EXTRACTOR_ON("extractor-on"),
         HARVESTER_ON("harvester-off"),
         HARVESTER_OFF("harvester-on"),
+        LASER_OFF("laser-off"),
+        LASER_ON("laser-on"),
         LIQUIDATOR_OFF("liquidator-off"),
         LIQUIDATOR_ON("liquidator-on"),
         MOVE("move"),
@@ -200,6 +231,18 @@ public class Asset {
 
         UiButton(String string){
             this.path = "images/ui/buttons/" + string + ".png";
+        }
+    }
+    public enum Misc implements TextureAsset {
+        STATION_BASE("entities/station-icon");
+
+        private final String path;
+        public String getPath(){
+            return path;
+        }
+
+        Misc(String string){
+            this.path = "images/" + string + ".png";
         }
     }
 

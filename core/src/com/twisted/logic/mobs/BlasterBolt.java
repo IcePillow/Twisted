@@ -55,12 +55,12 @@ public class BlasterBolt extends Mobile {
         if(target == null) return true;
 
         //check if it can collide, otherwise move it
-        if(pos.dst(target.pos) < blaster.missileSpeed*delta){
-            target.takeDamage(grid, owner, blaster.damage);
+        if(pos.dst(target.pos) < blaster.model.speed*delta){
+            target.takeDamage(grid, owner, blaster.model.damage);
             return true;
         }
         else {
-            vel.set(target.pos.x-pos.x, target.pos.y-pos.y).nor().scl(blaster.missileSpeed * delta);
+            vel.set(target.pos.x-pos.x, target.pos.y-pos.y).nor().scl(blaster.model.speed * delta);
             pos.add(vel);
             if(vel.len() != 0){
                 rot = (float) Math.atan2(vel.y, vel.x);

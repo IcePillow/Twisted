@@ -7,7 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.twisted.Asset;
 import com.twisted.local.game.state.ClientGameState;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.station.Station;
 
 /**
  * Represents a station changing stage but only for specific stage changes

@@ -16,7 +16,13 @@ import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Gem;
-import com.twisted.logic.entities.attach.StationTransport;
+import com.twisted.logic.entities.attach.StationTrans;
+import com.twisted.logic.entities.ship.Barge;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Extractor;
+import com.twisted.logic.entities.station.Harvester;
+import com.twisted.logic.entities.station.Liquidator;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.host.game.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
@@ -309,17 +315,19 @@ public class Game implements Screen, ClientContact {
 
     private void receiveAddShip(MAddShip m){
         //create the ship, add the ship, then retrieve it
-        Ship ship = m.createDrawableShip();
-        if(!ship.docked){
-            state.grids[m.grid].ships.put(m.shipId, ship);
-        }
-        else {
-            state.grids[m.grid].station.dockedShips.put(m.shipId, ship);
-        }
+        Ship ship = Ship.createFromMAddShip(m);
+        if(ship != null){
+            if(!ship.docked){
+                state.grids[m.grid].ships.put(m.shipId, ship);
+            }
+            else {
+                state.grids[m.grid].station.dockedShips.put(m.shipId, ship);
+            }
 
-        //tell sectors
-        fleetSec.checkAddEntity(ship);
-        if(ship.docked) industrySec.addDockedShip(ship);
+            //tell sectors
+            fleetSec.checkAddEntity(ship);
+            if(ship.docked) industrySec.addDockedShip(ship);
+        }
     }
 
     private void receiveShipUpd(MShipUpd m){
@@ -409,6 +417,9 @@ public class Game implements Screen, ClientContact {
         EntPtr ptr = new EntPtr(Entity.Type.Ship, m.shipId, m.grid, m.docked);
         Ship ship = (Ship) state.findEntity(ptr);
 
+        //clean up
+        ship.cleanupForClientsideRemoval();
+
         //remove from the state
         state.grids[grid].ships.remove(m.shipId);
         state.inWarp.remove(m.shipId);
@@ -419,8 +430,8 @@ public class Game implements Screen, ClientContact {
         fleetSec.checkRemoveEntity(ship);
 
         //explosion
-        if(ship != null && m.grid != -1){
-            Explosion explosion = new Explosion(m.grid, ship.subtype().getPaddedLogicalRadius(), 1f, ship.pos);
+        if(m.grid != -1){
+            Explosion explosion = new Explosion(m.grid, ship.entityModel().getPaddedLogicalRadius(), 1f, ship.pos);
             explosion.color = state.findColorForOwner(ship.owner);
             viewportSec.addCosmetic(explosion);
         }
@@ -475,13 +486,13 @@ public class Game implements Screen, ClientContact {
         //update sectors generally
         detailsSec.updateEntity(s);
         fleetSec.updEntityValues(s);
+        industrySec.stationStageUpdate(s);
 
         //update sectors on stage change
         if(oldStage != s.stage){
             minimapSec.updateStation(s);
             fleetSec.checkRemoveEntity(s);
             fleetSec.checkAddEntity(s);
-            industrySec.stationStageUpdate(s);
         }
     }
 
@@ -498,7 +509,7 @@ public class Game implements Screen, ClientContact {
             }
         }
         else if(entity instanceof Barge){
-            ((StationTransport) ((Barge) entity).weapons[m.idxRemoveFrom]).cargo = null;
+            ((StationTrans) ((Barge) entity).weapons[m.idxRemoveFrom]).cargo = null;
 
             detailsSec.updateEntity(entity);
         }
@@ -525,7 +536,7 @@ public class Game implements Screen, ClientContact {
             }
         }
         else if(entity instanceof Barge){
-            ((StationTransport) ((Barge) entity).weapons[m.idxAddTo]).cargo = m.type;
+            ((StationTrans) ((Barge) entity).weapons[m.idxAddTo]).cargo = m.type;
 
             detailsSec.updateEntity(entity);
         }

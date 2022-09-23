@@ -1,25 +1,29 @@
 package com.twisted.logic.entities.attach;
 
+import com.badlogic.gdx.math.Vector2;
 import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
+import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.host.game.ServerGameState;
 
 public abstract class Weapon {
 
     //meta
-    public final Entity attached;
+    public final Ship attached;
+
+    //graphics
+    public final Vector2 sourcePoint;
 
     //state
     public boolean active;
     public float timer;
 
-
     /* Constructor */
 
-    protected Weapon(Entity attached){
+    protected Weapon(Ship attached){
         this.attached = attached;
+        this.sourcePoint = new Vector2(0, 0);
     }
 
 
@@ -27,8 +31,8 @@ public abstract class Weapon {
 
     /**
      * This is where the checks for firing are done and firing is done if appropriate.
-     * @param ship The ship that is firing this blaster.
-     * @param target The targeted entity, null is okay.
+     * @param ship The ship that is firing this weapon.
+     * @param target The targeted entity, nullable.
      * @param delta The amount of time that has passed since the last game loop.
      */
     public abstract void tick(ServerGameState state, Grid grid, Ship ship, Entity target,
@@ -37,30 +41,41 @@ public abstract class Weapon {
     public abstract void putOnFullCooldown();
 
 
-    /* Data Methods */
-
-    public abstract float getMaxRange();
-    public abstract Asset.UiButton getOffButtonAsset();
-    public abstract Asset.UiButton getOnButtonAsset();
-    public abstract float getFullTimer();
+    /* Type Methods */
 
     public Type getType(){
         if(this instanceof Blaster) return Type.Blaster;
-        else if(this instanceof StationTransport) return Type.StationTransport;
+        else if(this instanceof Laser) return Type.Laser;
+        else if(this instanceof StationTrans) return Type.StationTrans;
         else return null;
     }
+    public abstract Model subtype();
+
+
+    /* Data Methods */
+
+    public abstract Asset.UiButton getOffButtonAsset();
+    public abstract Asset.UiButton getOnButtonAsset();
 
     public Asset.UiButton getCurrentButtonAsset(){
         if(active) return getOnButtonAsset();
         else return getOffButtonAsset();
     }
 
+    public abstract float getFullTimer();
 
-    //enums
+
+    /* Enums */
+
     public enum Type {
         Blaster,
-        StationTransport,
-        //TODO add other weapon types
+        Laser,
+        StationTrans,
+    }
+
+    public interface Model {
+        Type getType();
+        float getRange();
     }
 
 }

@@ -29,7 +29,7 @@ public class EvGameEnd extends GameEvent {
 
         //name label
         Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-        label1.setColor(state.players.get(winnerId).getFile().color);
+        label1.setColor(state.players.get(winnerId).getPaint().col);
         group.addActor(label1);
 
         //text label

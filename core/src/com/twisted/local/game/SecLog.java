@@ -6,7 +6,6 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
-import com.twisted.Main;
 import com.twisted.local.lib.Ribbon;
 
 class SecLog extends Sector {
@@ -42,7 +41,7 @@ class SecLog extends Sector {
         decoration.setSize(parent.getWidth(), parent.getHeight());
         parent.addActor(decoration);
 
-        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE), 3);
+        Ribbon ribbon = new Ribbon(Asset.retrieve(Asset.Pixel.DARKPURLE), 3);
         ribbon.setSize(decoration.getWidth(), decoration.getHeight());
         decoration.addActor(ribbon);
 

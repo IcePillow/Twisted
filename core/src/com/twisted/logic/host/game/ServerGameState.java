@@ -6,6 +6,11 @@ import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.descriptors.events.GameEvent;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Extractor;
+import com.twisted.logic.entities.station.Harvester;
+import com.twisted.logic.entities.station.Liquidator;
+import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameUpdate.MShipDockingChange;
 import com.twisted.net.msg.gameUpdate.MShipUpd;
 import com.twisted.net.msg.lobby.MGameStart;
@@ -114,7 +119,7 @@ public class ServerGameState {
 
             msg.gridPositions[j] = g.pos;
             msg.gridNicknames[j] = g.nickname;
-            msg.stationTypes[j] = g.station.subtype();
+            msg.stationTypes[j] = g.station.entityModel();
             msg.stationOwners[j] = g.station.owner;
             msg.stationStages[j] = g.station.stage;
             msg.stationResources[j] = g.station.resources;

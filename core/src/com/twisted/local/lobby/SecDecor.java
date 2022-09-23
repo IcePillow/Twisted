@@ -1,21 +1,14 @@
 package com.twisted.local.lobby;
 
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
-import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.Stage;
-import com.badlogic.gdx.scenes.scene2d.actions.Actions;
-import com.badlogic.gdx.scenes.scene2d.ui.Container;
-import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.twisted.Asset;
 import com.twisted.Main;
-import com.twisted.local.game.Game;
-import com.twisted.logic.entities.*;
+import com.twisted.Paint;
 
 public class SecDecor extends Sector {
 
@@ -59,7 +52,7 @@ public class SecDecor extends Sector {
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
         //draw background
-        shape.setColor(Main.SPACE);
+        shape.setColor(Paint.SPACE.col);
         shape.rect(0, 0, stage.getWidth(), stage.getHeight());
 
         //draw stars
@@ -80,12 +73,39 @@ public class SecDecor extends Sector {
 
     private Group initTree(){
         Group group = new Group();
+        group.setPosition(720, 650);
 
         //title text
-        Label titleText = new Label("ARMADA", Asset.labelStyle(Asset.Avenir.BLACK_48));
-        titleText.setColor(Color.LIGHT_GRAY);
-        titleText.setPosition(720-titleText.getWidth()/2, 650);
-        group.addActor(titleText);
+        HorizontalGroup text = new HorizontalGroup();
+        group.addActor(text);
+        Label firstText = new Label("ARM", Asset.labelStyle(Asset.Avenir.BLACK_48));
+        firstText.setColor(Paint.TITLE_PURPLE.col);
+        text.addActor(firstText);
+        Label midText = new Label("A", Asset.labelStyle(Asset.Avenir.BLACK_48));
+        midText.setRotation(90);
+        midText.setColor(Paint.TITLE_PURPLE.col);
+        Container<Label> midTextCont = new Container<>(midText);
+        midTextCont.setTransform(true);
+        midTextCont.setOrigin(midText.getWidth()/2f, midText.getHeight()/2f);
+        midTextCont.setSize(midText.getWidth(), midText.getHeight());
+        midTextCont.setRotation(180);
+        text.addActor(midTextCont);
+        Label lastText = new Label("DA", Asset.labelStyle(Asset.Avenir.BLACK_48));
+        lastText.setColor(Paint.TITLE_PURPLE.col);
+        text.addActor(lastText);
+
+        //positioning
+        float textWid = firstText.getWidth()+midText.getWidth()+lastText.getWidth();
+        text.setX(-textWid/2f);
+
+        Image botBar = new Image(Asset.retrieve(Asset.Pixel.WHITE));
+        botBar.setBounds(text.getX()-5, -firstText.getHeight()/2f, textWid+10, 5);
+        botBar.setColor(Paint.TITLE_PURPLE.col);
+        group.addActor(botBar);
+        Image topBar = new Image(Asset.retrieve(Asset.Pixel.WHITE));
+        topBar.setBounds(text.getX()-5, botBar.getY()+firstText.getHeight()-5, textWid+10, 5);
+        topBar.setColor(Paint.TITLE_PURPLE.col);
+        group.addActor(topBar);
 
         return group;
     }

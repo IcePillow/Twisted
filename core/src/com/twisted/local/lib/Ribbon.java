@@ -6,7 +6,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 
 /**
- * Four images that make a ribbon around a box.
+ * Four images that make a ribbon on the inside of a rectangle.
  */
 public class Ribbon extends Group {
 

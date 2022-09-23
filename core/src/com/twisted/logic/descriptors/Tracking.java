@@ -1,26 +1,26 @@
 package com.twisted.logic.descriptors;
 
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.Ship;
-import com.twisted.logic.entities.Station;
+import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.station.Station;
 
 import java.io.Serializable;
 import java.util.HashMap;
 
 public class Tracking implements Serializable {
 
-    public final HashMap<Entity.Subtype, Integer> entitiesBuilt;
-    public final HashMap<Entity.Subtype, Integer> entitiesKilled;
+    public final HashMap<Entity.Tier, Integer> entitiesBuilt;
+    public final HashMap<Entity.Tier, Integer> entitiesKilled;
 
     public Tracking(){
         entitiesBuilt = new HashMap<>();
         entitiesKilled = new HashMap<>();
 
-        for(Entity.Subtype s : Ship.Model.values()){
+        for(Entity.Tier s : Ship.Tier.values()){
             entitiesBuilt.put(s, 0);
             entitiesKilled.put(s, 0);
         }
-        for(Entity.Subtype s : Station.Model.values()){
+        for(Entity.Tier s : Station.Tier.values()){
             entitiesBuilt.put(s, 0);
             entitiesKilled.put(s, 0);
         }
@@ -29,12 +29,12 @@ public class Tracking implements Serializable {
 
     /* Utility */
 
-    public void incrEntsBuilt(Entity.Subtype subtype){
-        entitiesBuilt.put(subtype, entitiesBuilt.get(subtype)+1);
+    public void incrEntsBuilt(Entity.Tier tier){
+        entitiesBuilt.put(tier, entitiesBuilt.get(tier)+1);
     }
 
-    public void incrEntsKilled(Entity.Subtype subtype){
-        entitiesKilled.put(subtype, entitiesKilled.get(subtype)+1);
+    public void incrEntsKilled(Entity.Tier tier){
+        entitiesKilled.put(tier, entitiesKilled.get(tier)+1);
     }
 
 }

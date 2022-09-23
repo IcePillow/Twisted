@@ -1,6 +1,7 @@
 package com.twisted.local.game.state;
 
 import com.twisted.Asset;
+import com.twisted.Paint;
 
 /**
  * Clientside representation of a player.
@@ -20,31 +21,31 @@ public class GamePlayer {
     }
 
     //file
-    private final PlayerFile file;
-    public PlayerFile getFile(){
-        return file;
+    private final Paint paint;
+    public Paint getPaint(){
+        return paint;
     }
 
     /**
      * Constructor
      */
-    public GamePlayer(int id, PlayerFile file, String name){
+    public GamePlayer(int id, Paint paint, String name){
         this.id = id;
         this.name = name;
-        this.file = file;
+        this.paint = paint;
     }
 
 
     /* Utility */
 
-    public Asset.Shape getMinimapShapeAsset(){
-        switch(file){
-            case BLUE:
-                return Asset.Shape.CIRCLE_BLUE;
-            case ORANGE:
-                return Asset.Shape.CIRCLE_ORANGE;
-            case GRAY:
-                return Asset.Shape.CIRCLE_GRAY;
+    public Asset.Circle getMinimapShapeAsset(){
+        switch(paint){
+            case PL_BLUE:
+                return Asset.Circle.CIRCLE_BLUE;
+            case PL_ORANGE:
+                return Asset.Circle.CIRCLE_ORANGE;
+            case PL_GRAY:
+                return Asset.Circle.CIRCLE_GRAY;
             default:
                 System.out.println("Unexpected player file");
                 new Exception().printStackTrace();

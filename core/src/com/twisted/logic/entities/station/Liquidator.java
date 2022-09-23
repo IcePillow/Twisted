@@ -1,4 +1,4 @@
-package com.twisted.logic.entities;
+package com.twisted.logic.entities.station;
 
 public class Liquidator extends Station {
 

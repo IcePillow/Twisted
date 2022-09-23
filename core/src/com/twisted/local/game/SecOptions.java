@@ -73,7 +73,7 @@ class SecOptions extends Sector {
         child.setBounds(420, 150, 600, 500);
 
         //set the background
-        Image main = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image main = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         main.setSize(child.getWidth(), child.getHeight());
         child.addActor(main);
 
@@ -89,10 +89,10 @@ class SecOptions extends Sector {
         child.setBounds(570, 400, 300, 150);
 
         //set the decoration
-        Image ribbon = new Image(Asset.retrieve(Asset.Shape.PIXEL_DARKPURPLE));
+        Image ribbon = new Image(Asset.retrieve(Asset.Pixel.DARKPURLE));
         ribbon.setSize(child.getWidth(), child.getHeight());
         child.addActor(ribbon);
-        Image embedded = new Image(Asset.retrieve(Asset.Shape.PIXEL_BLACK));
+        Image embedded = new Image(Asset.retrieve(Asset.Pixel.BLACK));
         embedded.setBounds(3, 3, child.getWidth()-6, child.getHeight()-6);
         child.addActor(embedded);
 
