@@ -10,6 +10,7 @@ import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.Main;
 import com.twisted.Paint;
 import com.twisted.local.game.cosmetic.Cosmetic;
 import com.twisted.local.game.cosmetic.LaserBeam;
@@ -28,9 +29,15 @@ public class SecViewport extends Sector {
     //constants
     private static final float LTR = Game.LTR; //logical to rendered
     private static final Color NEUTRAL_COL = Color.GRAY;
+    private static final float MAX_ZOOM=2, MIN_ZOOM=0.5f, PAN_SPD=6;
+    private static final float SQRT_2 = (float) Math.sqrt(2);
 
     //high level input
     private Vector2 cursor;
+    private Group parent;
+    public Group getParent(){
+        return parent;
+    }
 
     //reference variables
     private final Game game;
@@ -38,11 +45,10 @@ public class SecViewport extends Sector {
     //graphics utilities
     private final Stage stage;
     OrthographicCamera camera;
-    SpriteBatch sprite;
-    ShapeRenderer shape;
+    private SpriteBatch sprite;
+    private ShapeRenderer shape;
 
     //graphics state
-    private Vector2 camPos;
     private float offset;
 
     //cosmetics
@@ -52,6 +58,9 @@ public class SecViewport extends Sector {
     private Map<Select, EntPtr> selections;
     private Map<Select, Color> selectionColors;
     private Map<Select, Float> selectionValues;
+
+    //background
+    private float[][] stars; //NumStars x 4 (x,y,si,col)
 
 
     /**
@@ -64,52 +73,66 @@ public class SecViewport extends Sector {
 
     @Override
     Group init() {
-        camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
-        camPos = new Vector2(0, 0);
+        parent = super.init();
 
+        //prepare camera
+        camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
+
+        //prepare drawing objects
         sprite = new SpriteBatch();
         shape = new ShapeRenderer();
 
-        cosmetics = new ArrayList<>();
+        //prepare for input
+        cursor = new Vector2(0, 0);
 
+        //prepare graphics storage
+        cosmetics = new ArrayList<>();
         selections = Collections.synchronizedMap(new HashMap<>());
         selectionColors = Collections.synchronizedMap(new HashMap<>());
         selectionValues = Collections.synchronizedMap(new HashMap<>());
 
-        return null;
+        return parent;
     }
-
     @Override
     void load() {
+        stars = new float[200][4];
+        for(float[] arr : stars){
+            arr[0] = (float) Math.random()*MAX_ZOOM*Main.WIDTH - Main.WIDTH; //x
+            arr[1] = (float) Math.random()*MAX_ZOOM*Main.HEIGHT - Main.HEIGHT; //y
+            arr[2] = (float) Math.random() + 1; //size
+            arr[3] = (float) Math.random()*0.3f + 0.1f; //color
+        }
 
         //position listener
-        cursor = new Vector2(0, 0);
         stage.addListener(event -> {
             if(event instanceof InputEvent){
                 InputEvent inp = (InputEvent) event;
-
                 cursor.set(inp.getStageX(), inp.getStageY());
             }
             return false;
         });
-
         //click listener
         stage.addListener(new ClickListener(){
             @Override
             public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
-                clickHandler(event.getButton(), event, x, y);
+                if(!event.isHandled()) clickHandler(event.getButton(), event, x, y);
             }
         });
         stage.addListener(new ClickListener(Input.Buttons.RIGHT){
             @Override
             public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
-                clickHandler(event.getButton(), event, x, y);
+                if(!event.isHandled()) clickHandler(event.getButton(), event, x, y);
+            }
+        });
+        //scroll listener
+        parent.addListener(new InputListener(){
+            @Override
+            public boolean scrolled(InputEvent event, float x, float y, float amountX, float amountY){
+                viewportScroll(amountY);
+                return true;
             }
         });
     }
-
     @Override
     void render(float delta) {
         //must be at the beginning
@@ -119,32 +142,50 @@ public class SecViewport extends Sector {
 
         //graphics prep
         offset += delta;
-
-        //access the grid and start drawing
         Grid g = state.grids[game.getGrid()];
+
+        //draw background
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        shape.setColor(Paint.SPACE.col);
-        shape.rect(camPos.x-stage.getWidth()/2f, camPos.y-stage.getHeight()/2f, stage.getWidth(), stage.getHeight());
+        renderBackground(delta, g);
         shape.end();
 
+        //draw rest of viewport
         shape.begin(ShapeRenderer.ShapeType.Line);
-
         renderStations(delta, g);
         renderCosmetics(delta, g);
         renderMobiles(delta, g);
         renderShips(delta, g);
         renderSelections(delta, g);
-
         shape.end();
     }
-
     @Override
     void dispose() {
         sprite.dispose();
+        shape.dispose();
     }
 
 
-    /* Rendering Utility */
+    /* Rendering */
+
+    /**
+     * Expects ShapeType.Filled
+     */
+    private void renderBackground(float delta, Grid g){
+        shape.setColor(Paint.SPACE.col);
+        shape.rect(camera.position.x-camera.zoom*stage.getWidth()/2f,
+                camera.position.y-camera.zoom*stage.getHeight()/2f,
+                camera.zoom*stage.getWidth(), camera.zoom*stage.getHeight());
+
+        for(float[] s : stars){
+            shape.setColor(s[3], s[3], s[3], 1f);
+
+            float rawX = s[0]+camera.position.x - camera.position.x*0.4f;
+            float rawY = s[1]+camera.position.y - camera.position.y*0.4f;
+            shape.circle(rawX + MAX_ZOOM*Main.WIDTH * (float)Math.round((camera.position.x-rawX)/(MAX_ZOOM*Main.WIDTH)),
+                    rawY + MAX_ZOOM*Main.HEIGHT * (float)Math.round((camera.position.y-rawY)/(MAX_ZOOM*Main.HEIGHT)),
+                    s[2] * (float)Math.sqrt(camera.zoom));
+        }
+    }
 
     private void renderStations(float delta, Grid g){
         if(g.station.owner == 0){
@@ -159,7 +200,6 @@ public class SecViewport extends Sector {
     }
 
     private void renderCosmetics(float delta, Grid g){
-
         //check for new cosmetics
         for(Ship s : g.ships.values()){
             for(Weapon w : s.weapons){
@@ -214,7 +254,6 @@ public class SecViewport extends Sector {
     }
 
     private void renderSelections(float delta, Grid g){
-
         //draw the basic selection circle
         if(selections.get(Select.BASE_SELECT) != null){
             EntPtr sel = selections.get(Select.BASE_SELECT);
@@ -227,9 +266,6 @@ public class SecViewport extends Sector {
                     shape.circle(s.pos.x*LTR, s.pos.y*LTR,
                             s.entityModel().getPaddedLogicalRadius()*LTR);
                 }
-            }
-            else{
-                // TODO add case for station
             }
         }
 
@@ -256,8 +292,8 @@ public class SecViewport extends Sector {
 
             if(sel != null &&  sel.grid == game.getGrid()){
                 float orbCircleRad = new Vector2(
-                        (cursor.x-stage.getWidth()/2f+camPos.x)/100f,
-                        (cursor.y-stage.getHeight()/2f+camPos.y)/100f)
+                        (cursor.x-stage.getWidth()/2f+camera.position.x)/100f,
+                        (cursor.y-stage.getHeight()/2f+camera.position.y)/100f)
                         .dst(sel.pos);
 
                 shape.setColor(selectionColors.get(Select.BASE_MOUSE_CIRCLE));
@@ -275,8 +311,8 @@ public class SecViewport extends Sector {
 
             if(sel != null && sel.grid == game.getGrid()){
                 Vector2 end = new Vector2(
-                        (cursor.x-stage.getWidth()/2f+camPos.x)/LTR,
-                        (cursor.y-stage.getHeight()/2f+camPos.y)/LTR);
+                        (camera.zoom*cursor.x-camera.zoom*stage.getWidth()/2f+camera.position.x)/LTR,
+                        (camera.zoom*cursor.y-camera.zoom*stage.getHeight()/2f+camera.position.y)/LTR);
                 float length = end.dst(sel.pos);
                 float angle = (float) Math.atan2(end.y-sel.pos.y, end.x-sel.pos.x);
 
@@ -288,7 +324,6 @@ public class SecViewport extends Sector {
                 }
             }
         }
-
     }
 
 
@@ -296,33 +331,47 @@ public class SecViewport extends Sector {
 
     void switchFocusedGrid(){
         //undo all movements of the camera and update the position
-        camera.translate(-camPos.x, -camPos.y);
-        camPos.x = 0;
-        camPos.y = 0;
+        camera.translate(-camera.position.x, -camera.position.y);
     }
 
     /**
-     * Move the camera
+     * Pan the camera in 1-2 directions.
      */
-    void moveCamera(Direction dir){
+    void moveCamera(Direction horDir, Direction verDir){
+        float amtX = PAN_SPD * camera.zoom;
+        float amtY = PAN_SPD * camera.zoom;
 
-        if(dir == Direction.RIGHT){
-            camera.translate(5, 0);
-            camPos.x += 5;
+        //move along one axis
+        if(horDir != null && verDir == null){
+            if(horDir == Direction.LEFT) amtX *= -1;
+            amtY = 0;
         }
-        else if(dir == Direction.LEFT) {
-            camera.translate(-5, 0);
-            camPos.x -= 5;
+        else if(horDir == null && verDir != null){
+            if(verDir == Direction.DOWN) amtY *= -1;
+            amtX = 0;
         }
-        else if(dir == Direction.UP) {
-            camera.translate(0, 5);
-            camPos.y += 5;
+        //move along two axes
+        else if(horDir != null){
+            amtX = amtX/SQRT_2;
+            amtY = amtY/SQRT_2;
+
+            if(horDir == Direction.LEFT) amtX *= -1;
+            if(verDir == Direction.DOWN) amtY *= -1;
         }
-        else if(dir == Direction.DOWN) {
-            camera.translate(0, -5);
-            camPos.y -= 5;
+        //don't move
+        else {
+            return;
         }
 
+        //move the camera
+        camera.translate(amtX, amtY);
+    }
+
+    /**
+     * Move camera to the logical position (x, y).
+     */
+    void moveCameraTo(float x, float y){
+        camera.translate(LTR*x - camera.position.x, LTR*y - camera.position.y);
     }
 
     /**
@@ -330,11 +379,13 @@ public class SecViewport extends Sector {
      * buttons.
      */
     private void clickHandler(int button, InputEvent event, float x, float y){
+        //keyboard input
+        game.keyboardFocus(parent);
 
         //get the current grid and convert coords
         Grid g = state.grids[game.getGrid()];
-        float adjX = (x-stage.getWidth()/2f+camPos.x)/LTR;
-        float adjY = (y-stage.getHeight()/2f+camPos.y)/LTR;
+        float adjX = (camera.zoom*(x-stage.getWidth()/2f) + camera.position.x)/LTR;
+        float adjY = (camera.zoom*(y-stage.getHeight()/2f) + camera.position.y)/LTR;
 
         //prep the variables that tell what is clicked on
         EntPtr ptr = null;
@@ -398,6 +449,16 @@ public class SecViewport extends Sector {
         }
     }
 
+    /**
+     * Scrolls the camera in or out by amount.
+     */
+    private void viewportScroll(float amount){
+        camera.zoom += 0.02 * amount;
+
+        if(camera.zoom < MIN_ZOOM) camera.zoom = 0.5f;
+        else if(camera.zoom > MAX_ZOOM) camera.zoom = 2f;
+    }
+
 
     /* Updating Methods */
 
@@ -413,21 +474,24 @@ public class SecViewport extends Sector {
 
     /* User Input */
 
-    @Override
-    void keyboardInput(){
+    void continuousKeyboard(){
+        Direction horDir=null, vertDir=null;
+
         //move the camera around
-        if(Gdx.input.isKeyPressed(Input.Keys.D)) {
-            moveCamera(Direction.RIGHT);
+        if(Gdx.input.isKeyPressed(Input.Keys.D) && !Gdx.input.isKeyPressed(Input.Keys.A)) {
+            horDir = Direction.RIGHT;
         }
-        if(Gdx.input.isKeyPressed(Input.Keys.A)) {
-            moveCamera(Direction.LEFT);
+        else if(Gdx.input.isKeyPressed(Input.Keys.A)) {
+            horDir = Direction.LEFT;
         }
-        if(Gdx.input.isKeyPressed(Input.Keys.W)) {
-            moveCamera(Direction.UP);
+        if(Gdx.input.isKeyPressed(Input.Keys.W) && !Gdx.input.isKeyPressed(Input.Keys.S)) {
+            vertDir = Direction.UP;
         }
-        if(Gdx.input.isKeyPressed(Input.Keys.S)) {
-            moveCamera(Direction.DOWN);
+        else if(Gdx.input.isKeyPressed(Input.Keys.S)) {
+            vertDir = Direction.DOWN;
         }
+
+        if(horDir != null || vertDir != null) moveCamera(horDir, vertDir);
     }
 
 

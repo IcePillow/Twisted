@@ -1,6 +1,7 @@
 package com.twisted.logic.mobs;
 
 import com.badlogic.gdx.math.Vector2;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.attach.Blaster;
@@ -12,8 +13,10 @@ public class BlasterBolt extends Mobile {
             {-0.005f,-0.01f,  -0.005f,0.01f,  0.005f,0.01f, 0.005f,-0.01f};
 
     //target
-    private final Entity.Type targetType;
-    private final int targetId;
+    private final EntPtr target;
+
+    //state
+    private float timeFlying;
 
     //metadata
     private final int owner;
@@ -24,17 +27,17 @@ public class BlasterBolt extends Mobile {
      * Constructor.
      * @param pos Should be a copy if it is used elsewhere.
      * @param blaster Can be null on clientside.
-     * @param targetType Can be null on clientside.
+     * @param target Can be null on clientside.
      */
-    public BlasterBolt(int id, Vector2 pos, Blaster blaster, Entity.Type targetType, int targetId){
+    public BlasterBolt(int id, Vector2 pos, Blaster blaster, EntPtr target){
         this.id = id;
         this.pos = pos;
         this.vel = new Vector2(0, 0);
         this.rot = 0;
 
         this.blaster = blaster;
-        this.targetType = targetType;
-        this.targetId = targetId;
+        this.target = target;
+        this.timeFlying = 0;
 
         if(blaster != null) this.owner = blaster.attached.owner;
         else this.owner = 0;
@@ -43,27 +46,24 @@ public class BlasterBolt extends Mobile {
     @Override
     public boolean update(float delta, Grid grid) {
         //get the entity, fizzle if it is gone
-        Entity target = null;
-        switch (targetType) {
-            case Ship:
-                target = grid.ships.get(targetId);
-                break;
-            case Station:
-                target = grid.station;
-                break;
-        }
-        if(target == null) return true;
+        Entity targetEnt = target.retrieveFromGrid(grid);
+        if(targetEnt == null) return true;
+
+        //check if it should fizzle due to distance travelled
+        if(timeFlying > blaster.model.maxFlightTime) return true;
+        timeFlying += delta;
 
         //check if it can collide, otherwise move it
-        if(pos.dst(target.pos) < blaster.model.speed*delta){
-            target.takeDamage(grid, owner, blaster.model.damage);
+        if(pos.dst(targetEnt.pos) < blaster.model.speed*delta){
+            targetEnt.takeDamage(grid, owner, blaster.model.damage);
             return true;
         }
         else {
-            vel.set(target.pos.x-pos.x, target.pos.y-pos.y).nor().scl(blaster.model.speed * delta);
+            vel.set(targetEnt.pos.x-pos.x, targetEnt.pos.y-pos.y).nor().scl(blaster.model.speed * delta);
             pos.add(vel);
             if(vel.len() != 0){
                 rot = (float) Math.atan2(vel.y, vel.x);
+                timeFlying += vel.len();
             }
         }
 

@@ -4,6 +4,7 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.descriptors.EntPtr;
@@ -80,14 +81,5 @@ abstract class Sector {
      * Called to clean up.
      */
     abstract void dispose();
-
-
-    /* Input Methods */
-
-    /**
-     * Should be overridden if continuous keyboard input is desired. Will be called each frame if
-     * keyboard input should be passed to this sector.
-     */
-    void keyboardInput(){}
 
 }
