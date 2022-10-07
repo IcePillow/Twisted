@@ -1,6 +1,7 @@
 package com.twisted.logic.entities.attach;
 
 import com.twisted.Asset;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
@@ -33,7 +34,7 @@ public class Blaster extends Weapon {
         else if(target != null && targeting == Ship.Targeting.Locked
                 && ship.pos.dst(target.pos) <= model.range && active) {
             BlasterBolt bolt = new BlasterBolt(state.useNextMobileId(), ship.pos.cpy(), this,
-                    target.entityType(), target.getId());
+                    EntPtr.createFromEntity(target));
             grid.mobiles.put(bolt.id, bolt);
 
             timer = model.cooldown;
@@ -73,15 +74,17 @@ public class Blaster extends Weapon {
 
     public enum Model implements Weapon.Model {
 
-        Small(3, 2, 1.4f, 2),  //1 dps
-        Medium(4, 5, 1.3f, 3),  //1.7 dps
-        Large(5, 15, 1f, 6);  //2.5 dps
+        Small(3, 2, 1.4f, 2.5f, 2),  //1 dps
+        Medium(4, 5, 1.3f, 4f, 3),  //1.7 dps
+        Large(5, 15, 1f, 6f, 6);  //2.5 dps
 
         //data
         public final float range;
         public final float damage;
         public final float speed;
+        public final float maxFlightTime; //max
         public final float cooldown;
+
 
         //overrides
         @Override
@@ -94,10 +97,11 @@ public class Blaster extends Weapon {
         }
 
         //constructor
-        Model(float range, float damage, float speed, float cooldown){
+        Model(float range, float damage, float speed, float maxFlightTime, float cooldown){
             this.range = range;
             this.damage = damage;
             this.speed = speed;
+            this.maxFlightTime = maxFlightTime;
             this.cooldown = cooldown;
         }
 

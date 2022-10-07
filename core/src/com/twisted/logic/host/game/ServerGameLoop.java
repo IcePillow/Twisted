@@ -11,10 +11,7 @@ import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.entities.attach.StationTrans;
 import com.twisted.logic.entities.attach.Weapon;
-import com.twisted.logic.entities.ship.Barge;
-import com.twisted.logic.entities.ship.Cruiser;
-import com.twisted.logic.entities.ship.Frigate;
-import com.twisted.logic.entities.ship.Ship;
+import com.twisted.logic.entities.ship.*;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.gameReq.*;
@@ -102,13 +99,19 @@ class ServerGameLoop {
                         Ship sh = null;
                         switch((Ship.Tier) job.jobType.getTier()){
                             case Frigate:
-                                sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner,true);
+                                sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
                                 break;
                             case Cruiser:
-                                sh = new Cruiser((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner,true);
+                                sh = new Cruiser((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                break;
+                            case Battleship:
+                                sh = new Battleship((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
                                 break;
                             case Barge:
                                 sh = new Barge((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                break;
+                            case Titan:
+                                sh = new Titan((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
                                 break;
                         }
 

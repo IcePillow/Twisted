@@ -79,8 +79,8 @@ public class ServerGameState {
                 new Grid(3, new Vector2(950, 680), "D"),
                 new Grid(4, new Vector2(800, 900), "E"),
                 new Grid(5, new Vector2(920, 80), "F"),
-                new Grid(6, new Vector2(400, 500), "G"),
-                new Grid(7, new Vector2(500, 400), "H"),
+                new Grid(6, new Vector2(450, 550), "G"),
+                new Grid(7, new Vector2(550, 450), "H"),
         };
         grids[0].station = new Extractor(0, grids[0].nickname, p[0].getId(), Station.Stage.SHIELDED);
         grids[1].station = new Extractor(1, grids[1].nickname, p[0].getId(), Station.Stage.SHIELDED);

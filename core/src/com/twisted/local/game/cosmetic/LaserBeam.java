@@ -36,7 +36,8 @@ public class LaserBeam extends Cosmetic {
         if(source.attached.targetEntity != null) target = source.attached.targetEntity.retrieveFromGrid(g);
 
         //check if all targeting is valid
-        if(target != null && source.attached.targetingState == Ship.Targeting.Locked){
+        if(target != null && source.attached.targetingState == Ship.Targeting.Locked &&
+                target.pos.dst(source.attached.pos) <= source.model.range){
             shape.setColor(color);
 
             Vector2 srcPt = source.sourcePoint.cpy().rotateDeg((float) (source.attached.rot*180/Math.PI)-90);

@@ -1,15 +1,16 @@
 Work
+    Priority
     Large scale
         TODO exterior target summaries for the current grid
-        TODO make a better lobby screen
+        TODO correct win condition
     Ui changes
         TODO shortcut keys for ship commands
-        TODO display entity icons in SecDetails
-        TODO secondary checks on circle when clicking on ships
-        TODO add zooming in/out to viewport
+        TODO easier clicking on minimap icons
+        TODO cross sector listening for SecMinimap when displaying for a cluster
     Combat
-        TODO fix the orbiting for small radii at higher speeds
-        TODO add max flight distance for blaster bolts
+        TODO make orbiting logic better
+        TODO add doomsday weapons
+        TODO add station regen
     Graphics
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
@@ -18,15 +19,13 @@ Work
         TODO different explosions for different ships
         TODO improve the laser graphics
     Gameplay
-        TODO add the rest of the ship tiers and models
+        TODO add more ship models
+        TODO set correct-ish values for balanced game
+        TODO resource generation
+        TODO warping to a beacon lit by a ship
     Bugs
+        TODO fix viewport indicators when scaled
+        TODO fix jittering of movement command in SecDetails
     Refactoring
     Misc
         TODO make sure everything disposed in each screen
-    Future
-        - Add station regen
-        - Make the correct win condition
-        - Add other weapon types
-        - Set correct entity constant values
-        - Decorative background in Game screen
-        - Warping to a beacon

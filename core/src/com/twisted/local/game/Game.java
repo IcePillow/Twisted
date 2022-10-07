@@ -97,6 +97,8 @@ public class Game implements Screen, ClientContact {
         stage = new Stage(new FitViewport(Main.WIDTH, Main.HEIGHT));
         Gdx.input.setInputProcessor(stage);
         initSectors();
+        scrollFocus(null);
+        keyboardFocus(null);
     }
 
 
@@ -106,7 +108,6 @@ public class Game implements Screen, ClientContact {
     public void show() {
 
     }
-
     @Override
     public void render(float delta) {
         //reset background
@@ -129,27 +130,22 @@ public class Game implements Screen, ClientContact {
         stage.act(delta);
         stage.draw();
     }
-
     @Override
     public void resize(int width, int height) {
         stage.getViewport().update(width, height, true);
     }
-
     @Override
     public void pause() {
 
     }
-
     @Override
     public void resume() {
 
     }
-
     @Override
     public void hide() {
 
     }
-
     @Override
     public void dispose() {
         //top level
@@ -399,8 +395,7 @@ public class Game implements Screen, ClientContact {
 
             switch(m.type){
                 case BlasterBolt:
-                    mob = new BlasterBolt(m.mobileId, m.pos, null, null,
-                            -1);
+                    mob = new BlasterBolt(m.mobileId, m.pos, null, null);
                     break;
             }
 
@@ -593,8 +588,8 @@ public class Game implements Screen, ClientContact {
     private void handleInput(){
         if(state != null && state.ending) return;
 
-        for(Sector s : sectors){
-            s.keyboardInput();
+        if(stage.getKeyboardFocus().equals(viewportSec.getParent())){
+            viewportSec.continuousKeyboard();
         }
     }
 
@@ -641,6 +636,9 @@ public class Game implements Screen, ClientContact {
     void viewportClickEvent(int button, Vector2 screenPos, Vector2 gamePos, EntPtr ptr){
         if(state.ending) return;
 
+        //scroll focus
+        scrollFocus(null);
+
         //normal behavior
         if(crossSectorListener == null){
             //selecting a ship for details
@@ -661,9 +659,9 @@ public class Game implements Screen, ClientContact {
     }
 
     /**
-     * Called when a minimap click event occurs.
+     * Called when a minimap cluster click event occurs.
      */
-    void minimapClickEvent(int button, int grid){
+    void minimapClusterClickEvent(int button, int grid){
         if(state.ending) return;
 
         //normal behavior
@@ -675,6 +673,22 @@ public class Game implements Screen, ClientContact {
         //responding to external listeners
         else if(button == Input.Buttons.LEFT) {
             crossSectorListener.minimapClickEvent(grid);
+        }
+    }
+
+    /**
+     * Called when the mouse is pressed on or moves on while pressed the system minimap.
+     */
+    void minimapSystemMouseDownEvent(int button, float logicalX, float logicalY){
+        if(state.ending) return;
+
+        //normal behavior
+        if(crossSectorListener == null){
+            viewportSec.moveCameraTo(logicalX, logicalY);
+        }
+        //responding to external listeners
+        else if (button == Input.Buttons.LEFT){
+            //TODO
         }
     }
 
@@ -770,14 +784,16 @@ public class Game implements Screen, ClientContact {
      * Sets the scroll focus to the passed in actor. Null is allowed.
      */
     void scrollFocus(Actor actor){
-        stage.setScrollFocus(actor);
+        if(actor == null) stage.setScrollFocus(viewportSec.getParent());
+        else stage.setScrollFocus(actor);
     }
 
     /**
      * Sets the keyboard focus to the passed in actor. Null is allowed.
      */
     void keyboardFocus(Actor actor){
-        stage.setKeyboardFocus(actor);
+        if(actor == null) stage.setKeyboardFocus(viewportSec.getParent());
+        else stage.setKeyboardFocus(actor);
     }
 
 
@@ -794,11 +810,10 @@ public class Game implements Screen, ClientContact {
         skin.getFont("medium").getData().markupEnabled = true;
         skin.getFont("title").getData().markupEnabled = true;
 
-        //prepare the viewport
+        //prepare the sectors
         viewportSec = new SecViewport(this, stage);
         viewportSec.init();
 
-        //prepare the other sectors
         minimapSec = new SecMinimap(this);
         stage.addActor(minimapSec.init());
 
@@ -844,6 +859,17 @@ public class Game implements Screen, ClientContact {
                 break;
             }
         }
+    }
+
+
+    /* Sectors Requesting Info */
+
+    /**
+     * Should be called by a sector that is not SecViewport.
+     * @return {camX, camY, camZoom}
+     */
+    float[] findViewportCamInfo(){
+        return new float[]{viewportSec.camera.position.x, viewportSec.camera.position.y, viewportSec.camera.zoom};
     }
 
 }
