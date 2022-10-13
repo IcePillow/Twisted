@@ -20,7 +20,7 @@ public class MShipUpd implements MGameUpd {
     private float rotation; //stored in degrees
 
     //command data
-    public String moveCommand;
+    public String moveDescription;
 
     //targeting
     private Ship.Targeting targetingState;
@@ -35,7 +35,10 @@ public class MShipUpd implements MGameUpd {
     private Station.Model[] weaponsCargo; //only used if a weapon StationTransport
 
     //warping
-    private float warpTimeToLand;
+    private Ship.Warping warping;
+    private float warpCharge;
+    public Vector2 warpPos;
+    public EntPtr warpTarget;
 
     //combat
     private float health;
@@ -50,14 +53,20 @@ public class MShipUpd implements MGameUpd {
         //physics
         s.grid = grid;
         s.docked = docked;
-        s.pos = position;
-        s.vel = velocity;
+        s.pos.set(position);
+        s.vel.set(velocity);
         s.rot = rotation;
 
-        s.moveCommand = moveCommand;
+        //movement
+        s.moveDescription = moveDescription;
 
-        s.warpTimeToLand = warpTimeToLand;
+        //warping
+        s.warping = warping;
+        s.warpCharge = warpCharge;
+        s.warpPos.set(warpPos);
+        if(warpTarget != null) s.warpTarget = warpTarget;
 
+        //combat
         s.health = health;
 
         //targeting
@@ -73,7 +82,7 @@ public class MShipUpd implements MGameUpd {
 
         //weapons
         for(int i=0; i<s.weapons.length; i++){
-            s.weapons[i].active = weaponsActive[i];
+            s.weapons[i].setActive(weaponsActive[i]);
             s.weapons[i].timer = weaponsTimers[i];
 
             if(s.weapons[i] instanceof StationTrans){
@@ -98,10 +107,16 @@ public class MShipUpd implements MGameUpd {
         upd.velocity = s.vel.cpy();
         upd.rotation = s.rot;
 
-        upd.moveCommand = s.moveCommand;
+        //movement
+        upd.moveDescription = s.moveDescription;
 
-        upd.warpTimeToLand = s.warpTimeToLand;
+        //warping
+        upd.warping = s.warping;
+        upd.warpCharge = s.warpCharge;
+        upd.warpPos = s.warpPos.cpy();
+        if(upd.warpTarget != null) upd.warpTarget = s.warpTarget.cpy();
 
+        //combat
         upd.health = s.health;
 
         //targeting
@@ -122,7 +137,7 @@ public class MShipUpd implements MGameUpd {
         upd.weaponsTimers = new float[s.weapons.length];
         upd.weaponsCargo = new Station.Model[s.weapons.length];
         for(int i=0; i<s.weapons.length; i++){
-            upd.weaponsActive[i] = s.weapons[i].active;
+            upd.weaponsActive[i] = s.weapons[i].isActive();
             upd.weaponsTimers[i] = s.weapons[i].timer;
 
             if(s.weapons[i] instanceof StationTrans) {

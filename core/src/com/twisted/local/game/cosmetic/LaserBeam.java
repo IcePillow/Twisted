@@ -49,7 +49,7 @@ public class LaserBeam extends Cosmetic {
     }
     @Override
     public boolean tick(float delta) {
-        if(source.active) return true;
+        if(source.isActive()) return true;
         source.cosmeticBeamExists = false;
         return false;
     }

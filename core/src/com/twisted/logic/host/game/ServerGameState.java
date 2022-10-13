@@ -2,6 +2,7 @@ package com.twisted.logic.host.game;
 
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.Player;
+import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.descriptors.events.GameEvent;
 import com.twisted.logic.entities.*;
@@ -143,6 +144,9 @@ public class ServerGameState {
             return null;
         }
     }
+    Entity findEntityInState(EntPtr ptr){
+        return findEntityInState(ptr.type, ptr.id, ptr.grid);
+    }
 
     void dockShipAtStation(Ship ship, Station station, Grid grid){
         //dock the ship
@@ -157,11 +161,13 @@ public class ServerGameState {
 
         //reset other values
         for(Weapon w : ship.weapons){
-            w.active = false;
+            w.deactivate();
         }
         ship.targetTimeToLock = -1;
         ship.targetingState = null;
-        ship.warpTimeToLand = 0;
+        ship.warpCharge = 0;
+        ship.warping = Ship.Warping.None;
+        ship.warpTarget = null;
 
         //send to clients
         host.broadcastMessage(new MShipDockingChange(ship.id, station.grid, true,

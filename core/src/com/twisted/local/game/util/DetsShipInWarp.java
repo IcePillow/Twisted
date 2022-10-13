@@ -22,11 +22,9 @@ public class DetsShipInWarp extends DetsGroup {
 
     //tree
 
-    private Group shipWeaponGroup;
     private Label shipName, shipMoveCommand;
-    private Label healthLabel;
+    private Label shipPosition, shipVelocity, healthLabel;
     private Image healthFill, shipIcon;
-    private TogImgButton[] weaponButtons;
 
     //selection
     private Ship sel;
@@ -41,13 +39,13 @@ public class DetsShipInWarp extends DetsGroup {
         topTextGroup.setPosition(6, 100);
         this.addActor(topTextGroup);
 
+        Group locationGroup = createLocationGroup();
+        locationGroup.setPosition(6, 42);
+        this.addActor(locationGroup);
+
         Group healthGroup = createHealthGroup();
         healthGroup.setPosition(6, 89);
         this.addActor(healthGroup);
-
-        shipWeaponGroup = createShipWeaponGroup();
-        shipWeaponGroup.setPosition(190, 30);
-        this.addActor(shipWeaponGroup);
     }
 
     private Group createTopTextGroup(){
@@ -77,6 +75,21 @@ public class DetsShipInWarp extends DetsGroup {
         return group;
     }
 
+    private Group createLocationGroup(){
+        Group group = new Group();
+
+        shipPosition = new Label("[x]\n[y]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipPosition.setColor(Color.LIGHT_GRAY);
+        group.addActor(shipPosition);
+
+        shipVelocity = new Label("[sp]\n[ag]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipVelocity.setColor(Color.LIGHT_GRAY);
+        shipVelocity.setPosition(84, 0);
+        group.addActor(shipVelocity);
+
+        return group;
+    }
+
     private Group createHealthGroup(){
         Group group = new Group();
 
@@ -100,47 +113,6 @@ public class DetsShipInWarp extends DetsGroup {
         return group;
     }
 
-    private Group createShipWeaponGroup(){
-        shipWeaponGroup = new Group();
-
-        //create actors
-        weaponButtons = new TogImgButton[3];
-        for(int i=0; i<weaponButtons.length; i++){
-            weaponButtons[i] = new TogImgButton(null, null);
-            weaponButtons[i].setBounds(i*28, 28, 24, 24);
-            shipWeaponGroup.addActor(weaponButtons[i]);
-        }
-
-        //listeners
-        for(int i=0; i<weaponButtons.length; i++){
-            TogImgButton button = weaponButtons[i];
-            int weaponId = i;
-
-            button.changeClickListener(new ClickListener(Input.Buttons.LEFT){
-                @Override
-                public void clicked(InputEvent event, float x, float y){
-                    if(event.isHandled()) return;
-                    sector.input(sel, SecDetails.Input.SHIP_WEAPON_TOGGLE, weaponId);
-                    event.handle();
-                }
-            });
-            button.changeEnterListener(event -> {
-                if(event instanceof InputEvent){
-                    if(((InputEvent) event).getType() == InputEvent.Type.enter){
-                        sector.input(sel, SecDetails.Input.SHIP_WEAPON_HOVER_ON, weaponId);
-                    }
-                    else if(((InputEvent) event).getType() == InputEvent.Type.exit){
-                        sector.input(sel, SecDetails.Input.SHIP_WEAPON_HOVER_OFF, weaponId);
-
-                    }
-                }
-                return false;
-            });
-        }
-
-        return shipWeaponGroup;
-    }
-
 
     /* Overrides */
 
@@ -158,43 +130,25 @@ public class DetsShipInWarp extends DetsGroup {
         shipName.setText(sel.entityModel().toString());
         shipName.setColor(state.players.get(sel.owner).getPaint().col);
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
-
-        //update the weapon button visibility
-        for(int i=0; i<weaponButtons.length; i++){
-            //set visibility
-            weaponButtons[i].setVisible(i < sel.model.weapons.length);
-
-            //update the kind of each weapon
-            if(weaponButtons[i].isVisible()){
-                int iSave = i;
-                Gdx.app.postRunnable(() -> {
-                    weaponButtons[iSave].switchTextures(
-                            Asset.retrieve(sel.weapons[iSave].getOffButtonAsset()),
-                            Asset.retrieve(sel.weapons[iSave].getOnButtonAsset()));
-                });
-            }
-        }
-
-        //visibility based on ownership
-        shipWeaponGroup.setVisible(sel.owner == state.myId);
     }
 
     @Override
     public void updateEntity() {
         //update movement and calculate new layout data
-        shipMoveCommand.setText(sel.moveCommand);
+        shipMoveCommand.setText(sel.moveDescription);
         Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
         shipMoveCommand.setX(290 - Main.glyph.width*shipMoveCommand.getFontScaleX());
+
+        //update the position
+        float[] rounded = sel.roundedWarpPos(0);
+        shipPosition.setText("X = " + (int)rounded[0] + "\nY = " + (int)rounded[1]);
+        rounded = sel.roundedWarpBear(0);
+        shipVelocity.setText("Sp = " + (int)rounded[0] + "\nAg = " + (int)rounded[1]);
 
         //update the health
         healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.maxHealth)+1)) + "s",
                 ((int) Math.ceil(sel.health)) + "/" + sel.model.maxHealth));
         healthFill.setWidth(200 * sel.health / sel.model.maxHealth);
-
-        //update active weapons
-        for(int i = 0; i< sel.weapons.length; i++){
-            weaponButtons[i].updateVisible(!sel.weapons[i].active);
-        }
     }
 
     @Override

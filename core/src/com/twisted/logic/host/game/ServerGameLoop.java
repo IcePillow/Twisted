@@ -2,10 +2,7 @@ package com.twisted.logic.host.game;
 
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.Main;
-import com.twisted.logic.descriptors.CurrentJob;
-import com.twisted.logic.descriptors.EntPtr;
-import com.twisted.logic.descriptors.Grid;
-import com.twisted.logic.descriptors.JobType;
+import com.twisted.logic.descriptors.*;
 import com.twisted.logic.descriptors.events.EvGameEnd;
 import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.*;
@@ -87,17 +84,32 @@ class ServerGameLoop {
 
             //job updates
             if(st.currentJobs.size() > 0) {
-                //otherwise, grab the first job
+                //grab the first job
                 CurrentJob job = st.currentJobs.get(0);
-                if(!job.blocking) job.timeLeft -= GameHost.FRAC;
+                //start the job if needed
+                if(!job.started){
+                    st.removeResourcesForJob(job.jobType);
+                    job.started = true;
 
-                if(job.timeLeft <= 0){
+                    //send the resource change message
+                    MResourceChange msg = new MResourceChange(EntPtr.createFromEntity(st));
+                    for(int i=0; i<msg.resourceChanges.length; i++){
+                        msg.resourceChanges[i] = -job.jobType.getGemCost(Gem.orderedGems[i]);
+                    }
+                    host.sendMessage(st.owner, msg);
+                }
+                //count down if not blocking
+                if(!job.blocking){
+                    job.timeLeft -= GameHost.FRAC;
+                }
+
+                if(job.timeLeft <= 0) {
                     boolean jobBlocking = false;
 
                     //create the ship or the packaged station
-                    if(job.jobType.getType() == Entity.Type.Ship){
+                    if (job.jobType.getType() == Entity.Type.Ship) {
                         Ship sh = null;
-                        switch((Ship.Tier) job.jobType.getTier()){
+                        switch ((Ship.Tier) job.jobType.getTier()) {
                             case Frigate:
                                 sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
                                 break;
@@ -115,12 +127,11 @@ class ServerGameLoop {
                                 break;
                         }
 
-                        if(sh != null){
+                        if (sh != null) {
                             //add ship to world
-                            if(!sh.docked){
+                            if (!sh.docked) {
                                 grid.ships.put(sh.id, sh);
-                            }
-                            else {
+                            } else {
                                 grid.station.dockedShips.put(sh.id, sh);
                             }
 
@@ -129,16 +140,14 @@ class ServerGameLoop {
 
                             //tell users
                             host.broadcastMessage(MAddShip.createFromShipBody(sh));
-                        }
-                        else {
+                        } else {
                             System.out.println("Unexpectedly not able to create ship");
                             new Exception().printStackTrace();
                         }
-                    }
-                    else if(job.jobType.getType() == Entity.Type.Station) {
+                    } else if (job.jobType.getType() == Entity.Type.Station) {
                         int idx;
-                        for(idx=0; idx<st.packedStations.length; idx++){
-                            if(st.packedStations[idx] == null){
+                        for (idx = 0; idx < st.packedStations.length; idx++) {
+                            if (st.packedStations[idx] == null) {
                                 st.packedStations[idx] = (Station.Model) job.jobType.getModel();
 
                                 //tracking
@@ -149,25 +158,23 @@ class ServerGameLoop {
                                         -1, EntPtr.createFromEntity(st), idx,
                                         (Station.Model) job.jobType.getModel()));
                                 break;
-                            }
-                            else if(idx == st.packedStations.length-1){
+                            } else if (idx == st.packedStations.length - 1) {
                                 jobBlocking = true;
                                 break;
                             }
                         }
-                    }
-                    else {
+                    } else {
                         System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                     }
 
                     //end the job and tell the user
-                    if(!jobBlocking){
+                    if (!jobBlocking) {
                         st.currentJobs.remove(0);
                         host.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.FINISHED,
                                 job.jobId, job.grid, null));
                     }
                     //tell the user the job is blocking
-                    else if(!job.blocking){
+                    else if (!job.blocking) {
                         job.blocking = true;
                         host.sendMessage(job.owner, new MChangeJob(MChangeJob.Action.BLOCKING,
                                 job.jobId, job.grid, null));
@@ -209,7 +216,24 @@ class ServerGameLoop {
                 if(s.movement == Ship.Movement.STOPPING){
                     s.trajectoryVel.set(0, 0);
                     if(s.vel.len() == 0){
-                        s.moveCommand = "Stationary";
+                        s.moveDescription = "Stationary";
+                    }
+                }
+                else if(s.movement == Ship.Movement.PREP_FOR_WARP){
+                    Entity warpTarget = (s.warpTarget == null) ? null : s.warpTarget.retrieveFromGrid(state.grids[s.warpTarget.grid]);
+
+                    //cancel prep
+                    if(warpTarget == null || !warpTarget.isValidBeacon()){
+                        s.moveDescription = "Warp cancelled";
+                        s.trajectoryVel.set(0, 0);
+                        s.warpTarget = null;
+                    }
+                    //continue with prep
+                    else {
+                        s.trajectoryVel.set(0, 0);
+                        if(s.vel.len() == 0){
+                            s.moveDescription = "Charging warp to " + state.grids[warpTarget.grid].nickname;
+                        }
                     }
                 }
                 else if(s.movement == Ship.Movement.MOVE_TO_POS){
@@ -218,7 +242,7 @@ class ServerGameLoop {
                         s.trajectoryVel.set(0, 0);
                         if(s.vel.len() == 0){
                             s.movement = Ship.Movement.STOPPING;
-                            s.moveCommand = "Stationary";
+                            s.moveDescription = "Stationary";
                         }
                     }
                     else {
@@ -235,9 +259,6 @@ class ServerGameLoop {
                         s.trajectoryVel.y *= effectiveMaxSpeed;
                     }
                 }
-                else if(s.movement == Ship.Movement.ALIGN_TO_ANG){
-                    //placeholder, empty
-                }
                 else if(s.movement == Ship.Movement.ORBIT_ENT){
                     Entity tar = null;
                     if(s.moveTargetEnt != null) tar = s.moveTargetEnt.retrieveFromGrid(g);
@@ -245,7 +266,7 @@ class ServerGameLoop {
                     //TODO handle orbiting better at smaller radii
                     if(tar == null){
                         s.movement = Ship.Movement.STOPPING;
-                        s.moveCommand = "Stationary";
+                        s.moveDescription = "Stationary";
                         s.trajectoryVel.set(0, 0);
                     }
                     else {
@@ -311,54 +332,10 @@ class ServerGameLoop {
         for(Grid g : state.grids){
             //loop through ships on the grid
             for(Ship s : g.ships.values()){
-                //move the ship
-                s.pos.x += s.vel.x * GameHost.FRAC;
-                s.pos.y += s.vel.y * GameHost.FRAC;
+                int result = shipPhysicsOnGrid(g, s);
 
-                //set the rotation
-                if(s.vel.len() != 0){
-                    s.rot = (float) Math.atan2(s.vel.y, s.vel.x);
-                }
-
-                //check if it should enter warp
-                if(s.movement == Ship.Movement.ALIGN_FOR_WARP
-                        && s.alignedForWarp(g, state.grids[s.warpTargetGridId])){
-                    //remove the ship at the end of the loop
-                    shipsToRemove.add(s);
-
-                    //put in warp space
-                    state.shipsInWarp.put(s.id, s);
-                    s.warpTimeToLand = 3; //TODO set this based on dist/speed/etc
-
-                    //update the movement description
-                    s.movement = Ship.Movement.WARPING;
-                    s.moveCommand = "Warping to " + state.grids[s.warpTargetGridId].nickname;
-
-                    //update physics
-                    s.pos.set(0, 0);
-                    s.grid = -1;
-
-                    //update targeting
-                    s.targetingState = null;
-                    s.targetEntity = null;
-
-                    //tell the users
-                    host.broadcastMessage(new MShipEnterWarp(s.id, g.id, s.warpTargetGridId));
-                }
-
-                //check if the ship should dock
-                if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
-                    Station st = g.station;
-                    //dock
-                    if(s.pos.dst(st.pos) <= st.model.dockingRadius && st.owner == s.owner){
-                        shipsToDock.add(s);
-                    }
-                    //owner changed
-                    else if(st.owner != s.owner) {
-                        s.movement = Ship.Movement.STOPPING;
-                        s.moveCommand = "Stopping";
-                    }
-                }
+                if(result == 1) shipsToDock.add(s);
+                else if(result == 2) shipsToRemove.add(s);
             }
 
             //dock ships
@@ -375,33 +352,9 @@ class ServerGameLoop {
 
         //time step for ships in warp
         for(Ship s : state.shipsInWarp.values()){
-            //move the ship along
-            s.warpTimeToLand -= GameHost.FRAC;
+            int result = shipPhysicsInWarp(s);
 
-            if(s.warpTimeToLand <= 0){
-                s.warpTimeToLand = 0;
-
-                shipsToRemove.add(s);
-
-                //tell the users
-                host.broadcastMessage(new MShipExitWarp(s.id, s.warpTargetGridId));
-
-                //add it to the correct grid
-                state.grids[s.warpTargetGridId].ships.put(s.id, s);
-                s.grid = s.warpTargetGridId;
-
-                //exiting warp
-                s.warpTargetGridId = -1;
-                s.moveCommand = "Stopping";
-                s.movement = Ship.Movement.STOPPING;
-
-                //placing with correct physics (slightly varied)
-                Vector2 warpVel = s.vel.cpy().nor().scl(1 + s.model.maxSpeed).rotateRad((float) Math.random()*0.15f);
-                s.pos.set(-warpVel.x, -warpVel.y); //TODO place ship in better place
-
-                warpVel.nor().scl(s.model.maxSpeed*0.75f);
-                s.vel.set(warpVel.x, warpVel.y);
-            }
+            if(result == 1) shipsToRemove.add(s);
         }
         //remove ships that exited warp
         for(Ship s : shipsToRemove){
@@ -415,7 +368,6 @@ class ServerGameLoop {
                 //take the time step and check for fizzle
                 if(m.update(GameHost.FRAC, g)) {
                     mobilesToRemove.add(m.id);
-
                     //tell clients
                     host.broadcastMessage(MMobileUps.createFromMobile(m, g.id, true));
                 }
@@ -432,7 +384,6 @@ class ServerGameLoop {
      * Updates combat mechanics.
      */
     private void updateCombat(){
-
         ArrayList<Ship> toBeRemoved = new ArrayList<>();
 
         for(Grid g : state.grids){
@@ -573,9 +524,142 @@ class ServerGameLoop {
     }
 
 
+    /* Loop Helper Children */
+
+    /**
+     * Handles the physics for a single ship in space on a grid.
+     * @return 0 for nothing, 1 to dock, 2 to remove from grid
+     */
+    private int shipPhysicsOnGrid(Grid g, Ship s){
+        int result = 0;
+
+        //move the ship
+        s.pos.x += s.vel.x * GameHost.FRAC;
+        s.pos.y += s.vel.y * GameHost.FRAC;
+
+        //set the rotation
+        if(s.vel.len() != 0){
+            s.rot = (float) Math.atan2(s.vel.y, s.vel.x);
+        }
+
+        //cancel warp charge if needed
+        if(s.vel.len() >= 0.00001f || s.movement != Ship.Movement.PREP_FOR_WARP){
+            s.warpCharge = 0;
+            s.warping = Ship.Warping.None;
+        }
+
+        //check if it should enter warp
+        if(s.movement == Ship.Movement.PREP_FOR_WARP && s.vel.len() == 0){
+            Entity target = s.warpTarget.retrieveFromGrid(state.grids[s.warpTarget.grid]);
+
+            //charge for warp
+            if(s.warpCharge < 1){
+                s.warping = Ship.Warping.Charging;
+
+                //set rotation
+                s.rot = (float) Math.atan2(
+                        state.grids[target.grid].pos.y - state.grids[s.grid].pos.y,
+                        state.grids[target.grid].pos.x - state.grids[s.grid].pos.x);
+
+                //charge
+                s.warpCharge += 1f / (s.model.warpChargeTime*GameHost.TPS);
+            }
+            //enter warp
+            else {
+                //remove the ship at the end of the loop
+                result = 2;
+                //put in warp space
+                state.shipsInWarp.put(s.id, s);
+
+                //update warping stuff
+                s.warpCharge = 0;
+                s.warpTarget = null;
+                s.warpPos.set(state.grids[s.grid].pos);
+                s.warping = Ship.Warping.InWarp;
+                s.warpSourceGrid = g.id;
+                s.warpDestGrid = target.grid;
+                s.warpLandPos.set(target.pos);
+
+                //update the movement description, physics, and targeting
+                s.movement = Ship.Movement.WARPING;
+                s.moveDescription = "Warping to " + state.grids[target.grid].nickname;
+                s.pos.set(0, 0);
+                s.grid = -1;
+                s.targetingState = null;
+                s.targetEntity = null;
+
+                //disable weapons
+                for(Weapon w : s.weapons){
+                    w.deactivate();
+                }
+
+                //tell the users
+                host.broadcastMessage(new MShipEnterWarp(s.id, g.id, target.grid));
+            }
+        }
+        //check if the ship should dock
+        if(s.movement == Ship.Movement.MOVE_FOR_DOCK){
+            Station st = g.station;
+            //dock
+            if(s.pos.dst(st.pos) <= st.model.dockingRadius && st.owner == s.owner){
+                result = 1;
+            }
+            //owner changed
+            else if(st.owner != s.owner) {
+                s.movement = Ship.Movement.STOPPING;
+                s.moveDescription = "Stopping";
+            }
+        }
+
+        return result;
+    }
+    /**
+     * Handles the physics for a single ship that is in warp.
+     * @return 0 for nothing, 1 to remove
+     */
+    private int shipPhysicsInWarp(Ship s){
+        int result = 0;
+
+        Vector2 warpVel = new Vector2(
+                state.grids[s.warpDestGrid].pos.x-state.grids[s.warpSourceGrid].pos.x,
+                state.grids[s.warpDestGrid].pos.y-state.grids[s.warpSourceGrid].pos.y
+        );
+        warpVel.nor().scl(s.model.warpSpeed/GameHost.TPS);
+
+        //drop out of warp
+        if(s.warpPos.dst(state.grids[s.warpDestGrid].pos) <= s.model.warpSpeed/GameHost.TPS){
+            //remove from warp space
+            result = 1;
+            //add it to the correct grid
+            state.grids[s.warpDestGrid].ships.put(s.id, s);
+            s.grid = s.warpDestGrid;
+
+            //exiting warp
+            s.warping = Ship.Warping.None;
+            s.warpDestGrid = -1;
+            s.moveDescription = "Stopping";
+            s.movement = Ship.Movement.STOPPING;
+
+            //placing with correct physics
+            warpVel.nor();
+            s.pos.set(s.warpLandPos.x - 1.4f*warpVel.x, s.warpLandPos.y - 1.4f*warpVel.y);
+            s.vel.set(s.model.maxSpeed*warpVel.x, s.model.maxSpeed*warpVel.y);
+
+            //tell the users
+            host.broadcastMessage(new MShipExitWarp(s.id, s.grid));
+        }
+        //move the ship in warp
+        else {
+            s.warpPos.add(warpVel);
+        }
+
+        return result;
+    }
+
+
     /* Client Request Handling */
 
-    private void handleJobReq(int userId, MJobReq msg){
+    private void handleJobReq(int userId, MJobReq msg) {
         Station s = (Station) state.findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
         JobType j = msg.job;
         if(s == null) {
@@ -602,7 +686,6 @@ class ServerGameLoop {
         //otherwise accept
         else {
             //update on the serverside
-            s.removeResourcesForJob(j);
             CurrentJob currentJob = new CurrentJob(state.useNextJobId(), userId, j, s.grid, j.duration);
             s.currentJobs.add(currentJob);
 
@@ -642,7 +725,7 @@ class ServerGameLoop {
             s.moveTargetPos = msg.location;
 
             //set the description of the movement
-            s.moveCommand = "Moving to (" + Main.df2.format(s.moveTargetPos.x) + ", "
+            s.moveDescription = "Moving to (" + Main.df2.format(s.moveTargetPos.x) + ", "
                     + Main.df2.format(s.moveTargetPos.y) + ")";
         }
 
@@ -685,10 +768,10 @@ class ServerGameLoop {
 
                 //set the description
                 if(ent instanceof Station){
-                    s.moveCommand = "Orbiting station";
+                    s.moveDescription = "Orbiting station";
                 }
                 else if(ent instanceof Ship) {
-                    s.moveCommand = "Orbiting " + ((Ship) ent).entityModel();
+                    s.moveDescription = "Orbiting " + ((Ship) ent).entityModel();
                 }
             }
         }
@@ -728,7 +811,7 @@ class ServerGameLoop {
             //set the description of the movement
             int degrees = -((int) (msg.angle*180/Math.PI - 90));
             if(degrees < 0) degrees += 360;
-            s.moveCommand = "Alinging to " + degrees + " N";
+            s.moveDescription = "Alinging to " + degrees + " N";
         }
     }
 
@@ -757,17 +840,20 @@ class ServerGameLoop {
             host.sendMessage(userId, deny);
         }
         else{
-            //set the target grid id
-            s.movement = Ship.Movement.ALIGN_FOR_WARP;
-            s.warpTargetGridId = msg.targetGridId;
-            s.moveCommand = "Aligning to grid " + state.grids[msg.targetGridId].nickname;
+            Entity warpTarget = state.findEntityInState(msg.beacon);
 
-            //get the angle to the target grid
-            float angle = (float) Math.atan2(state.grids[msg.targetGridId].pos.y-state.grids[msg.grid].pos.y,
-                    state.grids[msg.targetGridId].pos.x-state.grids[msg.grid].pos.x);
-            s.trajectoryVel = s.trajectoryVel.set(
-                    (float) Math.cos(angle) * s.model.maxSpeed * 0.8f,
-                    (float) Math.sin(angle) * s.model.maxSpeed * 0.8f);
+            //not valid
+            if(warpTarget == null || !warpTarget.isValidBeacon() || warpTarget.grid == s.grid){
+                MDenyRequest deny = new MDenyRequest(msg);
+                deny.reason = "Not a valid beacon for warping";
+                host.sendMessage(userId, deny);
+            }
+            //valid
+            else {
+                s.movement = Ship.Movement.PREP_FOR_WARP;
+                s.warpTarget = msg.beacon;
+                s.moveDescription = "Preparing to warp to " + state.grids[msg.beacon.grid].nickname;
+            }
         }
     }
 
@@ -830,11 +916,13 @@ class ServerGameLoop {
         }
 
         //check permissions
-        if(s.owner != userId || s.docked){
-            MDenyRequest deny = new MDenyRequest(msg);
-
+        MDenyRequest deny = new MDenyRequest(msg);
+        if(s.owner != userId || s.docked || s.grid == -1){
             if(s.docked){
                 deny.reason = "Cannot command a docked ship";
+            }
+            else if(s.grid == -1){
+                deny.reason = "Cannot activate weapons while in warp";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -846,14 +934,22 @@ class ServerGameLoop {
             switch(s.weapons[msg.weaponId].getType()){
                 case Blaster:
                 case Laser: {
-                    s.weapons[msg.weaponId].active = msg.active;
+                    //deny
+                    if(s.isValidBeacon()){
+                        deny.reason = "Cannot activate weapons while beacon is active";
+                        host.sendMessage(userId, deny);
+                    }
+                    //activate or deactivate
+                    else {
+                        if(msg.active) s.weapons[msg.weaponId].activate();
+                        else s.weapons[msg.weaponId].deactivate();
+                    }
                     break;
                 }
                 case StationTrans: {
                     //check need to deny
-                    MDenyRequest deny = new MDenyRequest(msg);
-                    if(s.grid == -1){
-                        deny.reason = "Cannot deploy station from warp";
+                    if(s.isValidBeacon()){
+                        deny.reason = "Cannot deploy station while beacon is active";
                     }
                     else if (s.targetingState != Ship.Targeting.Locked || s.targetEntity.type != Entity.Type.Station) {
                         deny.reason = "Must target station rubble to deploy";
@@ -877,8 +973,35 @@ class ServerGameLoop {
                         break;
                     }
 
-                    //activate weapon if didn't deny
-                    s.weapons[msg.weaponId].active = msg.active;
+                    //activate weapon
+                    if(msg.active) s.weapons[msg.weaponId].activate();
+                    else s.weapons[msg.weaponId].deactivate();
+
+                    break;
+                }
+                case Beacon: {
+                    //turning on
+                    if(msg.active){
+                        //check valid
+                        if(s.vel.len2() > 0){
+                            deny.reason = "Must be stationary to activate beacon";
+                            host.sendMessage(userId, deny);
+                        }
+                        else if(s.countActiveWeapons() > 0){
+                            deny.reason = "All weapons must be disabled to activate beacon";
+                            host.sendMessage(userId, deny);
+                        }
+                        //is valid
+                        else {
+                            s.weapons[msg.weaponId].activate();
+                            s.movement = Ship.Movement.STOPPING;
+                            s.warpCharge = 0;
+                        }
+                    }
+                    //turning off
+                    else {
+                        s.weapons[msg.weaponId].deactivate();
+                    }
 
                     break;
                 }
@@ -915,7 +1038,7 @@ class ServerGameLoop {
             s.movement = Ship.Movement.STOPPING;
 
             //set the description of the movement
-            s.moveCommand = "Stopping";
+            s.moveDescription = "Stopping";
         }
     }
 
@@ -955,15 +1078,15 @@ class ServerGameLoop {
 
             //set ai
             s.movement = Ship.Movement.STOPPING;
-            s.moveCommand = "Stopping";
+            s.moveDescription = "Stopping";
 
             //reset other values
             for(Weapon w : s.weapons){
-                w.putOnFullCooldown();
+                w.deactivate();
             }
             s.targetTimeToLock = -1;
             s.targetingState = null;
-            s.warpTimeToLand = 0;
+            s.warping = Ship.Warping.None;
 
             host.broadcastMessage(new MShipDockingChange(s.id, msg.stationId, false,
                     MShipUpd.createFromShip(s)));
@@ -995,7 +1118,7 @@ class ServerGameLoop {
         }
         else {
             s.movement = Ship.Movement.MOVE_FOR_DOCK;
-            s.moveCommand = "Taxiing to dock";
+            s.moveDescription = "Taxiing to dock";
             s.moveTargetPos = state.grids[msg.grid].station.pos;
         }
 

@@ -1,4 +1,4 @@
 A station that anchors to a terrestrial planet and can extract basic materials from its host. As space stations go, its relatively simple. As space stations go.
 <>
-This station is dedicated in honor of those who perished in the fight for Liberation, in the hopes that no others will need to sacrifice what they did.
+This station is dedicated in honor of those who perished in the fight for Liberation, in the hopes that theirs will be the last.
 ~Republic memorial

@@ -30,7 +30,6 @@ class SecLog extends Sector {
         this.skin = game.skin;
     }
 
-
     @Override
     Group init() {
         parent = new Group();
@@ -54,12 +53,11 @@ class SecLog extends Sector {
         pane = new ScrollPane(vertical, skin);
         pane.setBounds(3, 3, parent.getWidth()-6,
                 parent.getHeight()-6);
-        pane.setScrollingDisabled(true, false);
+        pane.setScrollingDisabled(false, false);
         pane.setupFadeScrollBars(0.2f, 0.2f);
         pane.setSmoothScrolling(false);
         pane.setColor(Color.BLACK);
         parent.addActor(pane);
-
 
         //add listeners
         pane.addListener(event -> {
@@ -74,16 +72,13 @@ class SecLog extends Sector {
 
         return parent;
     }
-
     @Override
     void load() {
     }
-
     @Override
     void render(float delta) {
 
     }
-
     @Override
     void dispose() {
 
@@ -95,7 +90,6 @@ class SecLog extends Sector {
      * TODO log glitches with strings that are wider than the scrollpane
      */
     void addToLog(String string, LogColor logColor){
-
         //create and add the label
         Label label = new Label(string, Asset.labelStyle(Asset.Avenir.LIGHT_12)); //logColor.col
         label.setColor(logColor.col);

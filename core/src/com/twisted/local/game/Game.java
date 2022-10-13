@@ -168,7 +168,6 @@ public class Game implements Screen, ClientContact {
     public void connectedToServer() {
 
     }
-
     /**
      * Should never be called in Game.
      */
@@ -176,7 +175,6 @@ public class Game implements Screen, ClientContact {
     public void failedToConnect() {
 
     }
-
     /**
      * Receiving messages from the server.
      */
@@ -198,12 +196,10 @@ public class Game implements Screen, ClientContact {
         else if(m instanceof MGameEnd) receiveGameEnd((MGameEnd) m);
         else if(m instanceof MResourceChange) receiveResourceChange((MResourceChange) m);
     }
-
     @Override
     public void disconnected(String reason){
         //TODO this function
     }
-
     @Override
     public void lostConnection() {
         //TODO this function
@@ -293,7 +289,7 @@ public class Game implements Screen, ClientContact {
             state.jobs.get(m.jobId).blocking = true;
 
             String nick = state.grids[m.gridId].nickname;
-            addToLog("Your job at grid " + nick + " is blocking", SecLog.LogColor.RED);
+            addToLog("Your job at grid " + nick + " is blocking", SecLog.LogColor.GRAY);
         }
         else if(m.action == MChangeJob.Action.CANCELING){
             //TODO
@@ -302,7 +298,7 @@ public class Game implements Screen, ClientContact {
 
     private void receiveDenyRequest(MDenyRequest m){
         if(m.request instanceof MJobReq){
-            logSec.addToLog(m.reason, SecLog.LogColor.RED);
+            logSec.addToLog(m.reason, SecLog.LogColor.GRAY);
         }
         else {
             logSec.addToLog(m.reason, SecLog.LogColor.GRAY);
@@ -481,13 +477,13 @@ public class Game implements Screen, ClientContact {
         //update sectors generally
         detailsSec.updateEntity(s);
         fleetSec.updEntityValues(s);
-        industrySec.stationStageUpdate(s);
 
         //update sectors on stage change
         if(oldStage != s.stage){
             minimapSec.updateStation(s);
             fleetSec.checkRemoveEntity(s);
             fleetSec.checkAddEntity(s);
+            industrySec.stationStageUpdate(s);
         }
     }
 
@@ -653,7 +649,7 @@ public class Game implements Screen, ClientContact {
         }
         //cancelling external listeners
         else {
-            crossSectorListener.crossSectorListeningCancelled();
+            updateCrossSectorListening(null, null);
             overlaySec.updateActionLabel("");
         }
     }

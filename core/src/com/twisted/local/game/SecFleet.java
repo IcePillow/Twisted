@@ -598,24 +598,22 @@ public class SecFleet extends Sector {
                 else {
                     actor().setText("");
                 }
-
             }
         });
 
         //hp graphic
         Group hpGroup = new Group();
-        Gdx.app.postRunnable(() -> {
-            Image hpOutline = new Image(Asset.retrieve(Asset.Pixel.GRAY));
-            hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
-            hpGroup.addActor(hpOutline);
-            Image hpBground = new Image(Asset.retrieve(Asset.Pixel.DARKGRAY));
-            hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
-            hpGroup.addActor(hpBground);
-            Image hpValue = new Image(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
-            hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
-            hpValue.setColor(state.findColorForOwner(ship.owner));
-            hpGroup.addActor(hpValue);
-            group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
+        Image hpOutline = new Image();
+        hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
+        hpGroup.addActor(hpOutline);
+        Image hpBground = new Image();
+        hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
+        hpGroup.addActor(hpBground);
+        Image hpValue = new Image();
+        hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
+        hpValue.setColor(state.findColorForOwner(ship.owner));
+        hpGroup.addActor(hpValue);
+        group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
                 @Override
                 public void updateValuesFromEntity(Entity entity) {
                     Ship sh = (Ship) entity;
@@ -628,6 +626,31 @@ public class SecFleet extends Sector {
                     }
                 }
             });
+
+        //spacing
+        group.addActor(new FleetContainer<Actor>(new Actor(), 8) {
+            @Override
+            public void updateValuesFromEntity(Entity entity) {
+            }
+        });
+
+        //beacon flag
+        Image beaconImage = new Image();
+        beaconImage.setColor(Color.LIGHT_GRAY);
+        group.addActor(new FleetContainer<Image>(beaconImage, 16) {
+            @Override
+            public void updateValuesFromEntity(Entity entity){
+                beaconImage.setVisible(entity.isValidBeacon());
+            }
+        });
+
+        //runnable to load in any assets
+        Gdx.app.postRunnable(() -> {
+            hpOutline.setDrawable(Asset.retrieve(Asset.Pixel.GRAY));
+            hpBground.setDrawable(Asset.retrieve(Asset.Pixel.DARKGRAY));
+            hpValue.setDrawable(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
+
+            beaconImage.setDrawable(Asset.retrieve(Asset.UiIcon.BEACON));
         });
 
         return group;

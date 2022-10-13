@@ -35,7 +35,7 @@ public class ProgressButton extends Group {
 
     /**
      * Constructor
-     * @param padX Padding in x direction for the progress bar Applied to both sides.
+     * @param padX Padding in x direction for the progress bar. Applied to both sides.
      * @param padY Padding in y direction for the progress bar. Applied to both sides.
      */
     public ProgressButton(TextureRegionDrawable texture, Object textureKey, float padX, float padY){
@@ -80,6 +80,9 @@ public class ProgressButton extends Group {
 
     /* Updating */
 
+    /**
+     * @param progress Values [0, 1], otherwise clamped.
+     */
     public void setProgress(float progress){
         this.progress = progress;
         if(progress > 1) this.progress = 1;

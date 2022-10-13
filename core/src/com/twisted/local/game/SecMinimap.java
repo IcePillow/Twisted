@@ -200,15 +200,33 @@ class SecMinimap extends Sector {
             //get the camera info
             float[] cInfo = game.findViewportCamInfo();
             //calculate the points
-            float x1 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f) * SYS_SCALE/Game.LTR, CON_RECT.x), CON_RECT.x+CON_RECT.width);
-            float y1 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f) * SYS_SCALE/Game.LTR, CON_RECT.y), CON_RECT.y+CON_RECT.height);
-            float x2 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f + Main.WIDTH*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.x), CON_RECT.x+CON_RECT.width);
-            float y2 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f + Main.HEIGHT*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.y), CON_RECT.y+CON_RECT.height);
+            float x1 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f) * SYS_SCALE/Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
+            float y1 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f) * SYS_SCALE/Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
+            float x2 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f + Main.WIDTH*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
+            float y2 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f + Main.HEIGHT*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
             //draw the lines
             shape.line(x1, y1, x1, y2);
             shape.line(x1, y2, x2, y2);
             shape.line(x2, y2, x2, y1);
             shape.line(x2, y1, x1, y1);
+
+            shape.end();
+        }
+        else if(clusterGroup.isVisible()){
+            //draw embedded rectangle
+            shape.begin(ShapeRenderer.ShapeType.Filled);
+
+            shape.setColor(Color.BLACK);
+            shape.rect(CON_RECT.x, CON_RECT.y, CON_RECT.width, CON_RECT.height);
+
+            for(Ship s : state.inWarp.values()){
+                float radius = (s.model.tier==Ship.Tier.Battleship || s.model.tier==Ship.Tier.Titan) ? 1.6f : 1;
+
+                shape.setColor(state.findColorForOwner(s.owner));
+                shape.circle(s.warpPos.x*CON_RECT.width/1000f + CON_RECT.x,
+                        s.warpPos.y*CON_RECT.height/1000f + CON_RECT.y,
+                        radius);
+            }
 
             shape.end();
         }
@@ -274,10 +292,6 @@ class SecMinimap extends Sector {
     private Group initClusterGroup(){
         Group group = new Group();
         parent.addActor(group);
-
-        Image embedded = new Image(Asset.retrieve(Asset.Pixel.BLACK));
-        embedded.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6);
-        group.addActor(embedded);
 
         activeSquare = new Image(Asset.retrieve(Asset.UiBasic.WHITE_SQUARE_1));
         activeSquare.setPosition(parent.getWidth()/2, parent.getHeight()/2);

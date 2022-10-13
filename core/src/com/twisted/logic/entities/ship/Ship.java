@@ -6,10 +6,7 @@ import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Faction;
-import com.twisted.logic.entities.attach.Blaster;
-import com.twisted.logic.entities.attach.Laser;
-import com.twisted.logic.entities.attach.StationTrans;
-import com.twisted.logic.entities.attach.Weapon;
+import com.twisted.logic.entities.attach.*;
 import com.twisted.net.msg.gameUpdate.MAddShip;
 
 public abstract class Ship extends Entity {
@@ -17,7 +14,6 @@ public abstract class Ship extends Entity {
     /* Graphics (clientside) */
 
     public Polygon polygon; //used for click detection
-
 
     /* Logic (serverside) */
 
@@ -29,7 +25,11 @@ public abstract class Ship extends Entity {
     public Vector2 moveTargetPos;
     public EntPtr moveTargetEnt; //used for orbiting
     public float moveRelativeDist; //used for orbit radius
-    public int warpTargetGridId; //used if movement = ALIGN_FOR_WARP
+
+    //warping
+    public int warpSourceGrid;
+    public int warpDestGrid;
+    public Vector2 warpLandPos;
 
     /* State */
 
@@ -45,9 +45,14 @@ public abstract class Ship extends Entity {
     public float health;
 
     //ui and movement
-    public String moveCommand;
-    public float warpTimeToLand; //0 if not in warp
+    public String moveDescription;
     public boolean docked;
+
+    //warping
+    public Warping warping;
+    public float warpCharge; //meaningless unless warping==Charging, should be [0, 1]
+    public Vector2 warpPos; //meaningless unless warping==InWarp
+    public EntPtr warpTarget;
 
     //targeting
     public Targeting targetingState;
@@ -75,12 +80,16 @@ public abstract class Ship extends Entity {
         this.polygon = new Polygon(this.model.vertices); //TODO make clientside only
 
         //command data
-        this.moveCommand = "Stationary";
+        this.moveDescription = "Stationary";
         this.targetingState = null;
         this.targetEntity = null;
 
         //warping
-        this.warpTimeToLand = 0;
+        this.warping = Warping.None;
+        this.warpCharge = 0;
+        this.warpPos = new Vector2(-1, -1);
+        this.warpTarget = null;
+        this.warpLandPos = new Vector2();
 
         //battle
         this.health = this.model.maxHealth;
@@ -97,6 +106,9 @@ public abstract class Ship extends Entity {
                     break;
                 case StationTrans:
                     this.weapons[i] = new StationTrans(this, (StationTrans.Model) model.weapons[i]);
+                    break;
+                case Beacon:
+                    this.weapons[i] = new Beacon(this, (Beacon.Model) model.weapons[i]);
                     break;
                 default:
                     System.out.println("Unknown weapon type");
@@ -172,8 +184,7 @@ public abstract class Ship extends Entity {
         targetingState = null;
 
         for(Weapon w : weapons){
-            w.putOnFullCooldown();
-            w.active = false;
+            w.deactivate();
         }
     }
 
@@ -194,28 +205,10 @@ public abstract class Ship extends Entity {
     }
 
     /**
-     * Checks if the ship is able to enter warp based on its velocity.
-     */
-    public boolean alignedForWarp(Grid originGrid, Grid destGrid){
-
-        //check if speed is high enough
-        if(vel.len() < 0.75f*model.maxSpeed){
-            return false;
-        }
-
-        //get the ship's angle
-        float gridAngle = (float) Math.atan2(destGrid.pos.y-originGrid.pos.y,
-                destGrid.pos.x-originGrid.pos.x);
-
-        //compare the two angles
-        return Math.abs(rot - gridAngle) <= 0.01f;
-    }
-
-    /**
      * Produces a formatted string for display with this ship's position.
      * @param places Number of places after the decimal to include.
      */
-    public float[] roundedPosition(int places){
+    public float[] roundedPos(int places){
         float p = (float) Math.pow(10, places);
 
         return new float[]{
@@ -223,13 +216,12 @@ public abstract class Ship extends Entity {
                 Math.round(pos.y * p) / p,
         };
     }
-
     /**
      * Gets the rounded speed and angle.
      * @param places Places after the decimal to round to for the speed.
      * @return Angle is in nautical degrees (0 is at N and goes CW).
      */
-    public float[] roundedBearing(int places){
+    public float[] roundedBear(int places){
         float p = (float) Math.pow(10, places);
 
         float angle = 90-Math.round(rot * 180/Math.PI);
@@ -239,6 +231,33 @@ public abstract class Ship extends Entity {
                 Math.round(vel.len() * p) / p,
                 angle,
         };
+    }
+    public float[] roundedWarpPos(int places){
+        float p = (float) Math.pow(10, places);
+
+        return new float[]{
+               Math.round(warpPos.x * p)/p,
+               Math.round(warpPos.y * p)/p
+        };
+    }
+    public float[] roundedWarpBear(int places){
+        float p = (float) Math.pow(10, places);
+
+        float angle = 90-Math.round(rot * 180/Math.PI);
+        if(angle < 0) angle += 360;
+
+        return new float[]{
+                Math.round(model.warpSpeed * p) / p,
+                angle,
+        };
+    }
+
+    public int countActiveWeapons(){
+        int ct = 0;
+        for(Weapon w : weapons){
+            if(w.isActive()) ct++;
+        }
+        return ct;
     }
 
 
@@ -260,30 +279,35 @@ public abstract class Ship extends Entity {
         Sparrow(Tier.Frigate, Faction.Federation,
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
                 1.4f*0.0849f, 0.9f, 0.4f, 4f, 3,
-                new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small}
+                new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
+                200, 2
         ),
         Alke(Tier.Frigate, Faction.Republic,
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
                 1.4f*0.0849f, 0.8f, 0.4f, 3.5f, 6,
-                new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small}
+                new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
+                200, 2
         ),
         Helios(Tier.Cruiser, Faction.Republic,
                 new float[]{0,0.15f,  0.12f,-0.02f,  0,-0.12f,  -0.12f,-0.02f},
                 1.3f*0.15f, 0.4f, 0.2f, 5f, 10,
-                new Weapon.Model[]{Blaster.Model.Medium, Blaster.Model.Medium, Blaster.Model.Medium}
+                new Weapon.Model[]{Blaster.Model.Medium, Blaster.Model.Medium, Blaster.Model.Medium},
+                100, 4
         ),
         Themis(Tier.Battleship, Faction.Republic,
                 new float[]{0,0.252f,  0.144f,-0.036f,  0.096f,-0.096f,  0.144f,-0.144f,  0.048f,-0.144f,
                             0,-0.204f,  -0.048f,-0.144f,  -0.144f,-0.144f,  -0.096f,-0.096f,  -0.144f,-0.036f},
                 1.2f*0.25f, 0.18f, 0.1f, 8f, 16,
-                new Weapon.Model[]{Blaster.Model.Large, Laser.Model.Large}
+                new Weapon.Model[]{Blaster.Model.Large, Laser.Model.Large, Beacon.Model.Medium},
+                50, 10
         ),
         Heron(Tier.Barge, Faction.Federation,
                 new float[]{-0.16f,-0.2f,  0f,-0.12f,  0.16f,-0.2f,
                             0.16f,0.14f,  0.12f,0.18f,  -0.12f,0.18f,  -0.16f,0.14f},
                 1.2f*0.25f, 0.1f, 0.02f,
                 1.5f, 10,
-                new Weapon.Model[]{StationTrans.Model.Medium}
+                new Weapon.Model[]{StationTrans.Model.Medium},
+                40, 20
         ),
         Nyx(Tier.Titan, Faction.Republic,
                 new float[]{-0.2f,-0.45f,  -0.075f,-0.45f,  0f,-0.5f,  0.075f,-0.45f,  0.2f,-0.45f,  //base
@@ -292,7 +316,8 @@ public abstract class Ship extends Entity {
                             -0.25f,-0.05f,  -0.25f,0.2f,  -0.15f,0.4f,  -0.4f,0.25f,  -0.4f,-0.2f, //left
                 },
                 1.1f*0.5f, 0.06f, 0.02f, 12f, 20,
-                new Weapon.Model[]{} //TODO titan weapons
+                new Weapon.Model[]{}, //TODO titan weapons
+                10, 60
         );
 
         //data methods from entity
@@ -323,12 +348,17 @@ public abstract class Ship extends Entity {
         public final float targetRange;
         public final int maxHealth;
         public final Weapon.Model[] weapons;
+        public final boolean canLightBeacon;
+        public final float warpSpeed;
+        public final float warpChargeTime;
 
         /**
          * Constructor
          */
         Model(Tier tier, Faction faction, float[] vertices, float paddedLogicalRadius, float maxSpeed,
-              float maxAccel, float targetRange, int maxHealth, Weapon.Model[] weapons){
+              float maxAccel, float targetRange, int maxHealth, Weapon.Model[] weapons, float warpSpeed,
+              float warpChargeTime){
+            //copy
             this.tier = tier;
             this.faction = faction;
             this.vertices = vertices;
@@ -338,6 +368,11 @@ public abstract class Ship extends Entity {
             this.targetRange = targetRange;
             this.maxHealth = maxHealth;
             this.weapons = weapons;
+            this.warpSpeed = warpSpeed;
+            this.warpChargeTime = warpChargeTime;
+
+            //determine
+            canLightBeacon = (tier==Tier.Cruiser || tier==Tier.Battleship || tier==Tier.Titan);
         }
     }
 
@@ -350,7 +385,7 @@ public abstract class Ship extends Entity {
         MOVE_TO_POS,
         ALIGN_TO_ANG,
 
-        ALIGN_FOR_WARP,
+        PREP_FOR_WARP,
         WARPING,
 
         ORBIT_ENT,
@@ -371,6 +406,15 @@ public abstract class Ship extends Entity {
      */
     public enum Removal {
         EXPLOSION
+    }
+
+    /**
+     * The state of warping.
+     */
+    public enum Warping {
+        None,
+        Charging,
+        InWarp,
     }
 
 }

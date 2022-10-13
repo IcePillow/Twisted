@@ -83,17 +83,10 @@ public class GameHost implements ServerContact {
                 e.printStackTrace();
             }
 
-            //load initial game state
             loadInitialState(players);
-
-            //tell the players the information about the game starting
             sendGameStart();
-
             preLoopCalls();
-
-            //begin the game loop
             startGameLoop();
-
         }).start();
     }
 
@@ -168,6 +161,12 @@ public class GameHost implements ServerContact {
         state.grids[0].ships.put(s3.id, s3);
         server.broadcastMessage(MAddShip.createFromShipBody(s3));
 
+        Ship s4 = new Cruiser(Ship.Model.Helios, state.useNextShipId(), 2, 1, false);
+        s4.pos.set(1.5f, 0);
+        s4.rot = (float) -Math.PI/2;
+        state.grids[2].ships.put(s4.id, s4);
+        server.broadcastMessage(MAddShip.createFromShipBody(s4));
+
         //gallery
         Ship alke = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 2, false);
         alke.pos.set(-2, -2);
@@ -218,7 +217,6 @@ public class GameHost implements ServerContact {
             hotRequests.put((MGameReq) message, clientId);
         }
     }
-
     /**
      * Should never be called in this GameHost.
      */
@@ -226,12 +224,10 @@ public class GameHost implements ServerContact {
     public void clientConnected(int clientId) {
 
     }
-
     @Override
     public void clientDisconnected(int clientId, String reason) {
         //TODO this function
     }
-
     @Override
     public void clientLostConnection(int clientId) {
         //TODO this function

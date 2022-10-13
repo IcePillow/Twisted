@@ -6,8 +6,6 @@ import java.io.Serializable;
 
 /**
  * Describes an entity without referencing it directly.
- *
- * TODO refactor to use this elsewhere
  */
 public class EntPtr implements Serializable {
 

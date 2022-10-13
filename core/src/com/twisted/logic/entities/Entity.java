@@ -3,6 +3,7 @@ package com.twisted.logic.entities;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
+import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 
@@ -80,6 +81,21 @@ public abstract class Entity implements Serializable {
             return ((Ship) this).docked;
         }
         else {
+            return false;
+        }
+    }
+
+    /**
+     * Checks if this entity is valid to be warped to as a beacon right now.
+     */
+    public boolean isValidBeacon(){
+        if(this.entityType() == Type.Station){
+            return true;
+        }
+        else {
+            for(Weapon w : ((Ship) this).weapons){
+                if(w.getType() == Weapon.Type.Beacon && w.isActive()) return true;
+            }
             return false;
         }
     }

@@ -16,8 +16,11 @@ public abstract class Weapon {
     public final Vector2 sourcePoint;
 
     //state
-    public boolean active;
-    public float timer;
+    protected boolean active;
+    public boolean isActive(){
+        return active;
+    }
+    public float timer; //counts down to 0
 
     /* Constructor */
 
@@ -38,7 +41,12 @@ public abstract class Weapon {
     public abstract void tick(ServerGameState state, Grid grid, Ship ship, Entity target,
                               Ship.Targeting targeting, float delta);
 
-    public abstract void putOnFullCooldown();
+    public void activate(){
+        active = true;
+    }
+    public void deactivate(){
+        active = false;
+    }
 
 
     /* Type Methods */
@@ -47,6 +55,7 @@ public abstract class Weapon {
         if(this instanceof Blaster) return Type.Blaster;
         else if(this instanceof Laser) return Type.Laser;
         else if(this instanceof StationTrans) return Type.StationTrans;
+        else if(this instanceof Beacon) return Type.Beacon;
         else return null;
     }
     public abstract Model subtype();
@@ -64,6 +73,13 @@ public abstract class Weapon {
 
     public abstract float getFullTimer();
 
+    /**
+     * This should only be used to copy data from server to client.
+     */
+    public void setActive(boolean active){
+        this.active = active;
+    }
+
 
     /* Enums */
 
@@ -71,6 +87,7 @@ public abstract class Weapon {
         Blaster,
         Laser,
         StationTrans,
+        Beacon
     }
 
     public interface Model {

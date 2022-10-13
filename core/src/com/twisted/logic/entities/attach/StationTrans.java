@@ -41,17 +41,13 @@ public class StationTrans extends Weapon {
     @Override
     public void tick(ServerGameState state, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
                      float delta) {
-
-        if(!active){
-            putOnFullCooldown();
-        }
-        else if(target instanceof Station){
+        if(target instanceof Station){
             Station st = (Station) target;
 
             if(deploying){
                 //check tick is still valid
                 if(st.stage != Station.Stage.RUBBLE){
-                    putOnFullCooldown();
+                    deactivate();
                     active = false;
                     return;
                 }
@@ -69,7 +65,7 @@ public class StationTrans extends Weapon {
 
                     //update the transport
                     cargo = null;
-                    putOnFullCooldown();
+                    deactivate();
                     active = false;
 
                     //add event
@@ -83,8 +79,7 @@ public class StationTrans extends Weapon {
             }
         }
         else {
-            active = false;
-            putOnFullCooldown();
+            deactivate();
         }
     }
 
@@ -92,7 +87,9 @@ public class StationTrans extends Weapon {
      * Cancel the deployment.
      */
     @Override
-    public void putOnFullCooldown() {
+    public void deactivate() {
+        super.deactivate();
+
         deploying = false;
         timer = 0;
     }

@@ -72,7 +72,6 @@ public class SecDetails extends Sector {
 
         return parent;
     }
-
     private Group initDecoration(Vector2 size){
         //decoration group
         Group decoration = new Group();
@@ -89,7 +88,6 @@ public class SecDetails extends Sector {
         //return
         return decoration;
     }
-
     private void initDisplayGroups(Vector2 size){
         //create the display groups
         displayGroups.put(Display.EMPTY, new EmptyDets(this, skin, size));
@@ -110,15 +108,12 @@ public class SecDetails extends Sector {
             d.setState(state);
         }
     }
-
     @Override
     void load() {
 
     }
-
     @Override
     void render(float delta) {}
-
     @Override
     void dispose() {
 
@@ -137,9 +132,10 @@ public class SecDetails extends Sector {
             return;
         }
         else if(ent instanceof Ship){
+            //create the request
+            MGameReq req = null;
+
             if(game.getGrid() == ent.grid){
-                //create the request
-                MGameReq req = null;
                 if(externalWait == ExternalWait.MOVE){
                     req = new MShipMoveReq(ent.grid, ent.getId(), gamePos);
 
@@ -194,17 +190,26 @@ public class SecDetails extends Sector {
                 else {
                     game.updateCrossSectorListening(null, null);
                 }
-
-                //send the message to the server
-                if(req != null) game.sendGameRequest(req);
             }
-            else {
-                game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.YELLOW);
+            else if(externalWait == ExternalWait.WARP){
+                if(state.findEntity(ptr).isValidBeacon()){
+                    req = new MShipWarpReq(ent.grid, ent.getId(), ptr);
+                }
+                else {
+                    game.addToLog("Entity is not a valid beacon for warping", SecLog.LogColor.GRAY);
+                }
+
                 game.updateCrossSectorListening(null, null);
             }
+            else {
+                game.addToLog("Can't cmd a ship on a dif grid", SecLog.LogColor.GRAY);
+                game.updateCrossSectorListening(null, null);
+            }
+
+            //send the message to the server
+            if(req != null) game.sendGameRequest(req);
         }
     }
-
     @Override
     void minimapClickEvent(int grid){
         Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
@@ -218,7 +223,7 @@ public class SecDetails extends Sector {
                 //create the request
                 MGameReq req = null;
                 if(externalWait == ExternalWait.WARP){
-                    req = new MShipWarpReq(ent.grid, ent.getId(), grid);
+                    req = new MShipWarpReq(ent.grid, ent.getId(), EntPtr.createFromEntity(state.grids[grid].station));
                 }
                 else if(externalWait == ExternalWait.ALIGN){
                     //calculate the angle
@@ -234,16 +239,16 @@ public class SecDetails extends Sector {
                 if(req != null) game.sendGameRequest(req);
             }
             else {
-                game.addToLog("Cannot command a ship that is currently in warp", SecLog.LogColor.YELLOW);
+                game.addToLog("Cannot command a ship that is currently in warp", SecLog.LogColor.GRAY);
             }
         }
 
         //release the cross sector listening
         game.updateCrossSectorListening(null, null);
     }
-
     @Override
     void fleetClickEvent(EntPtr ptr){
+        //the entity that is currently selected in SecDetails
         Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
 
         if(ent == null){
@@ -259,7 +264,7 @@ public class SecDetails extends Sector {
                     req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
                 }
                 else {
-                    game.addToLog("Can't target entity on dif grid", SecLog.LogColor.YELLOW);
+                    game.addToLog("Can't target entity on a different grid", SecLog.LogColor.GRAY);
                 }
 
                 game.updateCrossSectorListening(null, null);
@@ -272,6 +277,16 @@ public class SecDetails extends Sector {
                 game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
                         new EntPtr(ptr.type, ptr.id, ent.grid, ptr.docked), Color.WHITE, 0);
             }
+            else if(externalWait == ExternalWait.WARP){
+                if(state.findEntity(ptr).isValidBeacon()){
+                    req = new MShipWarpReq(ent.grid, ent.getId(), ptr);
+                }
+                else {
+                    game.addToLog("Entity is not a valid beacon for warping", SecLog.LogColor.GRAY);
+                }
+
+                game.updateCrossSectorListening(null, null);
+            }
             else {
                 game.updateCrossSectorListening(null, null);
             }
@@ -280,7 +295,6 @@ public class SecDetails extends Sector {
             if(req != null) game.sendGameRequest(req);
         }
     }
-
     @Override
     void crossSectorListeningCancelled(){
         if(externalWait == ExternalWait.ORBIT_DIST){
@@ -370,7 +384,6 @@ public class SecDetails extends Sector {
     public void input(Entity ent, Input input){
         input(ent, input, 0);
     }
-
     public void input(Entity ent, Input input, int value){
         switch(input){
             //ship click listeners
@@ -424,7 +437,7 @@ public class SecDetails extends Sector {
             }
             case SHIP_WEAPON_TOGGLE: {
                 game.sendGameRequest(new MWeaponActiveReq(ent.grid, ent.getId(), value,
-                        !((Ship) ent).weapons[value].active));
+                        !((Ship) ent).weapons[value].isActive()));
                 break;
             }
 
@@ -461,7 +474,6 @@ public class SecDetails extends Sector {
             }
         }
     }
-
     public void input(MGameReq request){
         game.sendGameRequest(request);
     }
@@ -492,7 +504,9 @@ public class SecDetails extends Sector {
         //minimap
         WARP,
     }
-
+    /**
+     * Input types.
+     */
     public enum Input {
         SHIP_STOP,
         SHIP_MOVE,
@@ -503,6 +517,7 @@ public class SecDetails extends Sector {
         SHIP_UNDOCK,
         SHIP_TARGET,
         SHIP_WEAPON_TOGGLE,
+        SHIP_BEACON_TOGGLE,
 
         SHIP_TARGET_HOVER_ON,
         SHIP_TARGET_HOVER_OFF,
@@ -511,7 +526,9 @@ public class SecDetails extends Sector {
         SHIP_DOCK_HOVER_ON,
         SHIP_DOCK_HOVER_OFF,
     }
-
+    /**
+     * Types of display for this sector.
+     */
     public enum Display {
         EMPTY,
         SHIP_IN_SPACE,

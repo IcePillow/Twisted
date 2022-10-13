@@ -1,31 +1,39 @@
 Work
     Priority
+        TODO remove ship level targeting, change to weapon level targeting
     Large scale
         TODO exterior target summaries for the current grid
         TODO correct win condition
+        TODO replace polygons with sprites
     Ui changes
         TODO shortcut keys for ship commands
         TODO easier clicking on minimap icons
         TODO cross sector listening for SecMinimap when displaying for a cluster
+        TODO change game log to wrap text instead of having horizontal scrolling
+        TODO be able to choose a warp target by clicking on the viewport
+        TODO update the ship in warp SecDetails panel (display cluster position, weapons?, destination)
     Combat
         TODO make orbiting logic better
+        TODO make warp landing positioning logic better
         TODO add doomsday weapons
         TODO add station regen
     Graphics
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
-        TODO progress bar for targeting
         TODO figure out what happens if a user has a screen larger than necessary (no over-scaling)
         TODO different explosions for different ships
         TODO improve the laser graphics
+        TODO visuals for a ship charging and entering warp
+        TODO visuals for a ship lighting a beacon
     Gameplay
         TODO add more ship models
         TODO set correct-ish values for balanced game
         TODO resource generation
-        TODO warping to a beacon lit by a ship
+        TODO place ship in better place after warping
     Bugs
-        TODO fix viewport indicators when scaled
         TODO fix jittering of movement command in SecDetails
     Refactoring
+        TODO decide whether to refactor network handling into runnables in the message interface
+        TODO break up pieces of game hosting code (like ShipEntersWarp) into methods
     Misc
         TODO make sure everything disposed in each screen

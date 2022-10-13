@@ -28,6 +28,7 @@ import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameReq.MShipUndockReq;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 public class SecIndustry extends Sector {
@@ -403,8 +404,10 @@ public class SecIndustry extends Sector {
      * Update the resources in a given station.
      */
     void stationResourceUpdate(Station s){
-        for(int i=0; i<4; i++){
-            resourceLabels.get(s.getId())[i].setText(s.resources[i]);
+        if(resourceLabels != null && resourceLabels.get(s.getId()) != null){
+            for(int i=0; i<4; i++){
+                resourceLabels.get(s.getId())[i].setText(s.resources[i]);
+            }
         }
     }
 

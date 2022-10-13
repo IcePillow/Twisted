@@ -13,6 +13,7 @@ public class CurrentJob implements Serializable {
 
     public float timeLeft;
     public boolean blocking;
+    public boolean started;
 
     public CurrentJob(int jobId, int owner, JobType jobType, int grid, float timeLeft){
         this.jobId = jobId;
@@ -20,6 +21,8 @@ public class CurrentJob implements Serializable {
         this.jobType = jobType;
         this.grid = grid;
         this.timeLeft = timeLeft;
+
+        this.started = false;
     }
 
 }

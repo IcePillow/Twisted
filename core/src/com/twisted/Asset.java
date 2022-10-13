@@ -183,6 +183,7 @@ public class Asset {
         }
     }
     public enum UiIcon implements TextureAsset {
+        BEACON("beacon"),
         DOCK("dock"),
         UNDOCK("undock"),
         STATION_ARMORED("station-armored"),
@@ -201,6 +202,8 @@ public class Asset {
     }
     public enum UiButton implements TextureAsset {
         ALIGN("align"),
+        BEACON_OFF("beacon-off"),
+        BEACON_ON("beacon-on"),
         BLASTER_OFF("blaster-off"),
         BLASTER_ON("blaster-on"),
         DEFAULT("default"),

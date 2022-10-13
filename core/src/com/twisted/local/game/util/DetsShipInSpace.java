@@ -37,6 +37,7 @@ public class DetsShipInSpace extends DetsGroup {
     private TogImgButton targetButton;
     private Image healthFill, targetImage, shipIcon;
     private ProgressButton[] weaponButtons;
+    private ProgressButton warpButton;
 
     //selection
     private Ship sel;
@@ -116,7 +117,7 @@ public class DetsShipInSpace extends DetsGroup {
         group.addActor(shipPosition);
 
         shipVelocity = new Label("[sp]\n[ag]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-        shipPosition.setColor(Color.LIGHT_GRAY);
+        shipVelocity.setColor(Color.LIGHT_GRAY);
         shipVelocity.setPosition(84, 0);
         group.addActor(shipVelocity);
 
@@ -162,7 +163,8 @@ public class DetsShipInSpace extends DetsGroup {
         ImageButton alignButton = new ImageButton(Asset.retrieve(Asset.UiButton.ALIGN));
         alignButton.setBounds(84, 0, 24, 24);
         shipButtonGroup.addActor(alignButton);
-        ImageButton warpButton = new ImageButton(Asset.retrieve(Asset.UiButton.WARP));
+        warpButton = new ProgressButton(Asset.retrieve(Asset.UiButton.WARP), null, 1, 1);
+        warpButton.setProgressColor(PROGRESS_COLOR);
         warpButton.setBounds(112, 0, 24, 24);
         shipButtonGroup.addActor(warpButton);
         ImageButton dockButton = new ImageButton(Asset.retrieve(Asset.UiButton.DOCK));
@@ -216,12 +218,13 @@ public class DetsShipInSpace extends DetsGroup {
             }
             return true;
         });
-        warpButton.addCaptureListener((Event event) -> {
-            if(event.isHandled()) return true;
-            if(event instanceof ChangeListener.ChangeEvent){
+        warpButton.changeClickListener(new ClickListener(Input.Buttons.LEFT){
+            @Override
+            public void clicked(InputEvent event, float x, float y){
+                if(event.isHandled()) return;
                 sector.input(sel, SecDetails.Input.SHIP_WARP);
+                event.handle();
             }
-            return true;
         });
         dockButton.addCaptureListener((Event event) -> {
             if(event.isHandled()) return true;
@@ -241,16 +244,16 @@ public class DetsShipInSpace extends DetsGroup {
 
         //create actors
         targetImage = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
-        targetImage.setPosition(35, 3);
+        targetImage.setPosition(31, 3);
         shipWeaponGroup.addActor(targetImage);
 
         targetLabel = new Label("[none]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        targetLabel.setPosition(30, 0);
+        targetLabel.setPosition(26, 0);
         shipWeaponGroup.addActor(targetLabel);
 
         targetButton = new TogImgButton(
-                new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/target-off.png"))),
-                new TextureRegionDrawable(new Texture(Gdx.files.internal("images/ui/buttons/target-on.png")))
+                new TextureRegionDrawable(Asset.retrieve(Asset.UiButton.TARGET_OFF)),
+                new TextureRegionDrawable(Asset.retrieve(Asset.UiButton.TARGET_ON))
         );
         targetButton.setBounds(0, 0, 24, 24);
         shipWeaponGroup.addActor(targetButton);
@@ -331,6 +334,7 @@ public class DetsShipInSpace extends DetsGroup {
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
+        //weapon icons
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
             weaponButtons[i].setVisible(i < sel.model.weapons.length);
@@ -349,11 +353,10 @@ public class DetsShipInSpace extends DetsGroup {
         shipButtonGroup.setVisible(sel.owner == state.myId);
         shipWeaponGroup.setVisible(sel.owner == state.myId);
     }
-
     @Override
     public void updateEntity() {
         //update movement and calculate new layout data
-        shipMoveCommand.setText(sel.moveCommand);
+        shipMoveCommand.setText(sel.moveDescription);
         Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
         shipMoveCommand.setX(288 - Main.glyph.width);
 
@@ -367,8 +370,8 @@ public class DetsShipInSpace extends DetsGroup {
             switch(sel.targetingState){
                 case Locking:
                     targetImage.setVisible(false);
-                    if(sel.targetTimeToLock > 0.95f) targetLabel.setText(Math.round(sel.targetTimeToLock) + "s");
-                    else targetLabel.setText(Main.df1.format(sel.targetTimeToLock) + "s");
+                    if(sel.targetTimeToLock > 0.95f) targetLabel.setText(Math.round(sel.targetTimeToLock));
+                    else targetLabel.setText(Main.df1.format(sel.targetTimeToLock));
                     break;
                 case Locked:
                     Gdx.app.postRunnable(() -> {
@@ -385,11 +388,14 @@ public class DetsShipInSpace extends DetsGroup {
             targetLabel.setText("");
         }
 
+        //warping button progress
+        warpButton.setProgress(sel.warpCharge);
+
         //targeting button
         targetButton.updateVisible(sel.targetingState==null);
 
         //update active weapons
-        for(int i = 0; i<sel.weapons.length; i++){
+        for(int i=0; i<sel.weapons.length; i++){
             //update the texture
             if(sel.weapons[i].getCurrentButtonAsset() != null &&
                     !sel.weapons[i].getCurrentButtonAsset().equals(weaponButtons[i].getTextureKey())){
@@ -401,32 +407,20 @@ public class DetsShipInSpace extends DetsGroup {
             }
 
             //update the progress
-            if(!sel.weapons[i].active){
+            if(!sel.weapons[i].isActive() || sel.weapons[i].getFullTimer() == 0){
                 weaponButtons[i].setProgress(0);
-            }
-            else if(sel.weapons[i].getFullTimer() == 0) {
-                weaponButtons[i].setProgress(1);
             }
             else {
                 weaponButtons[i].setProgress(1 - sel.weapons[i].timer / sel.weapons[i].getFullTimer());
             }
         }
 
-        //warp dependent
-        if(sel.grid != -1){
-            float[] rounded = sel.roundedPosition(1);
-            shipPosition.setText("X = " + rounded[0] + "\nY = " + rounded[1]);
-
-            rounded = sel.roundedBearing(2);
-            shipVelocity.setText("Sp = " + rounded[0] + "\nAg = " + (int) rounded[1]);
-        }
-        else {
-            shipGrid.setText("[W]");
-            shipPosition.setText("X = ?\nY = ?");
-            shipVelocity.setText("Sp = ?\nAg = ?");
-        }
+        //position location
+        float[] rounded = sel.roundedPos(1);
+        shipPosition.setText("X = " + rounded[0] + "\nY = " + rounded[1]);
+        rounded = sel.roundedBear(2);
+        shipVelocity.setText("Sp = " + rounded[0] + "\nAg = " + (int) rounded[1]);
     }
-
     @Override
     public Entity getSelectedEntity(){
         return sel;

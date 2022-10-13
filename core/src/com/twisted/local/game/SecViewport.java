@@ -204,7 +204,7 @@ public class SecViewport extends Sector {
         for(Ship s : g.ships.values()){
             for(Weapon w : s.weapons){
                 //check for laser beams
-                if(w instanceof Laser && w.active && !((Laser) w).cosmeticBeamExists){
+                if(w instanceof Laser && w.isActive() && !((Laser) w).cosmeticBeamExists){
                     LaserBeam c = new LaserBeam(g.id, (Laser) w);
                     cosmetics.add(c);
                 }
@@ -277,11 +277,13 @@ public class SecViewport extends Sector {
                 float radius = selectionValues.get(Select.CIRCLE_RANGE_IND_ROT);
                 float off = 3 * (offset%360);
 
-                shape.setColor(selectionColors.get(Select.CIRCLE_RANGE_IND_ROT));
-                for (float i=0; i<360; i+=2*360f/(radius*80f)) {
-                    shape.circle(LTR*(sel.pos.x + radius*(float)Math.cos((off+i) * Math.PI/180)),
-                            LTR*(sel.pos.y + radius*(float)Math.sin((off+i) * Math.PI/180)),
-                            1);
+                if(radius > 0){
+                    shape.setColor(selectionColors.get(Select.CIRCLE_RANGE_IND_ROT));
+                    for (float i=0; i<360; i+=2*360f/(radius*80f)) {
+                        shape.circle(LTR*(sel.pos.x + radius*(float)Math.cos((off+i) * Math.PI/180)),
+                                LTR*(sel.pos.y + radius*(float)Math.sin((off+i) * Math.PI/180)),
+                                1);
+                    }
                 }
             }
         }
@@ -294,10 +296,10 @@ public class SecViewport extends Sector {
                 float orbCircleRad = new Vector2(
                         (cursor.x-stage.getWidth()/2f+camera.position.x)/100f,
                         (cursor.y-stage.getHeight()/2f+camera.position.y)/100f)
-                        .dst(sel.pos);
+                        .dst(sel.pos) * camera.zoom;
 
                 shape.setColor(selectionColors.get(Select.BASE_MOUSE_CIRCLE));
-                for(float i=0; i<360; i+= 360f/(orbCircleRad*80)){
+                for(float i=0; i<360; i+= 360f/(orbCircleRad*80*camera.zoom)){
                     shape.circle(LTR*(sel.pos.x + orbCircleRad*(float)Math.cos(i*Math.PI/180)),
                             LTR*(sel.pos.y + orbCircleRad*(float)Math.sin(i*Math.PI/180)),
                             1);

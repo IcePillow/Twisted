@@ -1,6 +1,5 @@
 package com.twisted.logic.entities.attach;
 
-import com.badlogic.gdx.math.Vector2;
 import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
@@ -53,10 +52,6 @@ public class Laser extends Weapon{
         else {
             curDmg = model.minDmg;
         }
-    }
-    @Override
-    public void putOnFullCooldown() {
-        //does nothing
     }
 
 
