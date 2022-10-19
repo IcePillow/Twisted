@@ -58,7 +58,6 @@ public abstract class Entity implements Serializable {
     }
 
     public abstract Model entityModel();
-
     /**
      * These ids are not unique across entities, but they are unique across each subclass
      * of entities.
@@ -68,7 +67,6 @@ public abstract class Entity implements Serializable {
     public boolean matches(Entity ent){
         return (ent != null && ent.getId() == this.getId() && ent.entityType() == this.entityType());
     }
-
     public boolean matches(EntPtr ptr){
         return (ptr != null && ptr.id == getId() && ptr.type == entityType());
     }
@@ -76,29 +74,12 @@ public abstract class Entity implements Serializable {
 
     /* State Methods */
 
-    public boolean isDocked(){
-        if(entityType() == Type.Ship){
-            return ((Ship) this).docked;
-        }
-        else {
-            return false;
-        }
-    }
-
+    public abstract boolean isDocked();
     /**
      * Checks if this entity is valid to be warped to as a beacon right now.
      */
-    public boolean isValidBeacon(){
-        if(this.entityType() == Type.Station){
-            return true;
-        }
-        else {
-            for(Weapon w : ((Ship) this).weapons){
-                if(w.getType() == Weapon.Type.Beacon && w.isActive()) return true;
-            }
-            return false;
-        }
-    }
+    public abstract boolean isValidBeacon();
+    public abstract float getSigRadius();
 
 
     /* Naming Methods */

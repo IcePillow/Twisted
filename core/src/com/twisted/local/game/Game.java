@@ -179,7 +179,7 @@ public class Game implements Screen, ClientContact {
      * Receiving messages from the server.
      */
     @Override
-    public void clientReceived(Message m) {
+    public synchronized void clientReceived(Message m) {
         if(m instanceof MGameStart) receiveGameStart((MGameStart) m);
         else if(m instanceof MJobTimerUpd) receiveGameOverview((MJobTimerUpd) m);
         else if(m instanceof MChangeJob) receiveChangeJob((MChangeJob) m);
@@ -347,6 +347,7 @@ public class Game implements Screen, ClientContact {
         detailsSec.updateEntity(EntPtr.createFromEntity(s));
         viewportSec.updateSelectionGridsAsNeeded(s, m.grid);
         fleetSec.updEntityValues(s);
+        industrySec.shipUpdate(s);
     }
 
     private void receiveShipEnterWarp(MShipEnterWarp m){
@@ -477,13 +478,13 @@ public class Game implements Screen, ClientContact {
         //update sectors generally
         detailsSec.updateEntity(s);
         fleetSec.updEntityValues(s);
+        industrySec.stationStageUpdate(s);
 
         //update sectors on stage change
         if(oldStage != s.stage){
             minimapSec.updateStation(s);
             fleetSec.checkRemoveEntity(s);
             fleetSec.checkAddEntity(s);
-            industrySec.stationStageUpdate(s);
         }
     }
 
@@ -584,7 +585,7 @@ public class Game implements Screen, ClientContact {
     private void handleInput(){
         if(state != null && state.ending) return;
 
-        if(stage.getKeyboardFocus().equals(viewportSec.getParent())){
+        if(viewportSec.getParent().equals(stage.getKeyboardFocus())){
             viewportSec.continuousKeyboard();
         }
     }

@@ -1,12 +1,15 @@
 package com.twisted.local.game.util;
 
 import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
 import com.twisted.Main;
@@ -24,22 +27,22 @@ import com.twisted.net.msg.gameReq.MPackedStationMoveReq;
 public class DetsShipDocked extends DetsGroup {
 
     //tree
-    private Label shipName, shipGrid, healthLabel, gemStorageLabel, holdSizeLabel;
+    private com.badlogic.gdx.scenes.scene2d.ui.Label shipName, shipGrid, healthLabel, gemStorageLabel, holdSizeLabel;
     private Image healthFill, shipIcon;
     private final Group inventoryGroup;
-    private VerticalGroup inventoryShip, inventoryStation;
     private TextField invNumField;
     private ImageButton transferLeft, transferRight;
 
     //inventory trees (stored as non-gems, then gems)
-    private InventoryHorGroup[] shipInvElements;
-    private InventoryHorGroup[] stationInvElements;
+    private Table[] shipChildrenTables, stationChildrenTables;
+    private Label[][] shipInvActors, stationInvActors;
 
     //selection
     private Ship sel;
 
     //input tracking
-    private int invRowSelect = -1;
+    private boolean selectShNotSt;
+    private int selectInvRow;
 
 
     /* Construction */
@@ -68,11 +71,11 @@ public class DetsShipDocked extends DetsGroup {
         shipIcon.setPosition(0, 2);
         group.addActor(shipIcon);
 
-        shipGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        shipGrid = new com.badlogic.gdx.scenes.scene2d.ui.Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         shipGrid.setPosition(18, 0);
         group.addActor(shipGrid);
 
-        shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
+        shipName = new com.badlogic.gdx.scenes.scene2d.ui.Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
         shipName.setPosition(40, 0);
         group.addActor(shipName);
 
@@ -107,7 +110,7 @@ public class DetsShipDocked extends DetsGroup {
         healthFill.setBounds(1, 1, 200, 8);
         group.addActor(healthFill);
 
-        healthLabel = new Label("[health]", skin, "small",
+        healthLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("[health]", skin, "small",
                 new Color(0,0.49f,0,1));
         healthLabel.setPosition(204, -7);
         group.addActor(healthLabel);
@@ -118,14 +121,61 @@ public class DetsShipDocked extends DetsGroup {
     private Group createInventoryGroup(){
         Group group = new Group();
 
+        //ship inventory table
+        Table shipInvTable = new Table().top().left();
+        shipChildrenTables = new Table[3+Gem.NUM_OF_GEMS];
+        shipInvActors = new Label[(3+Gem.NUM_OF_GEMS)][2];
+        for(int i=0; i<3+Gem.NUM_OF_GEMS; i++){
+            //create the name label
+            if(i < 3) shipInvActors[i][0] = new Label("[St]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            else shipInvActors[i][0] = new Label(Gem.orderedGems[i-3].name(), Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            shipInvActors[i][0].setColor(Color.LIGHT_GRAY);
+
+            //create the amount label
+            shipInvActors[i][1] = new Label("0", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            shipInvActors[i][1].setColor(Color.LIGHT_GRAY);
+            shipInvActors[i][1].setAlignment(Align.right);
+
+            //child table
+            shipChildrenTables[i] = new Table();
+            shipChildrenTables[i].add(shipInvActors[i][0]);
+            shipChildrenTables[i].add(shipInvActors[i][1]).growX();
+
+            //add and create the new row
+            shipInvTable.add(shipChildrenTables[i]).growX();
+            shipInvTable.row();
+        }
+
+        //station inventory table
+        Table stationInvTable = new Table().top().left();
+        stationChildrenTables = new Table[Station.PACKED_STATION_SLOTS+Gem.NUM_OF_GEMS];
+        stationInvActors = new Label[(Station.PACKED_STATION_SLOTS+Gem.NUM_OF_GEMS)][2];
+        for(int i=0; i<Station.PACKED_STATION_SLOTS+Gem.NUM_OF_GEMS; i++){
+            //create the name label
+            if(i < 3) stationInvActors[i][0] = new Label("[St]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            else stationInvActors[i][0] = new Label(Gem.orderedGems[i-3].name(), Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            stationInvActors[i][0].setColor(Color.LIGHT_GRAY);
+
+            //create the amount label
+            stationInvActors[i][1] = new Label("0", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+            stationInvActors[i][1].setColor(Color.LIGHT_GRAY);
+            stationInvActors[i][1].setAlignment(Align.right);
+
+            //child table
+            stationChildrenTables[i] = new Table();
+            stationChildrenTables[i].add(stationInvActors[i][0]);
+            stationChildrenTables[i].add(stationInvActors[i][1]).growX();
+
+            //add and create the new row
+            stationInvTable.add(stationChildrenTables[i]).growX();
+            stationInvTable.row();
+        }
+
         //ship pane
         Image shipBox = new Image(Asset.retrieve(Asset.Pixel.GRAY));
         shipBox.setBounds(-1, -1, 102, 77);
         group.addActor(shipBox);
-        inventoryShip = new VerticalGroup();
-        inventoryShip.top().left();
-        inventoryShip.columnAlign(Align.left);
-        ScrollPane shipPane = new ScrollPane(inventoryShip, skin);
+        ScrollPane shipPane = new ScrollPane(shipInvTable, skin);
         shipPane.setBounds(shipBox.getX()+1, shipBox.getY()+1, shipBox.getWidth()-2, shipBox.getHeight()-2);
         shipPane.setScrollingDisabled(true, false);
         shipPane.setScrollbarsVisible(false);
@@ -137,10 +187,7 @@ public class DetsShipDocked extends DetsGroup {
         Image stationBox = new Image(Asset.retrieve(Asset.Pixel.GRAY));
         stationBox.setBounds(187, shipBox.getY(), shipBox.getWidth(), shipBox.getHeight());
         group.addActor(stationBox);
-        inventoryStation = new VerticalGroup();
-        inventoryStation.top().left();
-        inventoryStation.columnAlign(Align.left);
-        ScrollPane stationPane = new ScrollPane(inventoryStation, skin);
+        ScrollPane stationPane = new ScrollPane(stationInvTable, skin);
         stationPane.setBounds(stationBox.getX()+1, stationBox.getY()+1, stationBox.getWidth()-2, stationBox.getHeight()-2);
         stationPane.setScrollingDisabled(true, false);
         stationPane.setScrollbarsVisible(false);
@@ -167,14 +214,16 @@ public class DetsShipDocked extends DetsGroup {
         group.addActor(invNumField);
 
         //storage labels
-        gemStorageLabel = new Label("0", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        Table gemSpaceTable = new Table();
+        gemSpaceTable.setBounds(shipBox.getX()+shipBox.getWidth(), 62,
+                stationBox.getX()-(shipBox.getX()+shipBox.getWidth()), 0);
+        group.addActor(gemSpaceTable);
+        gemStorageLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("0", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         gemStorageLabel.setColor(Color.LIGHT_GRAY);
-        gemStorageLabel.setPosition(shipBox.getX()+shipBox.getWidth(), 50);
-        group.addActor(gemStorageLabel);
-        holdSizeLabel = new Label("/", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        gemSpaceTable.add(gemStorageLabel);
+        holdSizeLabel = new com.badlogic.gdx.scenes.scene2d.ui.Label("/", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         holdSizeLabel.setColor(Color.GRAY);
-        holdSizeLabel.setPosition(shipBox.getX()+shipBox.getWidth()+invNumBox.getWidth()/2, 50);
-        group.addActor(holdSizeLabel);
+        gemSpaceTable.add(holdSizeLabel);
 
         //transfer buttons
         transferLeft = new ImageButton(Asset.retrieve(Asset.UiButton.TRANSFER_LEFT));
@@ -186,39 +235,47 @@ public class DetsShipDocked extends DetsGroup {
         transferRight.setVisible(false);
         group.addActor(transferRight);
 
-        //inventory elements
-        shipInvElements = new InventoryHorGroup[Ship.Model.Heron.weapons.length + Gem.NUM_OF_GEMS];
-        for(int i=0; i<shipInvElements.length; i++){
-            shipInvElements[i] = new InventoryHorGroup(this, shipBox.getWidth()-5, i);
-            inventoryShip.addActor(shipInvElements[i]);
+        //initial selection values
+        selectShNotSt = false;
+        selectInvRow = -1;
 
-            if(i > Ship.Model.Heron.weapons.length-1){
-                shipInvElements[i].updateAll(Gem.orderedGems[i-Ship.Model.Heron.weapons.length].name(), "0");
-            }
+        //inventory element listeners
+        for(int i=0; i<shipChildrenTables.length; i++){
+            int iSave = i;
+            shipChildrenTables[i].addListener(new ClickListener(Input.Buttons.LEFT){
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if(event.isHandled()) return;
+                    inventoryRowClicked(true, iSave);
+                    event.handle();
+                }
+            });
         }
-        stationInvElements = new InventoryHorGroup[Station.PACKED_STATION_SLOTS + Gem.NUM_OF_GEMS];
-        for(int i=0; i<stationInvElements.length; i++){
-            stationInvElements[i] = new InventoryHorGroup(this, stationBox.getWidth()-5, i);
-            inventoryStation.addActor(stationInvElements[i]);
-
-            if(i > Station.PACKED_STATION_SLOTS-1){
-                stationInvElements[i].updateName(Gem.orderedGems[i-Station.PACKED_STATION_SLOTS].name());
-            }
+        for(int i = 0; i< stationInvActors.length; i++){
+            int iSave = i;
+            stationChildrenTables[i].addListener(new ClickListener(Input.Buttons.LEFT){
+                @Override
+                public void clicked(InputEvent event, float x, float y) {
+                    if(event.isHandled()) return;
+                    inventoryRowClicked(false, iSave);
+                    event.handle();
+                }
+            });
         }
 
         //pane listeners
-        inventoryShip.addListener(event -> {
+        shipPane.addListener(event -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
-                sector.scrollFocus(inventoryShip);
+                sector.scrollFocus(shipPane);
             }
             else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
                 sector.scrollFocus(null);
             }
             return true;
         });
-        inventoryStation.addListener(event -> {
+        stationPane.addListener(event -> {
             if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
-                sector.scrollFocus(inventoryStation);
+                sector.scrollFocus(stationPane);
             }
             else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
                 sector.scrollFocus(null);
@@ -273,12 +330,15 @@ public class DetsShipDocked extends DetsGroup {
         //inventory prep
         inventoryGroup.setVisible(sel.entityModel() == Ship.Model.Heron);
 
+        //reset selections
+        selectInvRow = -1;
+        selectShNotSt = false;
+
         //hold size
-        if(sel.entityModel() == Ship.Model.Heron){
+        if(sel.entityModel().getTier() == Ship.Tier.Barge){
             holdSizeLabel.setText("/" + (int) ((Barge) sel).getHoldSize());
         }
     }
-
     @Override
     public void updateEntity() {
         //update the health
@@ -287,66 +347,71 @@ public class DetsShipDocked extends DetsGroup {
         healthFill.setWidth(200 * sel.health / sel.model.maxHealth);
 
         //update the inventories
-        if(sel.entityModel() == Ship.Model.Heron){
+        if(sel.entityModel().getTier() == Ship.Tier.Barge){
             //ship inventory
-            for(int i=0; i<shipInvElements.length; i++){
-                //weapon slots
-                if(i < Ship.Model.Heron.weapons.length){
-                    StationTrans sh = (StationTrans) sel.weapons[i];
+            Barge sh = (Barge) sel;
+            for(int i=0; i<shipInvActors.length; i++){
+                //packed stations
+                if(i < 3){
+                    if(sh.weapons.length > i && sh.weapons[i] instanceof StationTrans &&
+                            ((StationTrans) sh.weapons[i]).cargo != null){
+                        shipInvActors[i][0].setText(((StationTrans) sh.weapons[i]).cargo.name());
 
-                    //update
-                    if(sh.cargo != null) {
-                        shipInvElements[i].updateName(sh.cargo.name());
+                        shipChildrenTables[i].getCells().get(0).setActor(shipInvActors[i][0]);
                     }
                     else {
-                        shipInvElements[i].unload();
+                        shipChildrenTables[i].getCells().get(0).clearActor();
+                        shipChildrenTables[i].getCells().get(1).clearActor();
                     }
                 }
                 //gems
                 else {
-                    Barge sh = (Barge) sel;
+                    if(sh.resources[i-3] > 0){
+                        shipInvActors[i][1].setText(sh.resources[i-3]);
 
-                    if(sh.resources[i-sh.model.weapons.length] > 0){
-                        shipInvElements[i].updateAll(
-                                Gem.orderedGems[i-sh.model.weapons.length].name(),
-                                sh.resources[i-sh.model.weapons.length]+"");
+                        shipChildrenTables[i].getCells().get(0).setActor(shipInvActors[i][0]);
+                        shipChildrenTables[i].getCells().get(1).setActor(shipInvActors[i][1]);
                     }
                     else {
-                        shipInvElements[i].unload();
+                        shipChildrenTables[i].getCells().get(0).clearActor();
+                        shipChildrenTables[i].getCells().get(1).clearActor();
                     }
                 }
             }
             //station inventory
             Station st = state.grids[sel.grid].station;
-            for(int i=0; i<stationInvElements.length; i++){
-                //packed slots
-                if(i < Station.PACKED_STATION_SLOTS){
-                    if(st.packedStations[i] != null){
-                        stationInvElements[i].updateName(st.packedStations[i].name());
+            for(int i=0; i<stationInvActors.length; i++){
+                //packed stations
+                if(i < 3){
+                    if(st.packedStations.length > i && st.packedStations[i] != null){
+                        stationInvActors[i][0].setText(st.packedStations[i].name());
+
+                        stationChildrenTables[i].getCells().get(0).setActor(stationInvActors[i][0]);
                     }
                     else {
-                        stationInvElements[i].unload();
+                        stationChildrenTables[i].getCells().get(0).clearActor();
+                        stationChildrenTables[i].getCells().get(1).clearActor();
                     }
                 }
                 //gems
                 else {
-                    if(st.resources[i-Station.PACKED_STATION_SLOTS] > 0){
-                        stationInvElements[i].updateAll(Gem.orderedGems[i-Station.PACKED_STATION_SLOTS].name(),
-                                st.resources[i-Station.PACKED_STATION_SLOTS]+"");
+                    if(st.resources[i-3] > 0){
+                        stationInvActors[i][1].setText(st.resources[i-3]);
+
+                        stationChildrenTables[i].getCells().get(0).setActor(stationInvActors[i][0]);
+                        stationChildrenTables[i].getCells().get(1).setActor(stationInvActors[i][1]);
                     }
                     else {
-                        stationInvElements[i].unload();
+                        stationChildrenTables[i].getCells().get(0).clearActor();
+                        stationChildrenTables[i].getCells().get(1).clearActor();
                     }
                 }
             }
 
             //gem storage
             gemStorageLabel.setText(Float.toString(Gem.calcVolume(((Barge) sel).resources)));
-            Main.glyph.setText(gemStorageLabel.getStyle().font, gemStorageLabel.getText());
-            gemStorageLabel.setX(holdSizeLabel.getX() - Main.glyph.width);
         }
     }
-
     @Override
     public Entity getSelectedEntity() {
         return sel;
@@ -355,38 +420,48 @@ public class DetsShipDocked extends DetsGroup {
 
     /* Internal Events */
 
-    void inventoryRowClicked(Group inventory, int index){
-        //clear the old selection
-        if(transferLeft.isVisible()){
-            stationInvElements[invRowSelect].resetBackground();
-        }
-        else if(transferRight.isVisible()){
-            shipInvElements[invRowSelect].resetBackground();
+    void inventoryRowClicked(boolean shipNotStation, int row){
+        //remove the background of the previous selection
+        if(selectInvRow >= 0){
+            shipChildrenTables[selectInvRow].setBackground((Drawable) null);
+            stationChildrenTables[selectInvRow].setBackground((Drawable) null);
         }
 
-        //make the selection
-        int amount = 0;
-        if(inventory == inventoryShip){
+        //update the selection
+        selectShNotSt = shipNotStation;
+        selectInvRow = row;
+
+        //update the background of the new selection
+        if(selectShNotSt){
+            shipChildrenTables[row].setBackground(Asset.retrieve(Asset.Pixel.GRAY));
+        }
+        else {
+            stationChildrenTables[row].setBackground(Asset.retrieve(Asset.Pixel.GRAY));
+        }
+
+        //transfer buttons
+        int amount;
+        if(selectShNotSt){
             transferLeft.setVisible(false);
             transferRight.setVisible(true);
 
-            if(index < Ship.Model.Heron.weapons.length) amount = 1;
-            else {
-                amount = ((Barge) sel).resources[index - Ship.Model.Heron.weapons.length];
-            }
-
+            //set the amount
+            if(row < 3) amount = 1;
+            else amount = ((Barge) sel).resources[row - 3];
         }
-        else if(inventory == inventoryStation){
+        else {
             transferLeft.setVisible(true);
             transferRight.setVisible(false);
 
-            if(index < Station.PACKED_STATION_SLOTS) amount = 1;
+            //set the amount
+            if(row < Station.PACKED_STATION_SLOTS){
+                amount = 1;
+            }
             else {
-                amount = (int) Math.min(state.grids[sel.grid].station.resources[index - Station.PACKED_STATION_SLOTS],
-                        ((Barge) sel).maxGemsCanFit(Gem.orderedGems[index - Station.PACKED_STATION_SLOTS]));
+                amount = (int) Math.min(state.grids[sel.grid].station.resources[row - Station.PACKED_STATION_SLOTS],
+                        ((Barge) sel).maxGemsCanFit(Gem.orderedGems[row - Station.PACKED_STATION_SLOTS]));
             }
         }
-        invRowSelect = index;
 
         //update inputs
         sector.keyboardFocus(invNumField);
@@ -400,35 +475,34 @@ public class DetsShipDocked extends DetsGroup {
             //figure out which resource is wanted
             if(transferLeft.isVisible()){
                 //packed
-                if(invRowSelect < Station.PACKED_STATION_SLOTS){
+                if(selectInvRow < Station.PACKED_STATION_SLOTS){
                     sector.input(new MPackedStationMoveReq(
                             EntPtr.createFromEntity(state.grids[sel.grid].station),
-                            invRowSelect,
+                            selectInvRow,
                             EntPtr.createFromEntity(sel)));
                 }
                 //gems
                 else {
                     sector.input(new MGemMoveReq(
                             EntPtr.createFromEntity(state.grids[sel.grid].station),
-                            Gem.orderedGems[invRowSelect-Station.PACKED_STATION_SLOTS],
+                            Gem.orderedGems[selectInvRow-Station.PACKED_STATION_SLOTS],
                             amount,
                             EntPtr.createFromEntity(sel)));
                 }
             }
             else if(transferRight.isVisible()){
                 //packed
-                if(invRowSelect < Ship.Model.Heron.weapons.length){
-                    System.out.println(invRowSelect);
+                if(selectInvRow < Ship.Model.Heron.weapons.length){
                     sector.input(new MPackedStationMoveReq(
                             EntPtr.createFromEntity(sel),
-                            invRowSelect,
+                            selectInvRow,
                             EntPtr.createFromEntity(state.grids[sel.grid].station)));
                 }
                 //gems
                 else {
                     sector.input(new MGemMoveReq(
                             EntPtr.createFromEntity(sel),
-                            Gem.orderedGems[invRowSelect-Ship.Model.Heron.weapons.length],
+                            Gem.orderedGems[selectInvRow-3],
                             amount,
                             EntPtr.createFromEntity(state.grids[sel.grid].station)));
                 }
@@ -437,15 +511,16 @@ public class DetsShipDocked extends DetsGroup {
 
         //return input state to starting state
         if(transferLeft.isVisible()){
-            stationInvElements[invRowSelect].resetBackground();
+            stationChildrenTables[selectInvRow].setBackground((Drawable) null);
             transferLeft.setVisible(false);
         }
         else if(transferRight.isVisible()){
-            shipInvElements[invRowSelect].resetBackground();
+            shipChildrenTables[selectInvRow].setBackground((Drawable) null);
             transferRight.setVisible(false);
         }
+
         invNumField.setText("");
-        invRowSelect = -1;
+        selectInvRow = -1;
     }
 
 }

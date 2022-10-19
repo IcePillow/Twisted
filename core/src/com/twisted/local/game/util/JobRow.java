@@ -1,15 +1,13 @@
 package com.twisted.local.game.util;
 
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
+import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.twisted.Asset;
-import com.twisted.Main;
 
-public class JobRow extends HorizontalGroup {
+public class JobRow extends Table {
 
     private Label jobName, timer;
-    private Actor filler1;
 
 
     /* Constructing */
@@ -22,14 +20,12 @@ public class JobRow extends HorizontalGroup {
 
     private void initGraphics(){
         timer = new Label("X", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        this.addActor(timer);
-
-        filler1 = new Actor();
-        filler1.setWidth(0);
-        this.addActor(filler1);
+        timer.setColor(Color.GRAY);
+        add(timer).minWidth(25);
 
         jobName = new Label("X", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        this.addActor(jobName);
+        jobName.setColor(Color.LIGHT_GRAY);
+        add(jobName).expandX().left();
     }
 
 
@@ -38,10 +34,7 @@ public class JobRow extends HorizontalGroup {
     public void updateTimer(String text){
         timer.setText(text);
 
-        Main.glyph.setText(timer.getStyle().font, text);
-        filler1.setWidth(30-Main.glyph.width);
     }
-
     public void updateName(String text){
         jobName.setText(text);
     }

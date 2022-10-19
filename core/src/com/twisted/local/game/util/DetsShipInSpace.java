@@ -8,18 +8,13 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
-import com.badlogic.gdx.scenes.scene2d.ui.Image;
-import com.badlogic.gdx.scenes.scene2d.ui.ImageButton;
-import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.local.lib.ProgressButton;
-import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
@@ -31,30 +26,29 @@ public class DetsShipInSpace extends DetsGroup {
 
     //tree
     private Group shipButtonGroup, shipWeaponGroup;
-    private Label shipName, shipMoveCommand, shipGrid;
-    private Label shipPosition, shipVelocity, healthLabel;
-    private Label targetLabel;
-    private TogImgButton targetButton;
-    private Image healthFill, targetImage, shipIcon;
+    private Label shipName, shipMoveCommand, shipGrid, shipPosition, shipVelocity, healthLabel;
+    private Image healthFill, shipIcon;
     private ProgressButton[] weaponButtons;
+    private Image[] targetIconImages, targetFrameImages;
+    private Label[] targetTimerLabels;
     private ProgressButton warpButton;
 
     //selection
     private Ship sel;
 
-    //caching, all cached values should be accessed through their methods
-    private Entity cacheStoreTargetEnt;
-    private Entity cacheTargetEnt(){
+    //cache
+    private Entity[] cacheStoreWeaponTargets; //should always be accessed through cacheWeaponTarget()
+    private Entity cacheWeaponTarget(int idx){
         //update
-        if(sel.targetEntity == null ){
-            cacheStoreTargetEnt = null;
+        if(sel==null || sel.weapons[idx].getTarget()==null){
+            cacheStoreWeaponTargets[idx] = null;
         }
-        else if(!sel.targetEntity.matches(cacheStoreTargetEnt)) {
-            cacheStoreTargetEnt = sel.targetEntity.retrieveFromGrid(state.grids[sel.grid]);
+        else if(!sel.weapons[idx].getTarget().matches(cacheStoreWeaponTargets[idx])) {
+            cacheStoreWeaponTargets[idx] = sel.weapons[idx].getTarget().retrieveFromGrid(state.grids[sel.grid]);
         }
 
         //return
-        return cacheStoreTargetEnt;
+        return cacheStoreWeaponTargets[idx];
     }
 
 
@@ -63,9 +57,9 @@ public class DetsShipInSpace extends DetsGroup {
     public DetsShipInSpace(SecDetails sector, Skin skin, Vector2 size) {
         super(sector, skin, size);
 
-        Group topTextGroup = createTopTextGroup();
-        topTextGroup.setPosition(6, 100);
-        this.addActor(topTextGroup);
+        Table topTextTable = createTopTextGroup();
+        topTextTable.setBounds(6, 110, 300-12, 1);
+        this.addActor(topTextTable);
 
         Group locationGroup = createLocationGroup();
         locationGroup.setPosition(6, 42);
@@ -84,29 +78,24 @@ public class DetsShipInSpace extends DetsGroup {
         this.addActor(shipWeaponGroup);
     }
 
-    private Group createTopTextGroup(){
-        Group group = new Group();
+    private Table createTopTextGroup(){
+        Table table = new Table();
 
         shipIcon = new Image(Asset.retrieveEntityIcon(Ship.Tier.Frigate));
         shipIcon.setColor(Color.GRAY);
-        shipIcon.setPosition(0, 2);
-        group.addActor(shipIcon);
+        table.add(shipIcon).padRight(2);
 
         shipGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        shipGrid.setPosition(18, 0);
-        group.addActor(shipGrid);
+        table.add(shipGrid).minWidth(20).padRight(2);
 
         shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        shipName.setPosition(40, 0);
-        group.addActor(shipName);
+        table.add(shipName).padRight(2).growX();
 
         shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         shipMoveCommand.setColor(Color.LIGHT_GRAY);
-        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
-        shipMoveCommand.setPosition(288 - Main.glyph.width, 2);
-        group.addActor(shipMoveCommand);
+        table.add(shipMoveCommand);
 
-        return group;
+        return table;
     }
 
     private Group createLocationGroup(){
@@ -242,22 +231,7 @@ public class DetsShipInSpace extends DetsGroup {
     private Group createShipWeaponGroup(){
         shipWeaponGroup = new Group();
 
-        //create actors
-        targetImage = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
-        targetImage.setPosition(31, 3);
-        shipWeaponGroup.addActor(targetImage);
-
-        targetLabel = new Label("[none]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        targetLabel.setPosition(26, 0);
-        shipWeaponGroup.addActor(targetLabel);
-
-        targetButton = new TogImgButton(
-                new TextureRegionDrawable(Asset.retrieve(Asset.UiButton.TARGET_OFF)),
-                new TextureRegionDrawable(Asset.retrieve(Asset.UiButton.TARGET_ON))
-        );
-        targetButton.setBounds(0, 0, 24, 24);
-        shipWeaponGroup.addActor(targetButton);
-
+        //weapon buttons
         weaponButtons = new ProgressButton[3];
         for(int i=0; i<weaponButtons.length; i++){
             weaponButtons[i] = new ProgressButton(null, null, 1, 1);
@@ -266,26 +240,34 @@ public class DetsShipInSpace extends DetsGroup {
             shipWeaponGroup.addActor(weaponButtons[i]);
         }
 
+        //target entity icons
+        targetIconImages = new Image[3];
+        for(int i=0; i<targetIconImages.length; i++){
+            targetIconImages[i] = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
+            targetIconImages[i].setPosition(i*28+4, 4);
+            shipWeaponGroup.addActor(targetIconImages[i]);
+        }
+        //target frame icons
+        targetFrameImages = new Image[3];
+        for(int i=0; i<targetFrameImages.length; i++){
+            targetFrameImages[i] = new Image(Asset.retrieve(Asset.UiIcon.TARGET_FRAME));
+            targetFrameImages[i].setColor(Color.LIGHT_GRAY);
+            targetFrameImages[i].setPosition(i*28, 0);
+            shipWeaponGroup.addActor(targetFrameImages[i]);
+        }
+        //target timer labels
+        targetTimerLabels = new Label[3];
+        for(int i=0; i<targetTimerLabels.length; i++){
+            targetTimerLabels[i] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+            targetTimerLabels[i].setColor(Color.LIGHT_GRAY);
+            targetTimerLabels[i].setPosition(i*28, 12);
+            shipWeaponGroup.addActor(targetTimerLabels[i]);
+        }
+
+        //cache
+        cacheStoreWeaponTargets = new Entity[3];
+
         //listeners
-        targetButton.changeClickListener(new ClickListener(Input.Buttons.LEFT){
-            @Override
-            public void clicked(InputEvent event, float x, float y){
-                if(event.isHandled()) return;
-                sector.input(sel, SecDetails.Input.SHIP_TARGET);
-                event.handle();
-            }
-        });
-        targetButton.changeEnterListener(event -> {
-            if(event instanceof InputEvent){
-                if(((InputEvent) event).getType() == InputEvent.Type.enter){
-                    sector.input(sel, SecDetails.Input.SHIP_TARGET_HOVER_ON);
-                }
-                else if(((InputEvent) event).getType() == InputEvent.Type.exit){
-                    sector.input(sel, SecDetails.Input.SHIP_TARGET_HOVER_OFF);
-                }
-            }
-            return false;
-        });
         for(int i=0; i<weaponButtons.length; i++){
             ProgressButton button = weaponButtons[i];
             int weaponId = i;
@@ -334,7 +316,7 @@ public class DetsShipInSpace extends DetsGroup {
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
-        //weapon icons
+        //weapon buttons
         for(int i=0; i<weaponButtons.length; i++){
             //set visibility
             weaponButtons[i].setVisible(i < sel.model.weapons.length);
@@ -349,6 +331,13 @@ public class DetsShipInSpace extends DetsGroup {
             }
         }
 
+        //weapon targets
+        for(int i=sel.weapons.length; i<3; i++){
+            targetIconImages[i].setVisible(false);
+            targetFrameImages[i].setVisible(false);
+            targetTimerLabels[i].setVisible(false);
+        }
+
         //visibility based on ownership
         shipButtonGroup.setVisible(sel.owner == state.myId);
         shipWeaponGroup.setVisible(sel.owner == state.myId);
@@ -357,44 +346,16 @@ public class DetsShipInSpace extends DetsGroup {
     public void updateEntity() {
         //update movement and calculate new layout data
         shipMoveCommand.setText(sel.moveDescription);
-        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
-        shipMoveCommand.setX(288 - Main.glyph.width);
 
         //update the health
         healthLabel.setText(String.format("%" + (1+2*((int) Math.log10(sel.model.maxHealth)+1)) + "s",
                 ((int) Math.ceil(sel.health)) + "/" + sel.model.maxHealth));
         healthFill.setWidth(200 * sel.health / sel.model.maxHealth);
 
-        //update targeting text and image
-        if(sel.targetEntity != null){
-            switch(sel.targetingState){
-                case Locking:
-                    targetImage.setVisible(false);
-                    if(sel.targetTimeToLock > 0.95f) targetLabel.setText(Math.round(sel.targetTimeToLock));
-                    else targetLabel.setText(Main.df1.format(sel.targetTimeToLock));
-                    break;
-                case Locked:
-                    Gdx.app.postRunnable(() -> {
-                        targetImage.setDrawable(Asset.retrieveEntityIcon(cacheTargetEnt().entityModel().getTier()));
-                        targetImage.setColor(state.findColorForOwner(cacheTargetEnt().owner));
-                        targetImage.setVisible(true);
-                    });
-                    targetLabel.setText("[     ]");
-                    break;
-            }
-        }
-        else {
-            targetImage.setVisible(false);
-            targetLabel.setText("");
-        }
-
         //warping button progress
         warpButton.setProgress(sel.warpCharge);
 
-        //targeting button
-        targetButton.updateVisible(sel.targetingState==null);
-
-        //update active weapons
+        //update weapons
         for(int i=0; i<sel.weapons.length; i++){
             //update the texture
             if(sel.weapons[i].getCurrentButtonAsset() != null &&
@@ -412,6 +373,35 @@ public class DetsShipInSpace extends DetsGroup {
             }
             else {
                 weaponButtons[i].setProgress(1 - sel.weapons[i].timer / sel.weapons[i].getFullTimer());
+            }
+
+            //target frame images
+            targetFrameImages[i].setVisible(sel.weapons[i].isActive() && sel.weapons[i].requiresTarget());
+
+            //target icon images
+            if(sel.weapons[i].isLocked()){
+                targetIconImages[i].setVisible(true);
+                targetTimerLabels[i].setVisible(false);
+
+                targetIconImages[i].setColor(state.findColorForOwner(cacheWeaponTarget(i).owner));
+                int iSave = i;
+                Gdx.app.postRunnable(() -> targetIconImages[iSave].setDrawable(Asset.retrieveEntityIcon(
+                        cacheWeaponTarget(iSave).entityModel().getTier())));
+            }
+            else if(sel.weapons[i].isActive() && sel.weapons[i].requiresTarget()){
+                targetIconImages[i].setVisible(false);
+                targetTimerLabels[i].setVisible(true);
+
+                targetTimerLabels[i].setText(sel.weapons[i].getLockTimerText());
+                int iSave = i;
+                Gdx.app.postRunnable(() -> {
+                    Main.glyph.setText(targetTimerLabels[iSave].getStyle().font, targetTimerLabels[iSave].getText());
+                    targetTimerLabels[iSave].setX(iSave*28 + 12 - Main.glyph.width/2f);
+                });
+            }
+            else {
+                targetIconImages[i].setVisible(false);
+                targetTimerLabels[i].setVisible(false);
             }
         }
 

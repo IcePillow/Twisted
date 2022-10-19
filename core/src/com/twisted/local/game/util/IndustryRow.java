@@ -1,11 +1,11 @@
 package com.twisted.local.game.util;
 
-import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 
-public abstract class IndustryRow extends HorizontalGroup {
+public abstract class IndustryRow extends Table {
 
     //ui tools
     protected final SecIndustry sector;

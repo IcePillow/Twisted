@@ -27,10 +27,7 @@ public class IndPackedStationRow extends IndustryRow {
     private void initGraphics(){
         Label nameLabel = new Label(type.name(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         nameLabel.setColor(Color.LIGHT_GRAY);
-        this.addActor(nameLabel);
-
-        Actor filler = new Actor();
-        this.addActor(filler);
+        add(nameLabel).expandX().left();
     }
 
 

@@ -1,15 +1,17 @@
 package com.twisted.local.lobby;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.ui.Container;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.twisted.Asset;
-import com.twisted.Main;
 import com.twisted.Paint;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lobby.util.TeaserModelList;
@@ -29,7 +31,8 @@ public class SecTeaser extends Sector {
     //tree
     private Image selectTierImage, selectModelImage;
     private final Label[] text;
-    private Group modelBar, textGroup;
+    private Group modelBar;
+    private Table textTable;
     private final HashMap<Entity.Tier, TeaserModelList> modelLists;
 
 
@@ -63,9 +66,11 @@ public class SecTeaser extends Sector {
         modelGroup.setPosition(CUSHION+TEXT_WIDTH/2f, HEIGHT-40);
         parent.addActor(modelGroup);
 
-        textGroup = initText();
-        textGroup.setPosition(CUSHION, HEIGHT-65);
-        parent.addActor(textGroup);
+        textTable = initText();
+        Container<Table> textContainer = new Container<>(textTable);
+        textContainer.top();
+        textContainer.setBounds(CUSHION, 0, TEXT_WIDTH, 280);
+        parent.addActor(textContainer);
 
         return parent;
     }
@@ -157,38 +162,42 @@ public class SecTeaser extends Sector {
         return group;
     }
 
-    private Group initText(){
-        Group group = new Group();
+    private Table initText(){
+        Table table = new Table();
 
-        Label titleLab = new Label("", Asset.labelStyle(Asset.Avenir.HEAVY_20));
-        titleLab.setPosition(TEXT_WIDTH/2f, 0);
-        group.addActor(titleLab);
-        text[0] = titleLab;
+        //title
+        text[0] = new Label("", Asset.labelStyle(Asset.Avenir.HEAVY_20));
+        text[0].setPosition(TEXT_WIDTH/2f, 0);
+        text[0].setWrap(true);
+        text[0].setAlignment(Align.top);
+        table.add(text[0]).expandX().width(TEXT_WIDTH);
+        table.row();
 
-        Label tierLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
-        tierLab.setColor(Color.LIGHT_GRAY);
-        tierLab.setAlignment(Align.top);
-        tierLab.setWidth(TEXT_WIDTH);
-        group.addActor(tierLab);
-        text[1] = tierLab;
+        //tier
+        text[1] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
+        text[1].setColor(Color.LIGHT_GRAY);
+        text[1].setWrap(true);
+        text[1].setAlignment(Align.top);
+        table.add(text[1]).expandX().width(TEXT_WIDTH).padBottom(12);
+        table.row();
 
-        Label bodyLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        bodyLab.setColor(Color.LIGHT_GRAY);
-        bodyLab.setAlignment(Align.top);
-        bodyLab.setWrap(true);
-        bodyLab.setWidth(TEXT_WIDTH);
-        group.addActor(bodyLab);
-        text[2] = bodyLab;
+        //body
+        text[2] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        text[2].setColor(Color.LIGHT_GRAY);
+        text[2].setWrap(true);
+        text[2].setAlignment(Align.top);
+        table.add(text[2]).expandX().width(TEXT_WIDTH).padBottom(16);
+        table.row();
 
-        Label flavorLab = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12_ITALIC));
-        flavorLab.setColor(Color.GRAY);
-        flavorLab.setAlignment(Align.top);
-        flavorLab.setWrap(true);
-        flavorLab.setWidth(TEXT_WIDTH);
-        group.addActor(flavorLab);
-        text[3] = flavorLab;
+        //flavor
+        text[3] = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_12_ITALIC));
+        text[3].setColor(Color.GRAY);
+        text[3].setWrap(true);
+        text[3].setAlignment(Align.top);
+        table.add(text[3]).expandX().width(TEXT_WIDTH);
+        table.row();
 
-        return group;
+        return table;
     }
 
 
@@ -220,45 +229,26 @@ public class SecTeaser extends Sector {
         selectModelImage = modelImage;
 
         if(model == null){
-            textGroup.setVisible(false);
+            textTable.setVisible(false);
         }
         else {
             //visibility
-            textGroup.setVisible(true);
+            textTable.setVisible(true);
 
             //grab the blurb
             String[] blurb = Asset.retrieveEntityBlurb(model).split("<>");
 
             //update the title text
-            if(model instanceof Ship.Model){
+            if(model instanceof Ship.Model) {
                 text[0].setText(((Ship.Model) model).name());
+                text[1].setText(((Ship.Model) model).tier.name() + " Class");
             }
             else if(model instanceof Station.Model){
                 text[0].setText(((Station.Model) model).name());
-            }
-            Main.glyph.setText(text[0].getStyle().font, text[0].getText());
-            text[0].setX(TEXT_WIDTH/2f-Main.glyph.width/2f);
-
-            //update the tier text
-            if(model instanceof Ship.Model){
-                text[1].setText(((Ship.Model) model).tier.name() + " Class");
-            }
-            else if(model instanceof Station.Model) {
                 text[1].setText("Station Class");
             }
-            Main.glyph.setText(text[0].getStyle().font, text[0].getText());
-            text[1].setY(text[0].getY() - 4 - Main.glyph.height/2f);
-
-            //update the body text
             text[2].setText(blurb[0].trim());
-            Main.glyph.setText(text[1].getStyle().font, text[1].getText());
-            text[2].setY(text[1].getY() - 25 - Main.glyph.height/2f);
-
-            //update the flavor text
             text[3].setText(blurb[1].trim());
-            Main.glyph.setText(text[2].getStyle().font, text[2].getText(), text[2].getColor(), TEXT_WIDTH,
-                    text[2].getLabelAlign(), text[2].getWrap());
-            text[3].setY(text[2].getY() - 30 - Main.glyph.height);
         }
     }
 }

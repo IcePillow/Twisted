@@ -6,7 +6,7 @@ import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.host.game.ServerGameState;
 
-public class Laser extends Weapon{
+public class Laser extends TargetedWeapon{
 
     public final Model model;
 
@@ -28,30 +28,37 @@ public class Laser extends Weapon{
         this.cosmeticBeamExists = false;
     }
 
+
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
-                     float delta) {
-        if(target != null && targeting == Ship.Targeting.Locked &&
-                ship.pos.dst(target.pos) <= model.range && active){
-            //deal damage
-            target.takeDamage(grid, attached.owner, curDmg);
+    public void tick(ServerGameState state, Grid grid, Ship ship, float delta) {
+        super.tick(state, grid, ship, delta);
 
-            //heat up
-            curDmg += model.heatUp;
-            if(curDmg > model.maxDmg) curDmg = model.maxDmg;
+        //do stuff while active
+        if(active){
+            Entity tgt = state.findEntity(target);
 
-            //display
-            if(!cosmeticBeamExists){
-                //do stuff
+            //check if this should be deactivated
+            if(tgt == null || ship.pos.dst(tgt.pos) > model.range){
+                deactivate();
+            }
+            else if(isLocked()) {
+                //deal damage
+                tgt.takeDamage(grid, attached.owner, curDmg);
 
-                cosmeticBeamExists = true;
+                //heat up
+                curDmg += model.heatUp;
+                if(curDmg > model.maxDmg) curDmg = model.maxDmg;
             }
         }
-        else {
-            curDmg = model.minDmg;
-        }
+    }
+
+    @Override
+    public void deactivate(){
+        super.deactivate();
+
+        curDmg = model.minDmg;
     }
 
 
@@ -77,16 +84,21 @@ public class Laser extends Weapon{
     public float getFullTimer() {
         return 0;
     }
+    @Override
+    public boolean requiresTarget() {
+        return true;
+    }
 
 
     public enum Model implements Weapon.Model {
-        Large(3.5f, 0.05f, 0.25f, 0.00125f);  //1-5dps over 8sec
+        Large(3.5f, 0.05f, 0.25f, 0.00125f, 0.9f);  //1-5dps over 8sec
 
         //data
         public final float range;
         public final float minDmg;
         public final float maxDmg;
         public final float heatUp;
+        public final float scanRes;
 
         //overrides
         @Override
@@ -97,13 +109,18 @@ public class Laser extends Weapon{
         public float getRange(){
             return range;
         }
+        @Override
+        public float getScanRes(){
+            return scanRes;
+        }
 
         //constructor
-        Model(float range, float minDmg, float maxDmg, float heatUp){
+        Model(float range, float minDmg, float maxDmg, float heatUp, float scanRes){
             this.range = range;
             this.minDmg = minDmg;
             this.maxDmg = maxDmg;
             this.heatUp = heatUp;
+            this.scanRes = scanRes;
         }
     }
 

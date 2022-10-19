@@ -180,16 +180,12 @@ public class Curtain implements Screen {
 
     private Group loadTopBar(){
         Group parent = new Group();
-        parent.setPosition(100, 700);
+        parent.setPosition(100, 720);
 
-        //line image
-        Image lineImage = new Image(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
-        lineImage.setSize(Main.WIDTH-200, 2);
-        parent.addActor(lineImage);
-
-        //left text
-        Group leftText = new Group();
-        parent.addActor(leftText);
+        //create the main table
+        Table table = new Table();
+        table.setSize(Main.WIDTH-200, 0);
+        parent.addActor(table);
 
         //result text
         Label resultLabel = new Label("", Asset.labelStyle(Asset.Avenir.BLACK_24));
@@ -202,7 +198,7 @@ public class Curtain implements Screen {
             resultLabel.setText("DEFEAT");
             resultLabel.setColor(Color.RED);
         }
-        leftText.addActor(resultLabel);
+        table.add(resultLabel);
 
         //duration
         int durMin = ((int) end.timeElapsed) / 60;
@@ -210,42 +206,31 @@ public class Curtain implements Screen {
         Label durationLabel = new Label(durMin + ":" + ((durSec<10?("0"+durSec):(durSec))),
                 Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         durationLabel.setColor(Color.LIGHT_GRAY);
-        Main.glyph.setText(resultLabel.getStyle().font, resultLabel.getText());
-        durationLabel.setPosition(resultLabel.getX() + Main.glyph.width + 12,
-                2);
-        leftText.addActor(durationLabel);
-
-        //right text
-        HorizontalGroup rightText = new HorizontalGroup();
-        float width = 0;
-        rightText.setY(2);
-        parent.addActor(rightText);
+        table.add(durationLabel).expandX().left().bottom();
 
         //names of players
         Label nameLabel, versusLabel;
+        int ct = 0;
         for(GamePlayer p : state.players.values()){
             nameLabel = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
             nameLabel.setColor(p.getPaint().col);
-            rightText.addActor(nameLabel);
-
-            Main.glyph.setText(nameLabel.getStyle().font, nameLabel.getText());
-            width += Main.glyph.width;
+            table.add(nameLabel).bottom();
 
             //add the versus
-            if(rightText.getChildren().size < 2*state.players.size()-1){
+            ct += 1;
+            if(ct < state.players.size()){
                 versusLabel = new Label(" vs ", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
                 versusLabel.setColor(Color.LIGHT_GRAY);
-                rightText.addActor(versusLabel);
-
-                Main.glyph.setText(versusLabel.getStyle().font, versusLabel.getText());
-                width += Main.glyph.width;
+                table.add(versusLabel).bottom();
             }
         }
 
-        //position the right text
-        rightText.align(Align.bottomLeft);
-        rightText.setX(lineImage.getWidth() - width);
+        //create the image
+        Image lineImage = new Image(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
+        lineImage.setBounds(0, -15, Main.WIDTH-200, 2);
+        parent.addActor(lineImage);
 
+        //line image
         return parent;
     }
 
@@ -270,13 +255,12 @@ public class Curtain implements Screen {
         parent.addActor(titleLabel);
 
         //create the pane's child
-        VerticalGroup vertical = new VerticalGroup();
-        vertical.top().left();
-        vertical.space(4f);
-        vertical.columnAlign(Align.left);
+        Table table = new Table();
+        table.top().left();
+        table.pad(4f);
 
         //create the pane
-        ScrollPane pane = new ScrollPane(vertical, skin);
+        ScrollPane pane = new ScrollPane(table, skin);
         pane.setBounds(3, 3, parent.getWidth()-6, parent.getHeight()-6-20);
         pane.setSmoothScrolling(false);
         pane.setColor(Color.BLACK);
@@ -284,8 +268,9 @@ public class Curtain implements Screen {
 
         //add to the pane
         for(GameEvent e : end.eventHistory){
-            HorizontalGroup g = e.displayForCurtain(state, skin);
-            vertical.addActor(g);
+            table.add(e.timeForCurtain()).bottom().left().minWidth(32);
+            table.add(e.describeForCurtain(state)).bottom().left();
+            table.row();
         }
 
         return parent;

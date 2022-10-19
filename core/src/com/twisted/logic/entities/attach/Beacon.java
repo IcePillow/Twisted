@@ -6,7 +6,7 @@ import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.host.game.ServerGameState;
 
-public class Beacon extends Weapon{
+public class Beacon extends TargetlessWeapon{
 
     public final Model model;
 
@@ -19,10 +19,11 @@ public class Beacon extends Weapon{
 
     /* Action Methods */
 
-    public void tick(ServerGameState state, Grid grid, Ship ship, Entity target,
-                              Ship.Targeting targeting, float delta){
+    public void tick(ServerGameState state, Grid grid, Ship ship, float delta){
+        super.tick(state, grid, ship, delta);
+
         //disable
-        if(ship.vel.len2() > 0 || ship.warpCharge > 0){
+        if(ship.vel.len2() > 0 || ship.warpCharge > 0 || ship.countActiveWeapons() > 1){
             active = false;
         }
     }
@@ -50,6 +51,10 @@ public class Beacon extends Weapon{
     public float getFullTimer() {
         return 0;
     }
+    @Override
+    public boolean requiresTarget() {
+        return false;
+    }
 
 
     public enum Model implements Weapon.Model {
@@ -62,6 +67,10 @@ public class Beacon extends Weapon{
         @Override
         public float getRange() {
             return 0;
+        }
+        @Override
+        public float getScanRes(){
+            return 1;
         }
     }
 

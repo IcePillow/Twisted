@@ -2,7 +2,6 @@ package com.twisted.net.msg.gameUpdate;
 
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
-import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.entities.attach.StationTrans;
@@ -22,16 +21,11 @@ public class MShipUpd implements MGameUpd {
     //command data
     public String moveDescription;
 
-    //targeting
-    private Ship.Targeting targetingState;
-    private Entity.Type targetEntityType;
-    private float targetTimeToLock;
-    private int targetEntityId;
-    private int targetEntityGrid;
-
-    //weapons
+    //weapons TODO refactor these arrays to be one array of objects
     private boolean[] weaponsActive;
+    private float[] weaponsLocking;
     private float[] weaponsTimers;
+    private EntPtr[] weaponTargets;
     private Station.Model[] weaponsCargo; //only used if a weapon StationTransport
 
     //warping
@@ -69,21 +63,12 @@ public class MShipUpd implements MGameUpd {
         //combat
         s.health = health;
 
-        //targeting
-        if(targetEntityType != null){
-            s.targetTimeToLock = targetTimeToLock;
-            s.targetingState = targetingState;
-            s.targetEntity = new EntPtr(targetEntityType, targetEntityId, targetEntityGrid, false);
-        }
-        else {
-            s.targetEntity = null;
-            s.targetingState = null;
-        }
-
         //weapons
         for(int i=0; i<s.weapons.length; i++){
             s.weapons[i].setActive(weaponsActive[i]);
+            s.weapons[i].setLockTimer(weaponsLocking[i]);
             s.weapons[i].timer = weaponsTimers[i];
+            s.weapons[i].setTarget(weaponTargets[i]);
 
             if(s.weapons[i] instanceof StationTrans){
                 ((StationTrans) s.weapons[i]).cargo = weaponsCargo[i];
@@ -119,26 +104,17 @@ public class MShipUpd implements MGameUpd {
         //combat
         upd.health = s.health;
 
-        //targeting
-        upd.targetTimeToLock = s.targetTimeToLock;
-        upd.targetingState = s.targetingState;
-        if(s.targetEntity != null){
-            upd.targetEntityType = s.targetEntity.type;
-            upd.targetEntityId = s.targetEntity.id;
-            upd.targetEntityGrid = s.targetEntity.grid;
-        }
-        else {
-            upd.targetEntityType = null;
-            upd.targetingState = null;
-        }
-
         //weapons
         upd.weaponsActive = new boolean[s.weapons.length];
+        upd.weaponsLocking = new float[s.weapons.length];
         upd.weaponsTimers = new float[s.weapons.length];
+        upd.weaponTargets = new EntPtr[s.weapons.length];
         upd.weaponsCargo = new Station.Model[s.weapons.length];
         for(int i=0; i<s.weapons.length; i++){
             upd.weaponsActive[i] = s.weapons[i].isActive();
+            upd.weaponsLocking[i] = s.weapons[i].getLockTimer();
             upd.weaponsTimers[i] = s.weapons[i].timer;
+            upd.weaponTargets[i] = s.weapons[i].getTarget();
 
             if(s.weapons[i] instanceof StationTrans) {
                 upd.weaponsCargo[i] = ((StationTrans) s.weapons[i]).cargo;

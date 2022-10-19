@@ -25,7 +25,7 @@ class SecSide extends Sector {
     //graphics
     private Group buttonChild, playersChild, settingsChild;
     private VerticalGroup playersVertical;
-    private HorizontalGroup mapGroup;
+    private Label mapNameLabel;
 
     //state
     private final HashMap<Integer, HorizontalGroup> playerMap;
@@ -122,10 +122,9 @@ class SecSide extends Sector {
         group.addActor(band);
 
         //the pane
-        VerticalGroup settingsVertical = new VerticalGroup();
-        settingsVertical.top().left();
-        settingsVertical.columnAlign(Align.left);
-        ScrollPane pane = new ScrollPane(settingsVertical, skin);
+        Table settingsTable = new Table();
+        settingsTable.top();
+        ScrollPane pane = new ScrollPane(settingsTable, skin);
         pane.setBounds(3, 3, WIDTH, ribbon.getHeight()-6-23);
         pane.setColor(Color.BLACK);
         pane.setScrollingDisabled(true, false);
@@ -143,43 +142,34 @@ class SecSide extends Sector {
         group.addActor(title);
 
         //add to the vertical
-        initSettingsVertical(settingsVertical);
+        initSettingsTable(settingsTable);
 
         return group;
     }
 
-    private void initSettingsVertical(VerticalGroup group){
-        //map title actors
-        HorizontalGroup mapTitleGroup = new HorizontalGroup();
-        group.addActor(mapTitleGroup);
-        Actor mapFiller1 = new Actor();
-        mapTitleGroup.addActor(mapFiller1);
+    private void initSettingsTable(Table table){
+        //map title
         Label mapTitleLabel = new Label("Map", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         mapTitleLabel.setColor(Color.GRAY);
-        mapTitleGroup.addActor(mapTitleLabel);
-        Main.glyph.setText(mapTitleLabel.getStyle().font, mapTitleLabel.getText());
-        mapFiller1.setWidth(WIDTH/2f - Main.glyph.width/2f);
+        mapTitleLabel.setAlignment(Align.center);
+        table.add(mapTitleLabel).growX();
+        table.row();
 
         //map settings actors
-        mapGroup = new HorizontalGroup();
-        group.addActor(mapGroup);
+        Table mapTable = new Table();
+        table.add(mapTable).growX();
+        table.row();
         Image mapArrow1 = new Image(Asset.retrieve(Asset.UiBasic.ARROW_3));
         mapArrow1.setColor(Color.GRAY);
         mapArrow1.setOrigin(mapArrow1.getWidth()/2f, mapArrow1.getHeight()/2f);
         mapArrow1.rotateBy(180);
-        mapGroup.addActor(mapArrow1);
-        Actor mapFiller2 = new Actor();
-        mapGroup.addActor(mapFiller2);
-        Label mapNameLabel = new Label("??", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
+        mapTable.add(mapArrow1);
+        mapNameLabel = new Label("??", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         mapNameLabel.setColor(Color.LIGHT_GRAY);
-        mapGroup.addActor(mapNameLabel);
-        Main.glyph.setText(mapNameLabel.getStyle().font, mapNameLabel.getText());
-        Actor mapFiller3 = new Actor();
-        mapGroup.addActor(mapFiller3);
+        mapTable.add(mapNameLabel).expandX();
         Image mapArrow2 = new Image(Asset.retrieve(Asset.UiBasic.ARROW_3));
         mapArrow2.setColor(Color.GRAY);
-        mapGroup.addActor(mapArrow2);
-        positionMapSetting();
+        mapTable.add(mapArrow2);
 
         //map listeners
         mapArrow1.addListener(new ClickListener(Input.Buttons.LEFT){
@@ -269,22 +259,8 @@ class SecSide extends Sector {
     void revertSettings(){
         settingMap("??");
     }
-    void settingMap(String mapName){
-        ((Label) mapGroup.getChildren().get(2)).setText(mapName);
-
-        positionMapSetting();
-    }
-
-
-    /* Layout */
-
-    private void positionMapSetting(){
-        Label label = (Label) mapGroup.getChild(2);
-        Main.glyph.setText(label.getStyle().font, label.getText());
-        float amt = (WIDTH-2)/2f - Main.glyph.width/2f - mapGroup.getChild(0).getWidth();
-
-        mapGroup.getChild(1).setWidth((float)Math.floor(amt));
-        mapGroup.getChild(3).setWidth((float)Math.ceil(amt));
+    void settingMap(String name){
+        mapNameLabel.setText(name);
     }
 
 }

@@ -130,22 +130,26 @@ public class ServerGameState {
 
     /* Utility */
 
-    Entity findEntityInState(Entity.Type type, int entityId, int gridId){
+    public Entity findEntity(Entity.Type type, int entityId, int gridId, boolean docked){
         if(type == Entity.Type.Station && gridId >= 0 && gridId < grids.length){
             return grids[gridId].station;
         }
         else if(type == Entity.Type.Ship && gridId == -1) {
             return shipsInWarp.get(entityId);
         }
-        else if(type == Entity.Type.Ship && gridId >= 0 && gridId < grids.length){
+        else if(type == Entity.Type.Ship && gridId >= 0 && gridId < grids.length && !docked){
             return grids[gridId].ships.get(entityId);
+        }
+        else if(type == Entity.Type.Ship && gridId >= 0 && gridId < grids.length && docked){
+            return grids[gridId].station.dockedShips.get(entityId);
         }
         else {
             return null;
         }
     }
-    Entity findEntityInState(EntPtr ptr){
-        return findEntityInState(ptr.type, ptr.id, ptr.grid);
+    public Entity findEntity(EntPtr ptr){
+        if(ptr == null) return null;
+        return findEntity(ptr.type, ptr.id, ptr.grid, ptr.docked);
     }
 
     void dockShipAtStation(Ship ship, Station station, Grid grid){
@@ -163,8 +167,6 @@ public class ServerGameState {
         for(Weapon w : ship.weapons){
             w.deactivate();
         }
-        ship.targetTimeToLock = -1;
-        ship.targetingState = null;
         ship.warpCharge = 0;
         ship.warping = Ship.Warping.None;
         ship.warpTarget = null;

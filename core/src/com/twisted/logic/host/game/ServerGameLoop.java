@@ -46,7 +46,6 @@ class ServerGameLoop {
             else if(r instanceof MShipMoveReq) handleShipMoveReq(id, (MShipMoveReq) r);
             else if(r instanceof MShipAlignReq) handleShipAlignReq(id, (MShipAlignReq) r);
             else if(r instanceof MShipWarpReq) handleShipWarpReq(id, (MShipWarpReq) r);
-            else if(r instanceof MTargetReq) handleShipTargetReq(id, (MTargetReq) r);
             else if(r instanceof MShipOrbitReq) handleShipOrbitReq(id, (MShipOrbitReq) r);
             else if(r instanceof MWeaponActiveReq) handleWeaponActiveReq(id, (MWeaponActiveReq) r);
             else if(r instanceof MShipStopReq) handleShipStopReq(id, (MShipStopReq) r);
@@ -231,8 +230,10 @@ class ServerGameLoop {
                     //continue with prep
                     else {
                         s.trajectoryVel.set(0, 0);
+                        //start charging warp
                         if(s.vel.len() == 0){
                             s.moveDescription = "Charging warp to " + state.grids[warpTarget.grid].nickname;
+                            shipBeginWarpCharging(s);
                         }
                     }
                 }
@@ -389,25 +390,9 @@ class ServerGameLoop {
         for(Grid g : state.grids){
             //targeting and weapons
             for(Ship s : g.ships.values()){
-                if(s.targetingState == Ship.Targeting.Locking){
-                    s.targetTimeToLock -= GameHost.FRAC;
-
-                    if(s.targetTimeToLock <= 0){
-                        s.targetingState = Ship.Targeting.Locked;
-                    }
-                }
-
-                //get the target entity
-                Entity target = (s.targetEntity==null) ? null : s.targetEntity.retrieveFromGrid(g);
-
-                //stop targeting if not valid to target (doesn't exist or range checks)
-                if(target == null || target.pos.dst(s.pos) > s.model.targetRange){
-                    s.targetingState = null;
-                    s.targetEntity = null;
-                }
                 //update weapons
                 for(Weapon w : s.weapons){
-                    w.tick(state, g, s, target, s.targetingState, GameHost.FRAC);
+                    w.tick(state, g, s, GameHost.FRAC);
                 }
             }
 
@@ -449,11 +434,8 @@ class ServerGameLoop {
 
                 //stop all ships from targeting it
                 for(Ship s : g.ships.values()){
-                    if(s.targetingState != null && s.targetEntity.matches(g.station)
-                            && !(s.entityModel() == Ship.Model.Heron)){
-                        s.targetingState = null;
-                        s.targetEntity = null;
-                        s.targetTimeToLock = 0;
+                    for(Weapon w : s.weapons){
+                        w.stopTargetingEntity(st);
                     }
                 }
 
@@ -502,7 +484,6 @@ class ServerGameLoop {
      * Checks for end condition and ends the game if it is met.
      */
     private void loopEndCondition(){
-
         //check end condition
         int winner = -1;
         for(Grid g : state.grids){
@@ -543,7 +524,7 @@ class ServerGameLoop {
         }
 
         //cancel warp charge if needed
-        if(s.vel.len() >= 0.00001f || s.movement != Ship.Movement.PREP_FOR_WARP){
+        if(s.vel.len() > 0 || s.movement != Ship.Movement.PREP_FOR_WARP){
             s.warpCharge = 0;
             s.warping = Ship.Warping.None;
         }
@@ -585,8 +566,6 @@ class ServerGameLoop {
                 s.moveDescription = "Warping to " + state.grids[target.grid].nickname;
                 s.pos.set(0, 0);
                 s.grid = -1;
-                s.targetingState = null;
-                s.targetEntity = null;
 
                 //disable weapons
                 for(Weapon w : s.weapons){
@@ -655,12 +634,21 @@ class ServerGameLoop {
 
         return result;
     }
+    /**
+     * Called when a ship begins its warp charge.
+     */
+    private void shipBeginWarpCharging(Ship ship){
+        //deactivate all weapons
+        for(Weapon w : ship.weapons){
+            w.deactivate();
+        }
+    }
 
 
     /* Client Request Handling */
 
     private void handleJobReq(int userId, MJobReq msg) {
-        Station s = (Station) state.findEntityInState(Entity.Type.Station, msg.stationGrid, msg.stationGrid);
+        Station s = (Station) state.findEntity(Entity.Type.Station, msg.stationGrid, msg.stationGrid, false);
         JobType j = msg.job;
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleJobRequest()");
@@ -697,7 +685,7 @@ class ServerGameLoop {
 
     private void handleShipMoveReq(int userId, MShipMoveReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -733,7 +721,7 @@ class ServerGameLoop {
 
     private void handleShipOrbitReq(int userId, MShipOrbitReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -779,7 +767,7 @@ class ServerGameLoop {
 
     private void handleShipAlignReq(int userId, MShipAlignReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
             return;
@@ -817,7 +805,7 @@ class ServerGameLoop {
 
     private void handleShipWarpReq(int userId, MShipWarpReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipWarpRequest()");
             return;
@@ -840,7 +828,7 @@ class ServerGameLoop {
             host.sendMessage(userId, deny);
         }
         else{
-            Entity warpTarget = state.findEntityInState(msg.beacon);
+            Entity warpTarget = state.findEntity(msg.beacon);
 
             //not valid
             if(warpTarget == null || !warpTarget.isValidBeacon() || warpTarget.grid == s.grid){
@@ -857,63 +845,16 @@ class ServerGameLoop {
         }
     }
 
-    private void handleShipTargetReq(int userId, MTargetReq msg){
-        //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
-        if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipTargetRequest()");
-            return;
-        }
-
-        //check permissions and basics
-        if(s.owner != userId || s.grid == -1 || s.docked){
-            MDenyRequest deny = new MDenyRequest(msg);
-
-            if(s.grid == -1){
-                deny.reason = "Cannot command a ship that is currently in warp";
-            }
-            else if(s.docked){
-                deny.reason = "Cannot command a docked ship";
-            }
-            else {
-                deny.reason = "Cannot command ship for unexpected reason";
-            }
-
-            host.sendMessage(userId, deny);
-        }
-        else {
-            //get the target entity
-            Entity target = state.findEntityInState(msg.targetType, msg.targetId, msg.grid);
-
-            //start locking on to the target
-            if(target != null && target.pos.dst(s.pos) <= s.model.targetRange){
-                s.targetingState = Ship.Targeting.Locking;
-                s.targetEntity = EntPtr.createFromEntity(target);
-
-                //TODO calculate locking time based on entity types
-                s.targetTimeToLock = 1;
-            }
-            //not in range
-            else if(target != null){
-                MDenyRequest deny = new MDenyRequest(msg);
-                deny.reason = "Target not in targeting range";
-                host.sendMessage(userId, deny);
-            }
-            //cancel any locking
-            else {
-                s.targetingState = null;
-                s.targetEntity = null;
-            }
-        }
-    }
-
     private void handleWeaponActiveReq(int userId, MWeaponActiveReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleWeaponActiveRequest()");
             return;
         }
+
+        //get the target
+        Entity target = state.findEntity(msg.target);
 
         //check permissions
         MDenyRequest deny = new MDenyRequest(msg);
@@ -941,42 +882,49 @@ class ServerGameLoop {
                     }
                     //activate or deactivate
                     else {
-                        if(msg.active) s.weapons[msg.weaponId].activate();
-                        else s.weapons[msg.weaponId].deactivate();
+                        if(msg.active){
+                            if(target == null  || !s.weapons[msg.weaponId].checkEntityInRange(target)){
+                                deny.reason = "Cannot activate weapon unexpectedly";
+                                host.sendMessage(userId, deny);
+                            }
+                            else {
+                                s.weapons[msg.weaponId].activate(target);
+                            }
+                        }
+                        else{
+                            s.weapons[msg.weaponId].deactivate();
+                        }
                     }
                     break;
                 }
                 case StationTrans: {
-                    //check need to deny
+                    //check need to deny initially
                     if(s.isValidBeacon()){
                         deny.reason = "Cannot deploy station while beacon is active";
+                        host.sendMessage(userId, deny);
                     }
-                    else if (s.targetingState != Ship.Targeting.Locked || s.targetEntity.type != Entity.Type.Station) {
-                        deny.reason = "Must target station rubble to deploy";
-                    }
-                    else {
-                        //retrieve station
-                        Station st = (Station) s.targetEntity.retrieveFromGrid(state.grids[s.grid]);
-                        if(st.stage != Station.Stage.RUBBLE){
-                            deny.reason = "Station must be rubble to deploy";
-                        }
-                        else if(st.entityModel() != ((StationTrans) s.weapons[msg.weaponId]).cargo){
-                            deny.reason = "Station type must match to be able to deploy";
-                        }
-                        else if(st.pos.dst(s.pos) > ((StationTrans) s.weapons[msg.weaponId]).model.range){
-                            deny.reason = "Barge must be within range to deploy";
-                        }
-                    }
-                    //send deny
-                    if(!deny.reason.equals("")) {
+                    else if(!(target instanceof Station)){
+                        deny.reason = "Can only deploy to a station";
                         host.sendMessage(userId, deny);
                         break;
                     }
-
-                    //activate weapon
-                    if(msg.active) s.weapons[msg.weaponId].activate();
-                    else s.weapons[msg.weaponId].deactivate();
-
+                    //convert to station and check need to deny
+                    Station st = (Station) target;
+                    if(st.stage != Station.Stage.RUBBLE){
+                        deny.reason = "Station must be rubble to deploy";
+                    }
+                    else if(st.entityModel() != ((StationTrans) s.weapons[msg.weaponId]).cargo){
+                        deny.reason = "Station type must match to be able to deploy";
+                    }
+                    else if(st.pos.dst(s.pos) > ((StationTrans) s.weapons[msg.weaponId]).model.range){
+                        deny.reason = "Barge must be within range to deploy";
+                    }
+                    //accept
+                    else {
+                        //activate or deactivate
+                        if(msg.active) s.weapons[msg.weaponId].activate(target);
+                        else s.weapons[msg.weaponId].deactivate();
+                    }
                     break;
                 }
                 case Beacon: {
@@ -993,7 +941,7 @@ class ServerGameLoop {
                         }
                         //is valid
                         else {
-                            s.weapons[msg.weaponId].activate();
+                            s.weapons[msg.weaponId].activate(null);
                             s.movement = Ship.Movement.STOPPING;
                             s.warpCharge = 0;
                         }
@@ -1011,7 +959,7 @@ class ServerGameLoop {
 
     private void handleShipStopReq(int userId, MShipStopReq msg){
         //get the ship
-        Ship s = (Ship) state.findEntityInState(Entity.Type.Ship, msg.shipId, msg.grid);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
             System.out.println("Couldn't find ship in GameHost.handleShipStopRequest()");
             return;
@@ -1043,7 +991,7 @@ class ServerGameLoop {
     }
 
     private void handleShipUndockReq(int userId, MShipUndockReq msg){
-        Ship s = state.grids[msg.stationId].station.dockedShips.get(msg.shipId);
+        Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.stationId, true);
         if(s == null) {
             System.out.println("Couldn't find ship in GameHost.handleShipUndockRequest()");
             return;
@@ -1084,8 +1032,6 @@ class ServerGameLoop {
             for(Weapon w : s.weapons){
                 w.deactivate();
             }
-            s.targetTimeToLock = -1;
-            s.targetingState = null;
             s.warping = Ship.Warping.None;
 
             host.broadcastMessage(new MShipDockingChange(s.id, msg.stationId, false,

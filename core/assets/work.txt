@@ -1,6 +1,5 @@
 Work
     Priority
-        TODO remove ship level targeting, change to weapon level targeting
     Large scale
         TODO exterior target summaries for the current grid
         TODO correct win condition
@@ -10,13 +9,13 @@ Work
         TODO easier clicking on minimap icons
         TODO cross sector listening for SecMinimap when displaying for a cluster
         TODO change game log to wrap text instead of having horizontal scrolling
-        TODO be able to choose a warp target by clicking on the viewport
-        TODO update the ship in warp SecDetails panel (display cluster position, weapons?, destination)
+        TODO sorting in SecFleet based on conditions other than position
     Combat
         TODO make orbiting logic better
         TODO make warp landing positioning logic better
         TODO add doomsday weapons
         TODO add station regen
+        TODO ship regen while docked
     Graphics
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
@@ -30,10 +29,9 @@ Work
         TODO set correct-ish values for balanced game
         TODO resource generation
         TODO place ship in better place after warping
+        TODO consider removing the align command
     Bugs
-        TODO fix jittering of movement command in SecDetails
     Refactoring
-        TODO decide whether to refactor network handling into runnables in the message interface
         TODO break up pieces of game hosting code (like ShipEntersWarp) into methods
     Misc
         TODO make sure everything disposed in each screen

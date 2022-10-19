@@ -44,8 +44,8 @@ public class EvStationStageChange extends GameEvent {
     /* Utility */
 
     @Override
-    public HorizontalGroup displayForCurtain(ClientGameState state, Skin skin){
-        HorizontalGroup group = super.displayForCurtain(state, skin);
+    public HorizontalGroup describeForCurtain(ClientGameState state){
+        HorizontalGroup group = new HorizontalGroup();
 
         //prev image
         Image image1 = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
@@ -78,7 +78,7 @@ public class EvStationStageChange extends GameEvent {
 
         //next name label
         if(prevStage == Station.Stage.RUBBLE){
-            Label label3 = new Label(state.players.get(nextOwnerId).getName(), skin, "small", Color.WHITE);
+            Label label3 = new Label(state.players.get(nextOwnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
             label3.setColor(state.findColorForOwner(nextOwnerId));
             group.addActor(label3);
         }

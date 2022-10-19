@@ -63,7 +63,6 @@ public class BlasterBolt extends Mobile {
             pos.add(vel);
             if(vel.len() != 0){
                 rot = (float) Math.atan2(vel.y, vel.x);
-                timeFlying += vel.len();
             }
         }
 

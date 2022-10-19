@@ -57,7 +57,7 @@ public class Asset {
         TextureRegionDrawable asset = entityIconAssets.get(model);
         if(asset == null){
             asset = new TextureRegionDrawable(new Texture(Gdx.files.internal("images/entities/"
-                    + model.getFilename() + "-icon.png")));
+                    + model.getTier().getFilename() + "-icon.png")));
             entityIconAssets.put(model, asset);
         }
         return asset;
@@ -185,6 +185,7 @@ public class Asset {
     public enum UiIcon implements TextureAsset {
         BEACON("beacon"),
         DOCK("dock"),
+        TARGET_FRAME("target-frame"),
         UNDOCK("undock"),
         STATION_ARMORED("station-armored"),
         STATION_DEPLOYMENT("station-deployment"),

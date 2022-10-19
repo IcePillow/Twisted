@@ -19,7 +19,7 @@ public class IndShipRow extends IndustryRow {
     private final Ship ship;
 
     //ui tree
-    private Label nameLabel;
+    private Label healthLabel, nameLabel;
     private Image undockImage;
 
 
@@ -35,23 +35,24 @@ public class IndShipRow extends IndustryRow {
         //initialize
         initGraphics();
         initHandling();
+
+        //update
+        update();
     }
 
     private void initGraphics(){
+        healthLabel = new Label("100", Asset.labelStyle(Asset.Avenir.LIGHT_12));
+        healthLabel.setColor(Color.GREEN);
+        add(healthLabel).minWidth(22);
+
         nameLabel = new Label(ship.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         nameLabel.setColor(Color.LIGHT_GRAY);
-        this.addActor(nameLabel);
-
-        Actor filler = new Actor();
-        Main.glyph.setText(nameLabel.getStyle().font, nameLabel.getText());
-        filler.setWidth(width- Main.glyph.width-19);
-        this.addActor(filler);
+        add(nameLabel);
 
         undockImage = new Image(new Texture(Gdx.files.internal("images/ui/icons/undock.png")));
         undockImage.setColor(Color.LIGHT_GRAY);
-        this.addActor(undockImage);
+        add(undockImage).expandX().right();
     }
-
     private void initHandling(){
         nameLabel.addListener(new ClickListener(){
             @Override
@@ -76,6 +77,8 @@ public class IndShipRow extends IndustryRow {
     }
 
     @Override
-    public void update(){}
+    public void update(){
+        healthLabel.setText(Math.round(100*ship.health/ship.model.maxHealth));
+    }
 
 }

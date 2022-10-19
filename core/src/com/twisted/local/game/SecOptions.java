@@ -1,5 +1,6 @@
 package com.twisted.local.game;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
@@ -144,8 +145,10 @@ class SecOptions extends Sector {
             resultLabel.setText("DEFEAT");
             resultLabel.setColor(Color.RED);
         }
-        Main.glyph.setText(resultLabel.getStyle().font, resultLabel.getText());
-        resultLabel.setX(resultLabel.getParent().getWidth()/2 - Main.glyph.width/2);
+        Gdx.app.postRunnable(() -> {
+            Main.glyph.setText(resultLabel.getStyle().font, resultLabel.getText());
+            resultLabel.setX(resultLabel.getParent().getWidth()/2 - Main.glyph.width/2);
+        });
 
         //enable visibility
         endChild.setVisible(true);

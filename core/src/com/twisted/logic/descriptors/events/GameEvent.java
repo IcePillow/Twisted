@@ -1,5 +1,6 @@
 package com.twisted.logic.descriptors.events;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -21,26 +22,17 @@ public abstract class GameEvent implements Serializable {
 
     /* Utility */
 
-    public HorizontalGroup displayForCurtain(ClientGameState state, Skin skin){
-        HorizontalGroup group = new HorizontalGroup();
-
-        //time label
+    public Label timeForCurtain(){
         int durMin = ((int) timeStamp) / 60;
         int durSec = ((int) timeStamp) % 60;
         Label timeLabel = new Label(durMin + ":" + ((durSec<10?("0"+durSec):(durSec))),
                 Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         timeLabel.setColor(Color.DARK_GRAY);
-        group.addActor(timeLabel);
 
-        //filler
-        Actor filler = new Actor();
-        Main.glyph.setText(timeLabel.getStyle().font, timeLabel.getText());
-        filler.setWidth(32-Main.glyph.width);
-        group.addActor(filler);
-
-        return group;
+        return timeLabel;
     }
 
+    public abstract HorizontalGroup describeForCurtain(ClientGameState state);
 
     /* Typing */
 

@@ -54,11 +54,6 @@ public abstract class Ship extends Entity {
     public Vector2 warpPos; //meaningless unless warping==InWarp
     public EntPtr warpTarget;
 
-    //targeting
-    public Targeting targetingState;
-    public EntPtr targetEntity; //only valid if targetingState != null
-    public float targetTimeToLock; //only valid if targetingState != null
-
     //attachments
     public Weapon[] weapons;
 
@@ -81,8 +76,6 @@ public abstract class Ship extends Entity {
 
         //command data
         this.moveDescription = "Stationary";
-        this.targetingState = null;
-        this.targetEntity = null;
 
         //warping
         this.warping = Warping.None;
@@ -181,8 +174,6 @@ public abstract class Ship extends Entity {
      * Called clientside when a ship is destroyed to set all its values to default ones.
      */
     public void cleanupForClientsideRemoval(){
-        targetingState = null;
-
         for(Weapon w : weapons){
             w.deactivate();
         }
@@ -261,51 +252,77 @@ public abstract class Ship extends Entity {
     }
 
 
+    /* State Methods */
+
+    public boolean isDocked(){
+        return docked;
+    }
+    public boolean isValidBeacon(){
+        for(Weapon w : weapons){
+            if(w.getType() == Weapon.Type.Beacon && w.isActive()) return true;
+        }
+        return false;
+    }
+    public float getSigRadius(){
+        return model.tier.sigRadius;
+    }
+
+
     /* Enums */
 
     public enum Tier implements Entity.Tier {
-        Frigate,
-        Cruiser,
-        Battleship,
-        Barge,
-        Titan;
+        Frigate(4),
+        Cruiser(6),
+        Battleship(11),
+        Barge(12),
+        Titan(20);
 
+        //data methods
         @Override
         public String getFilename(){
             return this.name().toLowerCase();
+        }
+
+        //data storage
+        public final float sigRadius;
+
+        /**
+         * Constructor
+         */
+        Tier(float sigRadius){
+            this.sigRadius = sigRadius;
         }
     }
     public enum Model implements Entity.Model {
         Sparrow(Tier.Frigate, Faction.Federation,
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
-                1.4f*0.0849f, 0.9f, 0.4f, 4f, 3,
+                1.4f*0.0849f, 0.9f, 0.4f, 3,
                 new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
                 200, 2
         ),
         Alke(Tier.Frigate, Faction.Republic,
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
-                1.4f*0.0849f, 0.8f, 0.4f, 3.5f, 6,
+                1.4f*0.0849f, 0.8f, 0.4f, 6,
                 new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
                 200, 2
         ),
         Helios(Tier.Cruiser, Faction.Republic,
                 new float[]{0,0.15f,  0.12f,-0.02f,  0,-0.12f,  -0.12f,-0.02f},
-                1.3f*0.15f, 0.4f, 0.2f, 5f, 10,
+                1.3f*0.15f, 0.4f, 0.2f, 10,
                 new Weapon.Model[]{Blaster.Model.Medium, Blaster.Model.Medium, Blaster.Model.Medium},
                 100, 4
         ),
         Themis(Tier.Battleship, Faction.Republic,
                 new float[]{0,0.252f,  0.144f,-0.036f,  0.096f,-0.096f,  0.144f,-0.144f,  0.048f,-0.144f,
                             0,-0.204f,  -0.048f,-0.144f,  -0.144f,-0.144f,  -0.096f,-0.096f,  -0.144f,-0.036f},
-                1.2f*0.25f, 0.18f, 0.1f, 8f, 16,
+                1.2f*0.25f, 0.18f, 0.1f, 16,
                 new Weapon.Model[]{Blaster.Model.Large, Laser.Model.Large, Beacon.Model.Medium},
                 50, 10
         ),
         Heron(Tier.Barge, Faction.Federation,
                 new float[]{-0.16f,-0.2f,  0f,-0.12f,  0.16f,-0.2f,
                             0.16f,0.14f,  0.12f,0.18f,  -0.12f,0.18f,  -0.16f,0.14f},
-                1.2f*0.25f, 0.1f, 0.02f,
-                1.5f, 10,
+                1.2f*0.25f, 0.1f, 0.02f, 10,
                 new Weapon.Model[]{StationTrans.Model.Medium},
                 40, 20
         ),
@@ -315,7 +332,7 @@ public abstract class Ship extends Entity {
                             0.1f,-0.2f, 0.1f,0.15f,  0,0.25f,  -0.1f,0.15f,  -0.1f,-0.2f,  //center
                             -0.25f,-0.05f,  -0.25f,0.2f,  -0.15f,0.4f,  -0.4f,0.25f,  -0.4f,-0.2f, //left
                 },
-                1.1f*0.5f, 0.06f, 0.02f, 12f, 20,
+                1.1f*0.5f, 0.06f, 0.02f,20,
                 new Weapon.Model[]{}, //TODO titan weapons
                 10, 60
         );
@@ -345,7 +362,6 @@ public abstract class Ship extends Entity {
         public final float paddedLogicalRadius;
         public final float maxSpeed;
         public final float maxAccel;
-        public final float targetRange;
         public final int maxHealth;
         public final Weapon.Model[] weapons;
         public final boolean canLightBeacon;
@@ -356,7 +372,7 @@ public abstract class Ship extends Entity {
          * Constructor
          */
         Model(Tier tier, Faction faction, float[] vertices, float paddedLogicalRadius, float maxSpeed,
-              float maxAccel, float targetRange, int maxHealth, Weapon.Model[] weapons, float warpSpeed,
+              float maxAccel, int maxHealth, Weapon.Model[] weapons, float warpSpeed,
               float warpChargeTime){
             //copy
             this.tier = tier;
@@ -365,7 +381,6 @@ public abstract class Ship extends Entity {
             this.paddedLogicalRadius = paddedLogicalRadius;
             this.maxSpeed = maxSpeed;
             this.maxAccel = maxAccel;
-            this.targetRange = targetRange;
             this.maxHealth = maxHealth;
             this.weapons = weapons;
             this.warpSpeed = warpSpeed;
@@ -391,14 +406,6 @@ public abstract class Ship extends Entity {
         ORBIT_ENT,
 
         MOVE_FOR_DOCK,
-    }
-
-    /**
-     * The targeting state.
-     */
-    public enum Targeting {
-        Locking,
-        Locked,
     }
 
     /**

@@ -60,7 +60,7 @@ public class SecViewport extends Sector {
     private Map<Select, Float> selectionValues;
 
     //background
-    private float[][] stars; //NumStars x 4 (x,y,si,col)
+    private float[][][] stars; //NumGrids x NumStars x 4 (x,y,si,col)
 
 
     /**
@@ -95,12 +95,14 @@ public class SecViewport extends Sector {
     }
     @Override
     void load() {
-        stars = new float[200][4];
-        for(float[] arr : stars){
-            arr[0] = (float) Math.random()*MAX_ZOOM*Main.WIDTH - Main.WIDTH; //x
-            arr[1] = (float) Math.random()*MAX_ZOOM*Main.HEIGHT - Main.HEIGHT; //y
-            arr[2] = (float) Math.random() + 1; //size
-            arr[3] = (float) Math.random()*0.3f + 0.1f; //color
+        stars = new float[state.grids.length][200][4];
+        for(float[][] gr : stars){
+            for(float[] arr : gr){
+                arr[0] = (float) Math.random()*MAX_ZOOM*Main.WIDTH - Main.WIDTH; //x
+                arr[1] = (float) Math.random()*MAX_ZOOM*Main.HEIGHT - Main.HEIGHT; //y
+                arr[2] = (float) Math.random() + 1; //size
+                arr[3] = (float) Math.random()*0.3f + 0.1f; //color
+            }
         }
 
         //position listener
@@ -176,7 +178,7 @@ public class SecViewport extends Sector {
                 camera.position.y-camera.zoom*stage.getHeight()/2f,
                 camera.zoom*stage.getWidth(), camera.zoom*stage.getHeight());
 
-        for(float[] s : stars){
+        for(float[] s : stars[g.id]){
             shape.setColor(s[3], s[3], s[3], 1f);
 
             float rawX = s[0]+camera.position.x - camera.position.x*0.4f;

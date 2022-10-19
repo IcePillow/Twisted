@@ -32,19 +32,18 @@ public class LaserBeam extends Cosmetic {
     @Override
     public void draw(ShapeRenderer shape, Grid g) {
         //get the target entity
-        Entity target = null;
-        if(source.attached.targetEntity != null) target = source.attached.targetEntity.retrieveFromGrid(g);
+        Entity tgt = null;
+        if(source.getTarget() != null) tgt = source.getTarget().retrieveFromGrid(g);
 
         //check if all targeting is valid
-        if(target != null && source.attached.targetingState == Ship.Targeting.Locked &&
-                target.pos.dst(source.attached.pos) <= source.model.range){
+        if(tgt != null && tgt.pos.dst(source.attached.pos) <= source.model.range){
             shape.setColor(color);
 
             Vector2 srcPt = source.sourcePoint.cpy().rotateDeg((float) (source.attached.rot*180/Math.PI)-90);
             shape.line(LTR*(source.attached.pos.x + srcPt.x),
                     LTR*(source.attached.pos.y + srcPt.y),
-                    LTR*target.pos.x,
-                    LTR*target.pos.y);
+                    LTR*tgt.pos.x,
+                    LTR*tgt.pos.y);
         }
     }
     @Override

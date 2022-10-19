@@ -226,7 +226,7 @@ public class SecFleet extends Sector {
     void checkAddEntity(Entity entity){
         //check if this entity should be added
         if(selectedType == TabType.Fleet){
-            if(state.myId != entity.owner) return;
+            if(state.myId != entity.owner || entity.isDocked()) return;
         }
         else {
             if(game.getGrid() != entity.grid || entity.grid == -1 || entity.isDocked()) return;
@@ -254,7 +254,7 @@ public class SecFleet extends Sector {
     void checkRemoveEntity(Entity entity){
         //check if the entity should be removed
         if(state.findEntity(EntPtr.createFromEntity(entity)) != null){
-            if(selectedType == TabType.Fleet && entity.owner == state.myId){
+            if(selectedType == TabType.Fleet && entity.owner == state.myId && !entity.isDocked()){
                 return;
             }
             else {

@@ -11,12 +11,10 @@ import com.twisted.logic.host.game.ServerGameState;
 /**
  * Station transport.
  */
-public class StationTrans extends Weapon {
-
-    public Station.Model cargo;
+public class StationTrans extends TargetedWeapon {
 
     //state
-    public boolean deploying;
+    public Station.Model cargo;
 
     //data
     public final Model model;
@@ -31,7 +29,6 @@ public class StationTrans extends Weapon {
 
         cargo = null;
 
-        deploying = false;
         timer = 0;
     }
 
@@ -39,16 +36,23 @@ public class StationTrans extends Weapon {
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, Entity target, Ship.Targeting targeting,
-                     float delta) {
-        if(target instanceof Station){
-            Station st = (Station) target;
+    public void tick(ServerGameState state, Grid grid, Ship ship, float delta) {
+        super.tick(state, grid, ship, delta);
 
-            if(deploying){
+        if(active){
+            Entity tgt = state.findEntity(target);
+
+            //check if this should be deactivated
+            if(!(tgt instanceof Station) || cargo == null || ship.pos.dst(tgt.pos) > model.range){
+                deactivate();
+            }
+            //targeting is valid
+            else if(isLocked()) {
+                Station st = (Station) tgt;
+
                 //check tick is still valid
                 if(st.stage != Station.Stage.RUBBLE){
                     deactivate();
-                    active = false;
                     return;
                 }
 
@@ -66,31 +70,24 @@ public class StationTrans extends Weapon {
                     //update the transport
                     cargo = null;
                     deactivate();
-                    active = false;
 
                     //add event
                     state.addToEventHistory(new EvStationStageChange(st.getId(), Station.Stage.RUBBLE,
                             0, st.stage, st.owner));
                 }
             }
-            else {
-                deploying = true;
-                timer = cargo.deployTime;
-            }
-        }
-        else {
-            deactivate();
         }
     }
+    @Override
+    public void activate(Entity entity){
+        super.activate(entity);
 
-    /**
-     * Cancel the deployment.
-     */
+        timer = cargo.deployTime;
+    }
     @Override
     public void deactivate() {
         super.deactivate();
 
-        deploying = false;
         timer = 0;
     }
 
@@ -134,20 +131,24 @@ public class StationTrans extends Weapon {
                 return Asset.UiButton.DEFAULT;
         }
     }
-
     @Override
     public float getFullTimer(){
         if(cargo == null) return 0;
         else return cargo.deployTime;
     }
+    @Override
+    public boolean requiresTarget() {
+        return true;
+    }
 
 
     public enum Model implements Weapon.Model {
 
-        Medium(1.5f);
+        Medium(1.5f, 0.8f);
 
         //data
         public final float range;
+        public final float scanRes;
 
         //overrides
         @Override
@@ -158,12 +159,17 @@ public class StationTrans extends Weapon {
         public float getRange(){
             return range;
         }
+        @Override
+        public float getScanRes(){
+            return scanRes;
+        }
 
         /**
          * Constructor
          */
-        Model(float range){
+        Model(float range, float scanRes){
             this.range = range;
+            this.scanRes = scanRes;
         }
     }
 

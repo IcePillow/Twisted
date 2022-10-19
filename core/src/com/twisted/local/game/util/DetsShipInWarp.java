@@ -10,6 +10,7 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.twisted.Asset;
 import com.twisted.Main;
@@ -35,9 +36,9 @@ public class DetsShipInWarp extends DetsGroup {
     public DetsShipInWarp(SecDetails sector, Skin skin, Vector2 size){
         super(sector, skin, size);
 
-        Group topTextGroup = createTopTextGroup();
-        topTextGroup.setPosition(6, 100);
-        this.addActor(topTextGroup);
+        Table topTextTable = createTopTextGroup();
+        topTextTable.setBounds(6, 110, 300-12, 1);
+        this.addActor(topTextTable);
 
         Group locationGroup = createLocationGroup();
         locationGroup.setPosition(6, 42);
@@ -48,31 +49,24 @@ public class DetsShipInWarp extends DetsGroup {
         this.addActor(healthGroup);
     }
 
-    private Group createTopTextGroup(){
-        Group group = new Group();
+    private Table createTopTextGroup(){
+        Table table = new Table();
 
         shipIcon = new Image(Asset.retrieveEntityIcon(Ship.Tier.Frigate));
-        shipIcon.setPosition(0, 2);
         shipIcon.setColor(Color.GRAY);
-        group.addActor(shipIcon);
+        table.add(shipIcon).padRight(2);
 
         Label shipGrid = new Label("[W]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-        shipGrid.setColor(Color.LIGHT_GRAY);
-        shipGrid.setPosition(18, 0);
-        group.addActor(shipGrid);
+        table.add(shipGrid).minWidth(20).padRight(2);
 
         shipName = new Label("[Ship Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        shipName.setPosition(40, 0);
-        group.addActor(shipName);
+        table.add(shipName).padRight(2).growX();
 
-        shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+        shipMoveCommand = new Label("[movement cmd]", Asset.labelStyle(Asset.Avenir.MEDIUM_12));
         shipMoveCommand.setColor(Color.LIGHT_GRAY);
-        shipMoveCommand.setFontScale(0.9f);
-        Main.glyph.setText(skin.getFont("small"), shipMoveCommand.getText());
-        shipMoveCommand.setPosition(288 - Main.glyph.width*shipMoveCommand.getFontScaleX(), 0);
-        group.addActor(shipMoveCommand);
+        table.add(shipMoveCommand);
 
-        return group;
+        return table;
     }
 
     private Group createLocationGroup(){
@@ -136,8 +130,6 @@ public class DetsShipInWarp extends DetsGroup {
     public void updateEntity() {
         //update movement and calculate new layout data
         shipMoveCommand.setText(sel.moveDescription);
-        Main.glyph.setText(shipMoveCommand.getStyle().font, shipMoveCommand.getText());
-        shipMoveCommand.setX(290 - Main.glyph.width*shipMoveCommand.getFontScaleX());
 
         //update the position
         float[] rounded = sel.roundedWarpPos(0);

@@ -1,5 +1,6 @@
 package com.twisted.local.lib;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Actor;
@@ -135,20 +136,22 @@ public class RectTextButton extends Group {
     public void setText(String text){
         //copy values
         label.setText(text);
-        Main.glyph.setText(label.getStyle().font, text);
+        Gdx.app.postRunnable(() -> {
+            Main.glyph.setText(label.getStyle().font, text);
 
-        //resize images
-        trimLight.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
-                Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
-        trimLight.setThickness(trimThick);
-        trimMed.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
-                Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
-        trimMed.setThickness(trimThick);
-        trimDark.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
-                Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
-        trimDark.setThickness(trimThick);
-        embedded.setBounds(-(Main.glyph.width+padHor)/2, -(Main.glyph.height+padVer)/2,
-                Main.glyph.width+padHor, Main.glyph.height+padVer);
+            //resize images
+            trimLight.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
+                    Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+            trimLight.setThickness(trimThick);
+            trimMed.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
+                    Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+            trimMed.setThickness(trimThick);
+            trimDark.setBounds(-(Main.glyph.width+2*trimThick+padHor)/2, -(Main.glyph.height+2*trimThick+padVer)/2,
+                    Main.glyph.width+2*trimThick+padHor, Main.glyph.height+2*trimThick+padVer);
+            trimDark.setThickness(trimThick);
+            embedded.setBounds(-(Main.glyph.width+padHor)/2, -(Main.glyph.height+padVer)/2,
+                    Main.glyph.width+padHor, Main.glyph.height+padVer);
+        });
     }
 
     public void setDisabled(boolean disabled){

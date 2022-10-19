@@ -42,6 +42,7 @@ public class SecDetails extends Sector {
     //input state
     private ExternalWait externalWait;
     private EntPtr storeEntClick;
+    private int storeIntClick;
 
 
     /**
@@ -148,13 +149,6 @@ public class SecDetails extends Sector {
 
                     game.updateCrossSectorListening(null, null);
                 }
-                else if(externalWait == ExternalWait.TARGET){
-                    if(ptr != null){
-                        req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
-                    }
-
-                    game.updateCrossSectorListening(null, null);
-                }
                 else if(externalWait == ExternalWait.ORBIT_WHO){
                     if(ptr != null){
                         storeEntClick = ptr;
@@ -185,6 +179,24 @@ public class SecDetails extends Sector {
                                 storeEntClick.id, radius);
                     }
 
+                    game.updateCrossSectorListening(null, null);
+                }
+                else if(externalWait == ExternalWait.WEAPON_TARGET){
+                    Entity target = state.findEntity(ptr);
+                    //deny
+                    if(target == null){
+                        game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                    }
+                    else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                        game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                    }
+                    //accept
+                    else {
+                        req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr);
+                    }
+
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                            null, null, 0);
                     game.updateCrossSectorListening(null, null);
                 }
                 else {
@@ -259,28 +271,52 @@ public class SecDetails extends Sector {
         else if(ent instanceof Ship){
             //create the request
             MGameReq req = null;
-            if(externalWait == ExternalWait.TARGET){
-                if(ptr.grid == ent.grid){
-                    req = new MTargetReq(ent.grid, ent.getId(), ptr.type, ptr.id);
-                }
-                else {
-                    game.addToLog("Can't target entity on a different grid", SecLog.LogColor.GRAY);
-                }
+            if(externalWait == ExternalWait.ORBIT_WHO){
+                //valid
+                if(!ptr.docked && ptr.grid==ent.grid && !ptr.matches(ent)){
+                    storeEntClick = ptr;
 
+                    game.updateCrossSectorListening(this, "Orbit radius command...");
+                    externalWait = ExternalWait.ORBIT_DIST;
+                    game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
+                            new EntPtr(ptr.type, ptr.id, ent.grid, ptr.docked), Color.WHITE, 0);
+                }
+                //not valid
+                else {
+                    game.updateCrossSectorListening(null, null);
+                    game.addToLog("Cannot orbit that entity right now", SecLog.LogColor.GRAY);
+                }
+            }
+            else if(externalWait == ExternalWait.WEAPON_TARGET){
+                //valid
+                if(!ptr.docked && ptr.grid==ent.grid && !ptr.matches(ent)){
+                    Entity target = state.findEntity(ptr);
+                    //deny
+                    if(target == null){
+                        game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                    }
+                    else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                        game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                    }
+                    //accept
+                    else {
+                        req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr);
+                    }
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                            null, null, 0);
+                }
+                //not valid
+                else {
+                    game.addToLog("Cannot target that entity", SecLog.LogColor.GRAY);
+                }
                 game.updateCrossSectorListening(null, null);
             }
-            else if(externalWait == ExternalWait.ORBIT_WHO){
-                storeEntClick = ptr;
-
-                game.updateCrossSectorListening(this, "Orbit radius command...");
-                externalWait = ExternalWait.ORBIT_DIST;
-                game.viewportSelection(SecViewport.Select.BASE_MOUSE_CIRCLE, true,
-                        new EntPtr(ptr.type, ptr.id, ent.grid, ptr.docked), Color.WHITE, 0);
-            }
             else if(externalWait == ExternalWait.WARP){
-                if(state.findEntity(ptr).isValidBeacon()){
+                //valid
+                if(state.findEntity(ptr).isValidBeacon() && !ent.matches(ptr)){
                     req = new MShipWarpReq(ent.grid, ent.getId(), ptr);
                 }
+                //not valid
                 else {
                     game.addToLog("Entity is not a valid beacon for warping", SecLog.LogColor.GRAY);
                 }
@@ -302,6 +338,9 @@ public class SecDetails extends Sector {
         }
         else if(externalWait == ExternalWait.MOVE){
             game.viewportSelection(SecViewport.Select.BASE_MOUSE_LINE, false, null,  null, 0);
+        }
+        else if(externalWait == ExternalWait.WEAPON_TARGET){
+            game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false, null,  null, 0);
         }
 
         externalWait = ExternalWait.NONE;
@@ -422,22 +461,19 @@ public class SecDetails extends Sector {
                 game.sendGameRequest(new MShipUndockReq(ent.getId(), ent.grid));
                 break;
             }
-            case SHIP_TARGET: {
-                //listen for an entity to select
-                if(ent.grid > -1 &&
-                        state.grids[ent.grid].ships.get(ent.getId()).targetingState == null){
-                    game.updateCrossSectorListening(this, "Target command...");
-                    externalWait = SecDetails.ExternalWait.TARGET;
-                }
-                //cancel targeting
-                else {
-                    game.sendGameRequest(new MTargetReq(ent.grid, ent.getId(), null, -1));
-                }
-                break;
-            }
             case SHIP_WEAPON_TOGGLE: {
-                game.sendGameRequest(new MWeaponActiveReq(ent.grid, ent.getId(), value,
-                        !((Ship) ent).weapons[value].isActive()));
+                Ship sh = (Ship) ent;
+                //turning off or doesn't require target
+                if(sh.weapons[value].isActive() || !sh.weapons[value].requiresTarget()){
+                    game.sendGameRequest(new MWeaponActiveReq(ent.grid, ent.getId(), value,
+                            !((Ship) ent).weapons[value].isActive(), null));
+                }
+                //turning on and requires target
+                else {
+                    storeIntClick = value;
+                    this.externalWait = ExternalWait.WEAPON_TARGET;
+                    game.updateCrossSectorListening(this, "Weapon command...");
+                }
                 break;
             }
 
@@ -448,28 +484,27 @@ public class SecDetails extends Sector {
                     Station station = state.grids[ent.grid].station;
                     if(station.owner != ent.owner) break;
 
-                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                            EntPtr.createFromEntity(station), Color.GREEN, station.model.dockingRadius);
+                    if(externalWait != ExternalWait.WEAPON_TARGET) {
+                        game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                                EntPtr.createFromEntity(station), Color.GREEN, station.model.dockingRadius);
+                    }
                 }
                 break;
             }
             case SHIP_WEAPON_HOVER_ON: {
-                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                        EntPtr.createFromEntity(ent), Color.YELLOW,
-                        ((Ship)ent).weapons[value].subtype().getRange());
-                break;
-            }
-            case SHIP_TARGET_HOVER_ON: {
-                //TODO set this color based on weapon type
-                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
-                        EntPtr.createFromEntity(ent), Color.RED, ((Ship)ent).model.targetRange);
+                if(externalWait != ExternalWait.WEAPON_TARGET){
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, true,
+                            EntPtr.createFromEntity(ent), Color.YELLOW,
+                            ((Ship)ent).weapons[value].subtype().getRange());
+                }
                 break;
             }
             case SHIP_DOCK_HOVER_OFF:
-            case SHIP_WEAPON_HOVER_OFF:
-            case SHIP_TARGET_HOVER_OFF: {
-                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
-                        null, null, 0);
+            case SHIP_WEAPON_HOVER_OFF: {
+                if(externalWait != ExternalWait.WEAPON_TARGET){
+                    game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                            null, null, 0);
+                }
                 break;
             }
         }
@@ -498,7 +533,7 @@ public class SecDetails extends Sector {
         MOVE,
         ORBIT_WHO,
         ORBIT_DIST,
-        TARGET,
+        WEAPON_TARGET,
         //viewport & minimap
         ALIGN,
         //minimap
@@ -515,12 +550,8 @@ public class SecDetails extends Sector {
         SHIP_WARP,
         SHIP_DOCK,
         SHIP_UNDOCK,
-        SHIP_TARGET,
         SHIP_WEAPON_TOGGLE,
-        SHIP_BEACON_TOGGLE,
 
-        SHIP_TARGET_HOVER_ON,
-        SHIP_TARGET_HOVER_OFF,
         SHIP_WEAPON_HOVER_ON,
         SHIP_WEAPON_HOVER_OFF,
         SHIP_DOCK_HOVER_ON,

@@ -158,7 +158,6 @@ public abstract class Station extends Entity {
         }
         return true;
     }
-
     /**
      * Removes resources from this station for the current job. Does no checks for whether the
      * resources are available.
@@ -168,7 +167,6 @@ public abstract class Station extends Entity {
             resources[i] -= job.getGemCost(Gem.orderedGems[i]);
         }
     }
-
     /**
      * Returns what kind of station this is.
      */
@@ -177,6 +175,19 @@ public abstract class Station extends Entity {
         if(this instanceof Extractor) return Station.Model.Extractor;
         else if(this instanceof Harvester) return Station.Model.Harvester;
         else return Station.Model.Liquidator;
+    }
+
+
+    /* State Methods */
+
+    public boolean isDocked(){
+        return false;
+    }
+    public boolean isValidBeacon(){
+        return true;
+    }
+    public float getSigRadius(){
+        return 30;
     }
 
 

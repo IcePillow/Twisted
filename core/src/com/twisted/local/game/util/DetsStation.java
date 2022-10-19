@@ -7,6 +7,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.twisted.Asset;
 import com.twisted.Main;
 import com.twisted.Paint;
@@ -31,41 +32,36 @@ public class DetsStation extends DetsGroup {
     public DetsStation(SecDetails sector, Skin skin, Vector2 size) {
         super(sector, skin, size);
 
-        Group topTextGroup = createTopTextGroup();
-        topTextGroup.setPosition(6, 100);
-        this.addActor(topTextGroup);
+        Table topTextTable = createTopTextTable();
+        topTextTable.setBounds(6, 110, 300-12, 1);
+        this.addActor(topTextTable);
 
         Group healthGroup = createHealthGroup();
         healthGroup.setPosition(6, 89);
         this.addActor(healthGroup);
     }
 
-    private Group createTopTextGroup(){
-        Group group = new Group();
+    private Table createTopTextTable(){
+        Table group = new Table();
 
         stationIcon = new Image(Asset.retrieveEntityIcon(Station.Tier.Station));
         stationIcon.setColor(Color.GRAY);
-        stationIcon.setPosition(0, 2);
-        group.addActor(stationIcon);
+        group.add(stationIcon).padRight(2);
 
         stationGrid = new Label("[?]", Asset.labelStyle(Asset.Avenir.MEDIUM_16));
         stationGrid.setColor(Color.LIGHT_GRAY);
-        stationGrid.setX(18);
-        group.addActor(stationGrid);
+        group.add(stationGrid).minWidth(20).padRight(2);
 
         stationName = new Label("[Station Name]", Asset.labelStyle(Asset.Avenir.HEAVY_16));
-        stationName.setX(48);
-        group.addActor(stationName);
+        group.add(stationName).growX();
 
         stageTimer = new Label("", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         stageTimer.setColor(Color.LIGHT_GRAY);
-        stageTimer.setPosition(260, 8);
-        group.addActor(stageTimer);
+        group.add(stageTimer).padRight(2);
 
         stageImage = new Image(Asset.retrieve(Asset.UiIcon.STATION_SHIELDED));
         stageImage.setColor(Color.LIGHT_GRAY);
-        stageImage.setX(270);
-        group.addActor(stageImage);
+        group.add(stageImage);
 
         return group;
     }
@@ -115,22 +111,13 @@ public class DetsStation extends DetsGroup {
         //update the grid
         stationGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
     }
-
     @Override
     public void updateEntity() {
         //name
         stationName.setColor(state.findColorForOwner(sel.owner));
 
         //update stage
-        if(sel.stage == Station.Stage.RUBBLE){
-            stageImage.setVisible(false);
-        }
-        else {
-            Gdx.app.postRunnable(() -> {
-                stageImage.setVisible(true);
-                stageImage.setDrawable(Asset.retrieve(sel.getStageIcon(sel.stage)));
-            });
-        }
+        stageImage.setVisible(sel.stage != Station.Stage.RUBBLE);
 
         //update stage timer
         if(sel.stage == Station.Stage.SHIELDED || sel.stage == Station.Stage.RUBBLE){
@@ -139,8 +126,6 @@ public class DetsStation extends DetsGroup {
         else {
             stageTimer.setVisible(true);
             stageTimer.setText(Math.round(sel.stageTimer));
-            Main.glyph.setText(stageTimer.getStyle().font, stageTimer.getText());
-            stageTimer.setX(266-Main.glyph.width);
         }
 
         //update health
@@ -164,7 +149,6 @@ public class DetsStation extends DetsGroup {
                 break;
         }
     }
-
     @Override
     public Entity getSelectedEntity() {
         return sel;

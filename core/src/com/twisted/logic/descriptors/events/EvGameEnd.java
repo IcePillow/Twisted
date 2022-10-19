@@ -24,8 +24,8 @@ public class EvGameEnd extends GameEvent {
     /* Utility */
 
     @Override
-    public HorizontalGroup displayForCurtain(ClientGameState state, Skin skin){
-        HorizontalGroup group = super.displayForCurtain(state, skin);
+    public HorizontalGroup describeForCurtain(ClientGameState state){
+        HorizontalGroup group = new HorizontalGroup();
 
         //name label
         Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
