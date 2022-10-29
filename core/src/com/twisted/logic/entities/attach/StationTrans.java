@@ -1,5 +1,6 @@
 package com.twisted.logic.entities.attach;
 
+import com.badlogic.gdx.math.Vector2;
 import com.twisted.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.descriptors.events.EvStationStageChange;
@@ -36,14 +37,14 @@ public class StationTrans extends TargetedWeapon {
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, float delta) {
-        super.tick(state, grid, ship, delta);
+    public void tick(ServerGameState state, Grid grid, float frac) {
+        super.tick(state, grid, frac);
 
         if(active){
             Entity tgt = state.findEntity(target);
 
             //check if this should be deactivated
-            if(!(tgt instanceof Station) || cargo == null || ship.pos.dst(tgt.pos) > model.range){
+            if(!(tgt instanceof Station) || cargo == null || attached.pos.dst(tgt.pos) > model.range){
                 deactivate();
             }
             //targeting is valid
@@ -57,12 +58,12 @@ public class StationTrans extends TargetedWeapon {
                 }
 
                 //time step
-                timer -= delta;
+                timer -= frac;
 
                 //finish deployment
                 if(timer <= 0){
                     //update the station
-                    st.owner = ship.owner;
+                    st.owner = attached.owner;
                     st.stage = Station.Stage.ARMORED;
                     st.hullHealth = st.model.maxHull;
                     st.stageTimer = 30;
@@ -79,8 +80,8 @@ public class StationTrans extends TargetedWeapon {
         }
     }
     @Override
-    public void activate(Entity entity){
-        super.activate(entity);
+    public void activate(Entity entity, Vector2 location){
+        super.activate(entity, location);
 
         timer = cargo.deployTime;
     }

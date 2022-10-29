@@ -2,6 +2,7 @@ Exporting
     Using gradle tab (right of text window)
         In the gradle tab, use Project > desktop > Tasks > other > dist
         Output is a jar file in Project > desktop > build > libs
+            Additional output will be in Project > core > build > libs
         Change the file name before running
 Skins & Fonts
     Modifications to sgx

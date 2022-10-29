@@ -2,6 +2,8 @@ package com.twisted.local.game;
 
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.twisted.Asset;
@@ -57,7 +59,7 @@ class SecOptions extends Sector {
 
     }
     @Override
-    void render(float delta) {
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {
 
     }
     @Override
@@ -140,6 +142,10 @@ class SecOptions extends Sector {
         if(msg.winnerId == state.myId){
             resultLabel.setText("VICTORY");
             resultLabel.setColor(Color.GREEN);
+        }
+        else if(msg.winnerId == -1){
+            resultLabel.setText("DRAW");
+            resultLabel.setColor(Color.GRAY);
         }
         else {
             resultLabel.setText("DEFEAT");

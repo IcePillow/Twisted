@@ -287,7 +287,6 @@ public class DetsShipInSpace extends DetsGroup {
                     }
                     else if(((InputEvent) event).getType() == InputEvent.Type.exit){
                         sector.input(sel, SecDetails.Input.SHIP_WEAPON_HOVER_OFF, weaponId);
-
                     }
                 }
                 return false;
@@ -367,18 +366,23 @@ public class DetsShipInSpace extends DetsGroup {
                 });
             }
 
-            //update the progress
-            if(!sel.weapons[i].isActive() || sel.weapons[i].getFullTimer() == 0){
+            //progress on cooldown
+            if(sel.weapons[i].cooldown > 0){
+                weaponButtons[i].setProgress(sel.weapons[i].cooldown / sel.weapons[i].getFullCooldown());
+            }
+            //progress off with no cooldown
+            else if(!sel.weapons[i].isActive() || sel.weapons[i].getFullTimer() == 0){
                 weaponButtons[i].setProgress(0);
             }
+            //progress while active
             else {
                 weaponButtons[i].setProgress(1 - sel.weapons[i].timer / sel.weapons[i].getFullTimer());
             }
 
             //target frame images
-            targetFrameImages[i].setVisible(sel.weapons[i].isActive() && sel.weapons[i].requiresTarget());
+            targetFrameImages[i].setVisible(sel.weapons[i].isActive());
 
-            //target icon images
+            //target locked
             if(sel.weapons[i].isLocked()){
                 targetIconImages[i].setVisible(true);
                 targetTimerLabels[i].setVisible(false);
@@ -388,17 +392,25 @@ public class DetsShipInSpace extends DetsGroup {
                 Gdx.app.postRunnable(() -> targetIconImages[iSave].setDrawable(Asset.retrieveEntityIcon(
                         cacheWeaponTarget(iSave).entityModel().getTier())));
             }
-            else if(sel.weapons[i].isActive() && sel.weapons[i].requiresTarget()){
+            //target locking or doesn't need targets
+            else if(sel.weapons[i].isActive()){
                 targetIconImages[i].setVisible(false);
                 targetTimerLabels[i].setVisible(true);
 
-                targetTimerLabels[i].setText(sel.weapons[i].getLockTimerText());
+                if(sel.weapons[i].requiresTarget()){
+                    targetTimerLabels[i].setText(sel.weapons[i].getLockTimerText());
+                }
+                else {
+                    targetTimerLabels[i].setText("X");
+                }
+
                 int iSave = i;
                 Gdx.app.postRunnable(() -> {
                     Main.glyph.setText(targetTimerLabels[iSave].getStyle().font, targetTimerLabels[iSave].getText());
                     targetTimerLabels[iSave].setX(iSave*28 + 12 - Main.glyph.width/2f);
                 });
             }
+            //target not active
             else {
                 targetIconImages[i].setVisible(false);
                 targetTimerLabels[i].setVisible(false);

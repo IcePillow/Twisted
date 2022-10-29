@@ -3,14 +3,18 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.InputListener;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.Null;
 import com.twisted.Main;
 import com.twisted.Asset;
 import com.twisted.Paint;
@@ -52,6 +56,10 @@ public class SecFleet extends Sector {
 
     //state
     private float timeWithoutSorting;
+    private Entity currentHover;
+    Entity getCurrentHover(){
+        return currentHover;
+    }
 
     //texture storage (for updating off gdx thread)
     final HashMap<Station.Stage, TextureRegionDrawable> stationStageTextures =
@@ -188,16 +196,14 @@ public class SecFleet extends Sector {
     @Override
     void load() {
     }
-
     @Override
-    void render(float delta) {
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {
         timeWithoutSorting += delta;
         if(timeWithoutSorting > 0.5f){
             sortEntities();
             timeWithoutSorting = 0;
         }
     }
-
     @Override
     void dispose() {
     }
@@ -429,8 +435,25 @@ public class SecFleet extends Sector {
         HorizontalGroup actor = entityToRow.get(entity);
 
         if(actor == null){
+            //create the actor
             if(entity instanceof Ship) actor = createShipRow((Ship) entity, type);
             else if(entity instanceof Station) actor = createStationRow((Station) entity, type);
+
+            //add the large scale listeners
+            if(actor != null){
+                actor.addListener(new InputListener(){
+                    public void enter (InputEvent event, float x, float y, int pointer, @Null Actor fromActor) {
+                        if(event.isHandled()) return;
+                        currentHover = entity;
+                        event.handle();
+                    }
+                    public void exit (InputEvent event, float x, float y, int pointer, @Null Actor toActor) {
+                        if(event.isHandled()) return;
+                        currentHover = null;
+                        event.handle();
+                    }
+                });
+            }
 
             entityToRow.put(entity, actor);
         }

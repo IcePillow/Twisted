@@ -103,6 +103,9 @@ public abstract class Ship extends Entity {
                 case Beacon:
                     this.weapons[i] = new Beacon(this, (Beacon.Model) model.weapons[i]);
                     break;
+                case Doomsday:
+                    this.weapons[i] = new Doomsday(this, (Doomsday.Model) model.weapons[i]);
+                    break;
                 default:
                     System.out.println("Unknown weapon type");
                     new Exception().printStackTrace();
@@ -220,7 +223,7 @@ public abstract class Ship extends Entity {
 
         return new float[]{
                 Math.round(vel.len() * p) / p,
-                angle,
+                angle
         };
     }
     public float[] roundedWarpPos(int places){
@@ -254,15 +257,18 @@ public abstract class Ship extends Entity {
 
     /* State Methods */
 
+    @Override
     public boolean isDocked(){
         return docked;
     }
+    @Override
     public boolean isValidBeacon(){
         for(Weapon w : weapons){
             if(w.getType() == Weapon.Type.Beacon && w.isActive()) return true;
         }
         return false;
     }
+    @Override
     public float getSigRadius(){
         return model.tier.sigRadius;
     }
@@ -271,11 +277,11 @@ public abstract class Ship extends Entity {
     /* Enums */
 
     public enum Tier implements Entity.Tier {
-        Frigate(4),
-        Cruiser(6),
-        Battleship(11),
-        Barge(12),
-        Titan(20);
+        Frigate(4, 4),
+        Cruiser(6, 2),
+        Battleship(11, 1),
+        Barge(12, 0.05f),
+        Titan(20, 0.1f);
 
         //data methods
         @Override
@@ -285,12 +291,14 @@ public abstract class Ship extends Entity {
 
         //data storage
         public final float sigRadius;
+        public final float dockedRegenMult;
 
         /**
          * Constructor
          */
-        Tier(float sigRadius){
+        Tier(float sigRadius, float dockedRegenMult){
             this.sigRadius = sigRadius;
+            this.dockedRegenMult = dockedRegenMult;
         }
     }
     public enum Model implements Entity.Model {
@@ -333,7 +341,7 @@ public abstract class Ship extends Entity {
                             -0.25f,-0.05f,  -0.25f,0.2f,  -0.15f,0.4f,  -0.4f,0.25f,  -0.4f,-0.2f, //left
                 },
                 1.1f*0.5f, 0.06f, 0.02f,20,
-                new Weapon.Model[]{}, //TODO titan weapons
+                new Weapon.Model[]{Doomsday.Model.Capital},
                 10, 60
         );
 
@@ -364,9 +372,13 @@ public abstract class Ship extends Entity {
         public final float maxAccel;
         public final int maxHealth;
         public final Weapon.Model[] weapons;
-        public final boolean canLightBeacon;
         public final float warpSpeed;
         public final float warpChargeTime;
+
+        //tier reflection
+        public float getDockedRegenMult(){
+            return this.tier.dockedRegenMult;
+        }
 
         /**
          * Constructor
@@ -385,9 +397,6 @@ public abstract class Ship extends Entity {
             this.weapons = weapons;
             this.warpSpeed = warpSpeed;
             this.warpChargeTime = warpChargeTime;
-
-            //determine
-            canLightBeacon = (tier==Tier.Cruiser || tier==Tier.Battleship || tier==Tier.Titan);
         }
     }
 

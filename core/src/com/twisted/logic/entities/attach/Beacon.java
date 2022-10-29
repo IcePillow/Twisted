@@ -19,11 +19,12 @@ public class Beacon extends TargetlessWeapon{
 
     /* Action Methods */
 
-    public void tick(ServerGameState state, Grid grid, Ship ship, float delta){
-        super.tick(state, grid, ship, delta);
+    @Override
+    public void tick(ServerGameState state, Grid grid, float frac){
+        super.tick(state, grid, frac);
 
         //disable
-        if(ship.vel.len2() > 0 || ship.warpCharge > 0 || ship.countActiveWeapons() > 1){
+        if(attached.vel.len2() > 0 || attached.warpCharge > 0 || attached.countActiveWeapons() > 1){
             active = false;
         }
     }

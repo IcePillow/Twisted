@@ -22,21 +22,20 @@ public abstract class Entity implements Serializable {
     /* Logic */
 
     /**
-     * Position.
+     * Position
      */
     public Vector2 pos;
     /**
-     * Velocity.
+     * Velocity
      */
     public Vector2 vel;
     /**
-     * Rotation.
+     * Rotation
      */
     public float rot;
     /**
-     * Current grid.
-     * -1 for warp
-     * Docked counts as being on grid
+     * Current grid
+     * -1 for warp. Docked counts as being on grid
      */
     public int grid;
 

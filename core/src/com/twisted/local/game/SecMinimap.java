@@ -4,6 +4,7 @@ import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Rectangle;
@@ -15,6 +16,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.twisted.Asset;
 import com.twisted.Main;
+import com.twisted.Paint;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.descriptors.Grid;
@@ -26,7 +28,6 @@ import java.util.HashMap;
 class SecMinimap extends Sector {
 
     //constants
-    private final static float SYS_SCALE = 10f; //conversion logical to this visual (not rendered to this visual)
     private final static Rectangle CON_RECT = new Rectangle(-125, -125, 250, 250); //the content rectangle
 
     //reference variables
@@ -40,7 +41,10 @@ class SecMinimap extends Sector {
 
     //rendering
     private OrthographicCamera camera;
-    private ShapeRenderer shape;
+
+    //state
+    private float sysScale; //conversion logical to this visual (not rendered to this visual)
+
 
     /**
      * Constructor
@@ -49,6 +53,8 @@ class SecMinimap extends Sector {
         this.game = game;
 
         stationSprites = new HashMap<>();
+
+        this.sysScale = 8;
     }
 
 
@@ -62,7 +68,6 @@ class SecMinimap extends Sector {
         //rendering prep
         camera = new OrthographicCamera(Main.WIDTH, Main.HEIGHT);
         camera.translate(-(Main.WIDTH-parent.getWidth())/2f, (Main.HEIGHT-parent.getHeight())/2f);
-        shape = new ShapeRenderer();
 
         //create children groups
         parent.addActor(initDecorGroup());
@@ -143,93 +148,41 @@ class SecMinimap extends Sector {
         activeSquare.setPosition(3 + g.pos.x*250f/1000f - 10, 3 + g.pos.y*250f/1000f - 10);
     }
     @Override
-    void render(float delta){
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite){
         //must be at the beginning
         camera.update();
         shape.setProjectionMatrix(camera.combined);
 
+        //draw
         if(systemGroup.isVisible()){
-            Vector2 pos = new Vector2();
             Grid grid = state.grids[game.getGrid()];
 
-            //draw embedded rectangle
-            shape.begin(ShapeRenderer.ShapeType.Filled);
-            shape.setColor(Color.BLACK);
-            shape.rect(CON_RECT.x, CON_RECT.y, CON_RECT.width, CON_RECT.height);
-            shape.end();
-
-            //draw the station
-            shape.begin(ShapeRenderer.ShapeType.Line);
-            shape.setColor(state.findColorForOwner(grid.station.owner));
-            Polygon stationDrawable = new Polygon(grid.station.polygon.getVertices());
-            stationDrawable.scale(SYS_SCALE);
-            shape.polygon(stationDrawable.getTransformedVertices());
-            shape.end();
-
-            //draw the ships
-            shape.begin(ShapeRenderer.ShapeType.Filled);
-            for(Ship s : grid.ships.values()){
-                calcSysPos(s.pos, pos);
-                if(!(Math.abs(s.pos.x) > parent.getWidth()/(2*SYS_SCALE)
-                        || Math.abs(s.pos.y) > parent.getWidth()/(2*SYS_SCALE))){
-                    float radius;
-                    switch(s.model.tier){
-                        case Titan:
-                            radius = 3;
-                            break;
-                        case Barge:
-                        case Battleship:
-                            radius = 2;
-                            break;
-                        case Cruiser:
-                        case Frigate:
-                        default:
-                            radius = 1;
-                    }
-
-                    shape.setColor(state.findColorForOwner(s.owner));
-                    shape.circle(pos.x, pos.y, radius);
-                }
-            }
-            shape.end();
-
-            //draw the viewport rectangle
-            shape.begin(ShapeRenderer.ShapeType.Line);
-            shape.setColor(Color.WHITE);
-
-            //get the camera info
-            float[] cInfo = game.findViewportCamInfo();
-            //calculate the points
-            float x1 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f) * SYS_SCALE/Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
-            float y1 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f) * SYS_SCALE/Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
-            float x2 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f + Main.WIDTH*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
-            float y2 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f + Main.HEIGHT*cInfo[2]) * SYS_SCALE/Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
-            //draw the lines
-            shape.line(x1, y1, x1, y2);
-            shape.line(x1, y2, x2, y2);
-            shape.line(x2, y2, x2, y1);
-            shape.line(x2, y1, x1, y1);
-
-            shape.end();
+            //background
+            renderSystemBground(grid, shape);
+            //draw the entities
+            renderEntities(grid, shape);
+            //draw the viewport's box
+            renderViewportBox(shape);
         }
         else if(clusterGroup.isVisible()){
-            //draw embedded rectangle
-            shape.begin(ShapeRenderer.ShapeType.Filled);
+                //draw embedded rectangle
+                shape.begin(ShapeRenderer.ShapeType.Filled);
 
-            shape.setColor(Color.BLACK);
-            shape.rect(CON_RECT.x, CON_RECT.y, CON_RECT.width, CON_RECT.height);
+                shape.setColor(Color.BLACK);
+                shape.rect(CON_RECT.x, CON_RECT.y, CON_RECT.width, CON_RECT.height);
 
-            for(Ship s : state.inWarp.values()){
-                float radius = (s.model.tier==Ship.Tier.Battleship || s.model.tier==Ship.Tier.Titan) ? 1.6f : 1;
+                for(Ship s : state.inWarp.values()){
+                    float radius = (s.model.tier==Ship.Tier.Battleship || s.model.tier==Ship.Tier.Titan) ? 1.6f : 1;
 
-                shape.setColor(state.findColorForOwner(s.owner));
-                shape.circle(s.warpPos.x*CON_RECT.width/1000f + CON_RECT.x,
-                        s.warpPos.y*CON_RECT.height/1000f + CON_RECT.y,
-                        radius);
+                    shape.setColor(state.findColorForOwner(s.owner));
+                    shape.circle(s.warpPos.x*CON_RECT.width/1000f + CON_RECT.x,
+                            s.warpPos.y*CON_RECT.height/1000f + CON_RECT.y,
+                            radius);
+                }
+
+                shape.end();
             }
 
-            shape.end();
-        }
     }
     @Override
     void dispose(){
@@ -304,23 +257,28 @@ class SecMinimap extends Sector {
         Group group = new Group();
         group.setVisible(false);
 
+        //main listening actor
         Actor actor = new Actor();
         actor.setBounds(3, 3, 250, 250);
+        group.addActor(actor);
+        //click listener
         actor.addListener(new ClickListener(Input.Buttons.LEFT){
             @Override
             public void clicked(InputEvent event, float x, float y){
                 if(event.isHandled()) return;
                 game.minimapSystemMouseDownEvent(Input.Buttons.LEFT,
-                        (x-125)/SYS_SCALE, (y-125)/SYS_SCALE);
+                        (x-125)/ sysScale, (y-125)/ sysScale);
                 event.handle();
             }
         });
+        //general listener
         actor.addListener(new InputListener(){
+            //dragging
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button){
                 if(button == Input.Buttons.LEFT){
                     game.minimapSystemMouseDownEvent(Input.Buttons.LEFT,
-                            (x-125)/SYS_SCALE, (y-125)/SYS_SCALE);
+                            (x-125)/ sysScale, (y-125)/ sysScale);
                     return true;
                 }
                 else {
@@ -331,13 +289,85 @@ class SecMinimap extends Sector {
             public void touchDragged(InputEvent event, float x, float y, int pointer){
                 if(Gdx.input.isButtonPressed(Input.Buttons.LEFT)){
                     game.minimapSystemMouseDownEvent(Input.Buttons.LEFT,
-                            (x-125)/SYS_SCALE, (y-125)/SYS_SCALE);
+                            (x-125)/ sysScale, (y-125)/ sysScale);
                 }
             }
         });
-        group.addActor(actor);
 
         return group;
+    }
+
+    private void renderSystemBground(Grid grid, ShapeRenderer shape){
+        //draw embedded rectangle
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        shape.setColor(Color.BLACK);
+        shape.rect(CON_RECT.x, CON_RECT.y, CON_RECT.width, CON_RECT.height);
+
+        //draw the system circle
+        if(systemGroup.isVisible()){
+            shape.setColor(Paint.SPACE.col);
+            shape.circle(0, 0, 125);
+        }
+
+        shape.end();
+    }
+    private void renderEntities(Grid grid, ShapeRenderer shape){
+        Vector2 pos = new Vector2();
+
+        //draw the station
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(state.findColorForOwner(grid.station.owner));
+        Polygon stationDrawable = new Polygon(grid.station.polygon.getVertices());
+        stationDrawable.scale(sysScale);
+        shape.polygon(stationDrawable.getTransformedVertices());
+        shape.end();
+
+        //draw the ships
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+        for(Ship s : grid.ships.values()){
+            calcSysPos(s.pos, pos);
+            if(!(Math.abs(s.pos.x) > parent.getWidth()/(2* sysScale)
+                    || Math.abs(s.pos.y) > parent.getWidth()/(2* sysScale))){
+                float radius;
+                switch(s.model.tier){
+                    case Titan:
+                        radius = 2;
+                        break;
+                    case Barge:
+                    case Battleship:
+                        radius = 1.2f;
+                        break;
+                    case Cruiser:
+                    case Frigate:
+                    default:
+                        radius = 0.8f;
+                }
+
+                shape.setColor(state.findColorForOwner(s.owner));
+                shape.circle(pos.x, pos.y, radius);
+            }
+        }
+        shape.end();
+    }
+    private void renderViewportBox(ShapeRenderer shape){
+        //draw the viewport rectangle
+        shape.begin(ShapeRenderer.ShapeType.Line);
+        shape.setColor(Color.WHITE);
+
+        //get the camera info
+        float[] cInfo = game.findViewportCamInfo();
+        //calculate the points
+        float x1 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f) * sysScale/Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
+        float y1 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f) * sysScale/Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
+        float x2 = Math.min(Math.max((cInfo[0] - cInfo[2]*Main.WIDTH/2f + Main.WIDTH*cInfo[2]) * sysScale /Game.LTR, CON_RECT.x-1), CON_RECT.x+CON_RECT.width+1);
+        float y2 = Math.min(Math.max((cInfo[1] - cInfo[2]*Main.HEIGHT/2f + Main.HEIGHT*cInfo[2]) * sysScale /Game.LTR, CON_RECT.y-1), CON_RECT.y+CON_RECT.height+1);
+        //draw the lines
+        shape.line(x1, y1, x1, y2);
+        shape.line(x1, y2, x2, y2);
+        shape.line(x2, y2, x2, y1);
+        shape.line(x2, y1, x1, y1);
+
+        shape.end();
     }
 
 
@@ -349,6 +379,8 @@ class SecMinimap extends Sector {
     void switchFocusedGrid(int newGrid){
         activeSquare.setPosition(3 + state.grids[newGrid].pos.x*250f/1000f - 10,
                 3 + state.grids[newGrid].pos.y*250f/1000f - 10);
+
+        sysScale = CON_RECT.width / (2*state.grids[newGrid].radius);
     }
 
     /**
@@ -370,10 +402,9 @@ class SecMinimap extends Sector {
     /* Utility Methods */
 
     private void calcSysPos(float x, float y, Vector2 output){
-        output.set(SYS_SCALE*x, SYS_SCALE*y);
+        output.set(sysScale*x, sysScale*y);
     }
     private void calcSysPos(Vector2 input, Vector2 output){
         calcSysPos(input.x, input.y, output);
     }
-
 }

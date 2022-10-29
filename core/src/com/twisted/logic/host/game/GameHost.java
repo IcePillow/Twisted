@@ -89,7 +89,6 @@ public class GameHost implements ServerContact {
             startGameLoop();
         }).start();
     }
-
     /**
      * Loads the initial game state.
      * IMPORTANT - ONLY LOADS CLASSIC MAP
@@ -102,7 +101,6 @@ public class GameHost implements ServerContact {
         //create the looper
         loop = new ServerGameLoop(this, state);
     }
-
     /**
      * Sends the game start message that contains the details for the initial game state.
      */
@@ -137,7 +135,6 @@ public class GameHost implements ServerContact {
             p.sendMessage(msg);
         }
     }
-
     /**
      * Any calls that should be made after the game state is initialized but before the game loop
      * begins. Mostly for development.
@@ -157,7 +154,7 @@ public class GameHost implements ServerContact {
         server.broadcastMessage(MAddShip.createFromShipBody(s2));
 
         Ship s3 = new Battleship(Ship.Model.Themis, state.useNextShipId(), 0, 1, false);
-        s3.pos.set(0, -1.5f);
+        s3.pos.set(0, 2.5f);
         state.grids[0].ships.put(s3.id, s3);
         server.broadcastMessage(MAddShip.createFromShipBody(s3));
 
@@ -166,6 +163,12 @@ public class GameHost implements ServerContact {
         s4.rot = (float) -Math.PI/2;
         state.grids[2].ships.put(s4.id, s4);
         server.broadcastMessage(MAddShip.createFromShipBody(s4));
+
+        Ship s5 = new Titan(Ship.Model.Nyx, state.useNextShipId(), 0, 1, false);
+        s5.pos.set(2f, 0);
+        s5.rot = (float) -Math.PI/2;
+        state.grids[0].ships.put(s5.id, s5);
+        server.broadcastMessage(MAddShip.createFromShipBody(s5));
 
         //gallery
         Ship alke = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 2, false);

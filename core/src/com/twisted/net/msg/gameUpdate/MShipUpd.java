@@ -5,6 +5,7 @@ import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.entities.attach.StationTrans;
+import com.twisted.net.msg.summary.WeaponSum;
 
 public class MShipUpd implements MGameUpd {
 
@@ -21,12 +22,8 @@ public class MShipUpd implements MGameUpd {
     //command data
     public String moveDescription;
 
-    //weapons TODO refactor these arrays to be one array of objects
-    private boolean[] weaponsActive;
-    private float[] weaponsLocking;
-    private float[] weaponsTimers;
-    private EntPtr[] weaponTargets;
-    private Station.Model[] weaponsCargo; //only used if a weapon StationTransport
+    //weapons
+    private WeaponSum[] weapons;
 
     //warping
     private Ship.Warping warping;
@@ -65,14 +62,7 @@ public class MShipUpd implements MGameUpd {
 
         //weapons
         for(int i=0; i<s.weapons.length; i++){
-            s.weapons[i].setActive(weaponsActive[i]);
-            s.weapons[i].setLockTimer(weaponsLocking[i]);
-            s.weapons[i].timer = weaponsTimers[i];
-            s.weapons[i].setTarget(weaponTargets[i]);
-
-            if(s.weapons[i] instanceof StationTrans){
-                ((StationTrans) s.weapons[i]).cargo = weaponsCargo[i];
-            }
+            weapons[i].copyToWeapon(s.weapons[i]);
         }
     }
 
@@ -105,20 +95,9 @@ public class MShipUpd implements MGameUpd {
         upd.health = s.health;
 
         //weapons
-        upd.weaponsActive = new boolean[s.weapons.length];
-        upd.weaponsLocking = new float[s.weapons.length];
-        upd.weaponsTimers = new float[s.weapons.length];
-        upd.weaponTargets = new EntPtr[s.weapons.length];
-        upd.weaponsCargo = new Station.Model[s.weapons.length];
+        upd.weapons = new WeaponSum[s.weapons.length];
         for(int i=0; i<s.weapons.length; i++){
-            upd.weaponsActive[i] = s.weapons[i].isActive();
-            upd.weaponsLocking[i] = s.weapons[i].getLockTimer();
-            upd.weaponsTimers[i] = s.weapons[i].timer;
-            upd.weaponTargets[i] = s.weapons[i].getTarget();
-
-            if(s.weapons[i] instanceof StationTrans) {
-                upd.weaponsCargo[i] = ((StationTrans) s.weapons[i]).cargo;
-            }
+            upd.weapons[i] = WeaponSum.createFromWeapon(s.weapons[i]);
         }
 
         return upd;

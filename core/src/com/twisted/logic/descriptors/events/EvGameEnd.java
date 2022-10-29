@@ -27,15 +27,25 @@ public class EvGameEnd extends GameEvent {
     public HorizontalGroup describeForCurtain(ClientGameState state){
         HorizontalGroup group = new HorizontalGroup();
 
-        //name label
-        Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-        label1.setColor(state.players.get(winnerId).getPaint().col);
-        group.addActor(label1);
+        //there was a winner
+        if(winnerId != -1){
+            //name label
+            Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+            label1.setColor(state.players.get(winnerId).getPaint().col);
+            group.addActor(label1);
 
-        //text label
-        Label label2 = new Label(" has won the game!", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-        label2.setColor(Color.LIGHT_GRAY);
-        group.addActor(label2);
+            //text label
+            Label label2 = new Label(" has won the game!", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+            label2.setColor(Color.LIGHT_GRAY);
+            group.addActor(label2);
+        }
+        //there was no winner
+        else {
+            //text label
+            Label label = new Label("The game ended without a winner!", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
+            label.setColor(Color.LIGHT_GRAY);
+            group.addActor(label);
+        }
 
         return group;
     }

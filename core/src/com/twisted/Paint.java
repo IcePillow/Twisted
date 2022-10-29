@@ -12,6 +12,7 @@ public enum Paint implements Serializable {
     PL_ORANGE(0xd67700ff),
 
     //game colors
+    DEEP_SPACE(0x060612ff),
     SPACE(0x0c0c26ff),
 
     //ui utility

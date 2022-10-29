@@ -7,6 +7,7 @@ import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.mobs.Mobile;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -21,6 +22,8 @@ public class Grid implements Serializable {
     public final int id; //this is also the index in the grid array
     public final Vector2 pos;
     public final String nickname;
+    public final float radius;
+    public final float[] resourceGen;
 
 
     /* State */
@@ -34,11 +37,14 @@ public class Grid implements Serializable {
 
     /**
      * Constructor
+     * @param resourceGen Array of length Gem.NUM_OF_GEMS
      */
-    public Grid(int id, Vector2 pos, String nickname){
+    public Grid(int id, Vector2 pos, String nickname, float radius, float[] resourceGen){
         this.id = id;
         this.pos = pos;
         this.nickname = nickname;
+        this.radius = radius;
+        this.resourceGen = resourceGen;
 
         this.ships = Collections.synchronizedMap(new HashMap<>());
         this.mobiles = Collections.synchronizedMap(new HashMap<>());
@@ -58,6 +64,13 @@ public class Grid implements Serializable {
         else {
             return null;
         }
+    }
+
+    public ArrayList<Entity> entitiesInSpace(){
+        ArrayList<Entity> entities = new ArrayList<>(ships.values());
+        entities.add(station);
+
+        return entities;
     }
 
 }

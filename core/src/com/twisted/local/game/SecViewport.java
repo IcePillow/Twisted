@@ -10,6 +10,7 @@ import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.twisted.Config;
 import com.twisted.Main;
 import com.twisted.Paint;
 import com.twisted.local.game.cosmetic.Cosmetic;
@@ -29,8 +30,9 @@ public class SecViewport extends Sector {
     //constants
     private static final float LTR = Game.LTR; //logical to rendered
     private static final Color NEUTRAL_COL = Color.GRAY;
-    private static final float MAX_ZOOM=2, MIN_ZOOM=0.5f, PAN_SPD=6;
+    private static final float MAX_ZOOM=1.8f, MIN_ZOOM=0.6f, PAN_SPD=6;
     private static final float SQRT_2 = (float) Math.sqrt(2);
+    private static final float PARALLAX = 0.4f;
 
     //high level input
     private Vector2 cursor;
@@ -45,11 +47,11 @@ public class SecViewport extends Sector {
     //graphics utilities
     private final Stage stage;
     OrthographicCamera camera;
-    private SpriteBatch sprite;
-    private ShapeRenderer shape;
 
     //graphics state
     private float offset;
+    private Vector2[] gridCamPos;
+    private float[] gridCamZoom;
 
     //cosmetics
     private ArrayList<Cosmetic> cosmetics;
@@ -78,10 +80,6 @@ public class SecViewport extends Sector {
         //prepare camera
         camera = new OrthographicCamera(stage.getWidth(), stage.getHeight());
 
-        //prepare drawing objects
-        sprite = new SpriteBatch();
-        shape = new ShapeRenderer();
-
         //prepare for input
         cursor = new Vector2(0, 0);
 
@@ -95,6 +93,15 @@ public class SecViewport extends Sector {
     }
     @Override
     void load() {
+        //prepare cameras
+        gridCamPos = new Vector2[state.grids.length];
+        gridCamZoom = new float[state.grids.length];
+        for(int i=0; i<state.grids.length; i++) {
+            gridCamPos[i] = new Vector2();
+            gridCamZoom[i] = 1;
+        }
+
+        //prepare stars
         stars = new float[state.grids.length][200][4];
         for(float[][] gr : stars){
             for(float[] arr : gr){
@@ -136,35 +143,37 @@ public class SecViewport extends Sector {
         });
     }
     @Override
-    void render(float delta) {
-        //must be at the beginning
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {
+        //get the grid
+        offset += delta;
+        Grid g = state.grids[game.getGrid()];
+
+        //camera prep
+        camera.position.x = gridCamPos[g.id].x;
+        camera.position.y = gridCamPos[g.id].y;
+        camera.zoom = Config.isZoomGridSpecific() ? gridCamZoom[g.id] : gridCamZoom[0];
+
+        //graphics prep
         camera.update();
         sprite.setProjectionMatrix(camera.combined);
         shape.setProjectionMatrix(camera.combined);
 
-        //graphics prep
-        offset += delta;
-        Grid g = state.grids[game.getGrid()];
-
         //draw background
         shape.begin(ShapeRenderer.ShapeType.Filled);
-        renderBackground(delta, g);
+        renderBackground(delta, shape, g);
         shape.end();
 
         //draw rest of viewport
         shape.begin(ShapeRenderer.ShapeType.Line);
-        renderStations(delta, g);
-        renderCosmetics(delta, g);
-        renderMobiles(delta, g);
-        renderShips(delta, g);
-        renderSelections(delta, g);
+        renderStations(delta, shape, g);
+        renderCosmetics(delta, shape, g);
+        renderMobiles(delta, shape, g);
+        renderShips(delta, shape, g);
+        renderSelections(delta, shape, g);
         shape.end();
     }
     @Override
-    void dispose() {
-        sprite.dispose();
-        shape.dispose();
-    }
+    void dispose() {}
 
 
     /* Rendering */
@@ -172,24 +181,31 @@ public class SecViewport extends Sector {
     /**
      * Expects ShapeType.Filled
      */
-    private void renderBackground(float delta, Grid g){
-        shape.setColor(Paint.SPACE.col);
+    private void renderBackground(float delta, ShapeRenderer shape, Grid g){
+        //deep space background
+        shape.setColor(Paint.DEEP_SPACE.col);
         shape.rect(camera.position.x-camera.zoom*stage.getWidth()/2f,
                 camera.position.y-camera.zoom*stage.getHeight()/2f,
                 camera.zoom*stage.getWidth(), camera.zoom*stage.getHeight());
 
+        //draw circle of shallow space
+        shape.setColor(Paint.SPACE.col);
+        shape.circle(0, 0, g.radius*LTR);
+
         for(float[] s : stars[g.id]){
             shape.setColor(s[3], s[3], s[3], 1f);
 
-            float rawX = s[0]+camera.position.x - camera.position.x*0.4f;
-            float rawY = s[1]+camera.position.y - camera.position.y*0.4f;
+            //0.4 is the parallax effect
+            float rawX = s[0]+camera.position.x - camera.position.x*PARALLAX;
+            float rawY = s[1]+camera.position.y - camera.position.y*PARALLAX;
+
             shape.circle(rawX + MAX_ZOOM*Main.WIDTH * (float)Math.round((camera.position.x-rawX)/(MAX_ZOOM*Main.WIDTH)),
                     rawY + MAX_ZOOM*Main.HEIGHT * (float)Math.round((camera.position.y-rawY)/(MAX_ZOOM*Main.HEIGHT)),
                     s[2] * (float)Math.sqrt(camera.zoom));
         }
     }
 
-    private void renderStations(float delta, Grid g){
+    private void renderStations(float delta, ShapeRenderer shape, Grid g){
         if(g.station.owner == 0){
             shape.setColor(NEUTRAL_COL);
         }
@@ -201,7 +217,7 @@ public class SecViewport extends Sector {
         shape.polygon(stationDrawable.getTransformedVertices());
     }
 
-    private void renderCosmetics(float delta, Grid g){
+    private void renderCosmetics(float delta, ShapeRenderer shape, Grid g){
         //check for new cosmetics
         for(Ship s : g.ships.values()){
             for(Weapon w : s.weapons){
@@ -224,7 +240,7 @@ public class SecViewport extends Sector {
         }
     }
 
-    private void renderMobiles(float delta, Grid g){
+    private void renderMobiles(float delta, ShapeRenderer shape, Grid g){
         Polygon mobDrawable;
         shape.setColor(Color.LIGHT_GRAY); //TODO color based on the particular mobile
         for(Mobile m : g.mobiles.values()){
@@ -236,7 +252,7 @@ public class SecViewport extends Sector {
         }
     }
 
-    private void renderShips(float delta, Grid g){
+    private void renderShips(float delta, ShapeRenderer shape, Grid g){
         Polygon shipDrawable;
         for(Ship s : g.ships.values()){
             if(s.owner == 0){
@@ -255,7 +271,7 @@ public class SecViewport extends Sector {
         }
     }
 
-    private void renderSelections(float delta, Grid g){
+    private void renderSelections(float delta, ShapeRenderer shape, Grid g){
         //draw the basic selection circle
         if(selections.get(Select.BASE_SELECT) != null){
             EntPtr sel = selections.get(Select.BASE_SELECT);
@@ -328,20 +344,97 @@ public class SecViewport extends Sector {
                 }
             }
         }
+
+        //draw the aoe circle
+        if(selections.get(Select.AOE_MOUSE_CIRCLE_1) != null){
+            Entity sel;
+
+            if(game.currentFleetHover() == null){
+                sel = selections.get(Select.AOE_MOUSE_CIRCLE_1).retrieveFromGrid(g);
+
+                if(sel != null && sel.grid == game.getGrid()){
+                    Vector2 center = new Vector2(
+                            camera.zoom * (cursor.x-stage.getWidth()/2f+camera.position.x)/100f,
+                            camera.zoom * (cursor.y-stage.getHeight()/2f+camera.position.y)/100f);
+                    float radius = camera.zoom * selectionValues.get(Select.AOE_MOUSE_CIRCLE_1);
+                    float off = 3 * (offset%360);
+
+                    shape.setColor(selectionColors.get(Select.AOE_MOUSE_CIRCLE_1));
+                    for(float i=0; i<360; i += 360f/(radius*60*camera.zoom)){
+                        shape.circle(LTR * (center.x + radius*(float)Math.cos((off+i)*Math.PI/180)),
+                                LTR * (center.y + radius*(float)Math.sin((off+i)*Math.PI/180)),
+                                1);
+                    }
+                }
+            }
+            else {
+                sel = game.currentFleetHover();
+
+                if(sel.grid == game.getGrid()){
+                    float radius = camera.zoom * selectionValues.get(Select.AOE_MOUSE_CIRCLE_1);
+                    float off = 3 * (offset%360);
+
+                    shape.setColor(selectionColors.get(Select.AOE_MOUSE_CIRCLE_1));
+                    for(float i=0; i<360; i += 360f/(radius*60*camera.zoom)){
+                        shape.circle(LTR * (sel.pos.x + radius*(float)Math.cos((off+i)*Math.PI/180)),
+                                LTR * (sel.pos.y + radius*(float)Math.sin((off+i)*Math.PI/180)),
+                                1);
+                    }
+                }
+            }
+        }
+        if(selections.get(Select.AOE_MOUSE_CIRCLE_2) != null){
+            Entity sel;
+
+            if(game.currentFleetHover() == null){
+                sel = selections.get(Select.AOE_MOUSE_CIRCLE_2).retrieveFromGrid(g);
+
+                if(sel != null && sel.grid == game.getGrid()){
+                    Vector2 center = new Vector2(
+                            camera.zoom * (cursor.x-stage.getWidth()/2f+camera.position.x)/100f,
+                            camera.zoom * (cursor.y-stage.getHeight()/2f+camera.position.y)/100f);
+                    float radius = camera.zoom * selectionValues.get(Select.AOE_MOUSE_CIRCLE_2);
+                    float off = 3 * (offset%360);
+
+                    shape.setColor(selectionColors.get(Select.AOE_MOUSE_CIRCLE_2));
+                    for(float i=0; i<360; i += 360f/(radius*60*camera.zoom)){
+                        shape.circle(LTR * (center.x + radius*(float)Math.cos((off+i)*Math.PI/180)),
+                                LTR * (center.y + radius*(float)Math.sin((off+i)*Math.PI/180)),
+                                1);
+                    }
+                }
+            }
+            else {
+                sel = game.currentFleetHover();
+
+                if(sel.grid == game.getGrid()){
+                    float radius = camera.zoom * selectionValues.get(Select.AOE_MOUSE_CIRCLE_2);
+                    float off = 3 * (offset%360);
+
+                    shape.setColor(selectionColors.get(Select.AOE_MOUSE_CIRCLE_2));
+                    for(float i=0; i<360; i += 360f/(radius*60*camera.zoom)){
+                        shape.circle(LTR * (sel.pos.x + radius*(float)Math.cos((off+i)*Math.PI/180)),
+                                LTR * (sel.pos.y + radius*(float)Math.sin((off+i)*Math.PI/180)),
+                                1);
+                    }
+                }
+            }
+        }
     }
 
 
     /* Event Methods */
 
-    void switchFocusedGrid(){
-        //undo all movements of the camera and update the position
-        camera.translate(-camera.position.x, -camera.position.y);
+    void switchFocusedGrid(int oldGrid, int newGrid){
+        if(oldGrid == newGrid){
+            gridCamPos[newGrid].set(0, 0);
+        }
     }
 
     /**
-     * Pan the camera in 1-2 directions.
+     * Pan the camera in 1-2 directions. Camera is clamped based on grid radius.
      */
-    void moveCamera(Direction horDir, Direction verDir){
+    void panCamera(Direction horDir, Direction verDir){
         float amtX = PAN_SPD * camera.zoom;
         float amtY = PAN_SPD * camera.zoom;
 
@@ -368,14 +461,17 @@ public class SecViewport extends Sector {
         }
 
         //move the camera
-        camera.translate(amtX, amtY);
+        Grid g = state.grids[game.getGrid()];
+        gridCamPos[g.id].add(amtX, amtY);
+        clampCamera(g.id, g.radius);
     }
 
     /**
      * Move camera to the logical position (x, y).
      */
     void moveCameraTo(float x, float y){
-        camera.translate(LTR*x - camera.position.x, LTR*y - camera.position.y);
+        gridCamPos[game.getGrid()].set(LTR*x, LTR*y);
+        clampCamera(game.getGrid(), state.grids[game.getGrid()].radius);
     }
 
     /**
@@ -457,10 +553,11 @@ public class SecViewport extends Sector {
      * Scrolls the camera in or out by amount.
      */
     private void viewportScroll(float amount){
-        camera.zoom += 0.02 * amount;
+        int idx = Config.isZoomGridSpecific() ? game.getGrid(): 0;
 
-        if(camera.zoom < MIN_ZOOM) camera.zoom = 0.5f;
-        else if(camera.zoom > MAX_ZOOM) camera.zoom = 2f;
+        gridCamZoom[idx] += 0.02 * amount;
+        if(gridCamZoom[idx] < MIN_ZOOM) gridCamZoom[idx] = MIN_ZOOM;
+        else if(gridCamZoom[idx] > MAX_ZOOM) gridCamZoom[idx] = MAX_ZOOM;
     }
 
 
@@ -471,7 +568,7 @@ public class SecViewport extends Sector {
      */
     void updateSelectionGridsAsNeeded(Entity entity, int newGrid){
         for(EntPtr ptr : selections.values()){
-            if(ptr.matches(entity)) ptr.grid = newGrid;
+            if(ptr != null && ptr.matches(entity)) ptr.grid = newGrid;
         }
     }
 
@@ -495,7 +592,7 @@ public class SecViewport extends Sector {
             vertDir = Direction.DOWN;
         }
 
-        if(horDir != null || vertDir != null) moveCamera(horDir, vertDir);
+        if(horDir != null || vertDir != null) panCamera(horDir, vertDir);
     }
 
 
@@ -503,6 +600,15 @@ public class SecViewport extends Sector {
 
     void addCosmetic(Cosmetic cosmetic){
         cosmetics.add(cosmetic);
+    }
+
+
+    /* Utility Methods */
+
+    private void clampCamera(int gridId, float gridRadius){
+        if(gridCamPos[gridId].len() > gridRadius*LTR){
+            gridCamPos[gridId].nor().scl(gridRadius*LTR);
+        }
     }
 
 
@@ -536,6 +642,11 @@ public class SecViewport extends Sector {
          * Range indicator that rotates. Set radius.
          */
         CIRCLE_RANGE_IND_ROT,
+        /**
+         * A circle of constant radius around the mouse.
+         */
+        AOE_MOUSE_CIRCLE_1,
+        AOE_MOUSE_CIRCLE_2,
     }
 
 }

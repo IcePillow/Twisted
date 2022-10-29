@@ -210,6 +210,8 @@ public class Asset {
         DEFAULT("default"),
         DOCK("dock"),
         UNDOCK("undock"),
+        DOOMSDAY_OFF("doomsday-off"),
+        DOOMSDAY_ON("doomsday-on"),
         EXTRACTOR_OFF("extractor-off"),
         EXTRACTOR_ON("extractor-on"),
         HARVESTER_ON("harvester-off"),

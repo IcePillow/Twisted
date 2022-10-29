@@ -1,5 +1,6 @@
 package com.twisted.logic.entities.attach;
 
+import com.badlogic.gdx.math.Vector2;
 import com.twisted.Util;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
@@ -28,16 +29,23 @@ public abstract class TargetedWeapon extends Weapon {
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, float delta){
+    public void tick(ServerGameState state, Grid grid, float frac){
+        //reduce cooldown
+        if(cooldown > 0){
+            cooldown -= frac;
+            if(cooldown < 0) cooldown = 0;
+        }
         //not locked on yet
-        if(lockTimer > 0){
-            lockTimer -= delta;
+        else if(lockTimer > 0){
+            lockTimer -= frac;
             if(lockTimer < 0) lockTimer = 0;
         }
     }
     @Override
-    public void activate(Entity entity){
-        super.activate(entity);
+    public void invalidTick(float frac){ }
+    @Override
+    public void activate(Entity entity, Vector2 location){
+        super.activate(entity, location);
         target = EntPtr.createFromEntity(entity);
 
         lockTimer = 100f/(subtype().getScanRes() * (float)Math.pow(Util.asinh(entity.getSigRadius()), 2));
@@ -63,6 +71,10 @@ public abstract class TargetedWeapon extends Weapon {
     @Override
     public boolean requiresTarget() {
         return true;
+    }
+    @Override
+    public boolean requiresLocation(){
+        return false;
     }
 
 

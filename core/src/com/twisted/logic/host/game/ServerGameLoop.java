@@ -18,6 +18,7 @@ import com.twisted.net.msg.remaining.MDenyRequest;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 
 class ServerGameLoop {
 
@@ -26,6 +27,9 @@ class ServerGameLoop {
     private final ServerGameState state;
 
 
+    /**
+     * Constructor
+     */
     ServerGameLoop(GameHost host, ServerGameState state){
         this.host = host;
         this.state = state;
@@ -60,6 +64,7 @@ class ServerGameLoop {
 
         //updating
         updateStationTimers();
+        updateDockedShips();
         calculateTrajectories();
         updatePhysics();
         updateCombat();
@@ -78,8 +83,8 @@ class ServerGameLoop {
      * Updates the station state due to time-based events.
      */
     private void updateStationTimers(){
-        for(Grid grid : state.grids){
-            Station st = grid.station;
+        for(Grid g : state.grids){
+            Station st = g.station;
 
             //job updates
             if(st.currentJobs.size() > 0) {
@@ -91,10 +96,7 @@ class ServerGameLoop {
                     job.started = true;
 
                     //send the resource change message
-                    MResourceChange msg = new MResourceChange(EntPtr.createFromEntity(st));
-                    for(int i=0; i<msg.resourceChanges.length; i++){
-                        msg.resourceChanges[i] = -job.jobType.getGemCost(Gem.orderedGems[i]);
-                    }
+                    MResourceChange msg = new MResourceChange(EntPtr.createFromEntity(st), st.resources);
                     host.sendMessage(st.owner, msg);
                 }
                 //count down if not blocking
@@ -110,28 +112,28 @@ class ServerGameLoop {
                         Ship sh = null;
                         switch ((Ship.Tier) job.jobType.getTier()) {
                             case Frigate:
-                                sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                sh = new Frigate((Ship.Model) job.jobType.getModel(), state.useNextShipId(), g.id, job.owner, true);
                                 break;
                             case Cruiser:
-                                sh = new Cruiser((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                sh = new Cruiser((Ship.Model) job.jobType.getModel(), state.useNextShipId(), g.id, job.owner, true);
                                 break;
                             case Battleship:
-                                sh = new Battleship((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                sh = new Battleship((Ship.Model) job.jobType.getModel(), state.useNextShipId(), g.id, job.owner, true);
                                 break;
                             case Barge:
-                                sh = new Barge((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                sh = new Barge((Ship.Model) job.jobType.getModel(), state.useNextShipId(), g.id, job.owner, true);
                                 break;
                             case Titan:
-                                sh = new Titan((Ship.Model) job.jobType.getModel(), state.useNextShipId(), grid.id, job.owner, true);
+                                sh = new Titan((Ship.Model) job.jobType.getModel(), state.useNextShipId(), g.id, job.owner, true);
                                 break;
                         }
 
                         if (sh != null) {
                             //add ship to world
                             if (!sh.docked) {
-                                grid.ships.put(sh.id, sh);
+                                g.ships.put(sh.id, sh);
                             } else {
-                                grid.station.dockedShips.put(sh.id, sh);
+                                g.station.dockedShips.put(sh.id, sh);
                             }
 
                             //tracking
@@ -143,7 +145,8 @@ class ServerGameLoop {
                             System.out.println("Unexpectedly not able to create ship");
                             new Exception().printStackTrace();
                         }
-                    } else if (job.jobType.getType() == Entity.Type.Station) {
+                    }
+                    else if (job.jobType.getType() == Entity.Type.Station) {
                         int idx;
                         for (idx = 0; idx < st.packedStations.length; idx++) {
                             if (st.packedStations[idx] == null) {
@@ -162,7 +165,8 @@ class ServerGameLoop {
                                 break;
                             }
                         }
-                    } else {
+                    }
+                    else {
                         System.out.println("Unexpected job type in GameHost.updateStationTimers()");
                     }
 
@@ -198,9 +202,43 @@ class ServerGameLoop {
                         break;
                 }
             }
+
+            //resource updates
+            if(st.owner != 0 && (st.stage == Station.Stage.SHIELDED || st.stage == Station.Stage.VULNERABLE)){
+                boolean resourceChange = false;
+                for(int i=0; i<Gem.NUM_OF_GEMS; i++){
+                    st.chargeResource[i] += GameHost.FRAC;
+
+                    if(st.chargeResource[i] >= 1/g.resourceGen[i]){
+                        st.chargeResource[i] -= 1/g.resourceGen[i];
+                        st.resources[i] += 1;
+                        resourceChange = true;
+                    }
+                }
+                //tell clients
+                if(resourceChange && !state.players.get(st.owner).ai){
+                    host.broadcastMessage(new MResourceChange(EntPtr.createFromEntity(st), st.resources));
+                }
+            }
         }
     }
+    /**
+     * Updates the ships that are docked.
+     */
+    private void updateDockedShips(){
+        for(Grid g : state.grids){
+            for(Ship s : g.station.dockedShips.values()){
+                //increment health
+                s.health += GameHost.FRAC * s.model.maxHealth * 0.02f * s.model.getDockedRegenMult();
+                if(s.health > s.model.maxHealth) s.health = s.model.maxHealth;
 
+                //weapon ticks
+                for(Weapon w : s.weapons){
+                    w.invalidTick(GameHost.FRAC);
+                }
+            }
+        }
+    }
     /**
      * Calculates the trajectory the ship wants to take to reach its desired location or velocity.
      */
@@ -319,7 +357,6 @@ class ServerGameLoop {
             }
         }
     }
-
     /**
      * Updates the physics of each grid.
      */
@@ -355,7 +392,14 @@ class ServerGameLoop {
         for(Ship s : state.shipsInWarp.values()){
             int result = shipPhysicsInWarp(s);
 
-            if(result == 1) shipsToRemove.add(s);
+            if(result == 1) {
+                shipsToRemove.add(s);
+            }
+            else {
+                for(Weapon w : s.weapons){
+                    w.invalidTick(GameHost.FRAC);
+                }
+            }
         }
         //remove ships that exited warp
         for(Ship s : shipsToRemove){
@@ -380,7 +424,6 @@ class ServerGameLoop {
             mobilesToRemove.clear();
         }
     }
-
     /**
      * Updates combat mechanics.
      */
@@ -388,11 +431,25 @@ class ServerGameLoop {
         ArrayList<Ship> toBeRemoved = new ArrayList<>();
 
         for(Grid g : state.grids){
+            //station regen
+            switch(g.station.stage){
+                case SHIELDED:
+                    g.station.shieldHealth += g.station.model.shieldRegen * GameHost.FRAC;
+                    if(g.station.shieldHealth > g.station.model.maxShield) g.station.shieldHealth = g.station.model.maxShield;
+                    break;
+                case VULNERABLE:
+                    g.station.hullHealth += g.station.model.hullRegen * GameHost.FRAC;
+                    if(g.station.hullHealth > g.station.model.maxHull) g.station.hullHealth = g.station.model.maxHull;
+                    break;
+                case ARMORED:
+                case RUBBLE:
+            }
+
             //targeting and weapons
             for(Ship s : g.ships.values()){
                 //update weapons
                 for(Weapon w : s.weapons){
-                    w.tick(state, g, s, GameHost.FRAC);
+                    w.tick(state, g, GameHost.FRAC);
                 }
             }
 
@@ -411,7 +468,7 @@ class ServerGameLoop {
                 g.ships.remove(s.id);
             }
 
-            //station health checks TODO station gradual healing while shielded
+            //station health checks
             Station st = g.station;
             if(st.stage == Station.Stage.SHIELDED && st.shieldHealth <= 0){
                 st.shieldHealth = 0;
@@ -449,14 +506,18 @@ class ServerGameLoop {
             }
         }
     }
-
     /**
      * Send entity data to the users.
      */
     private void sendEntMobData(){
         //ship data, not in warp then in warp
         for(Grid g : state.grids){
+            //in space
             for(Ship s : g.ships.values()){
+                host.broadcastMessage(MShipUpd.createFromShip(s));
+            }
+            //docked
+            for(Ship s : g.station.dockedShips.values()){
                 host.broadcastMessage(MShipUpd.createFromShip(s));
             }
         }
@@ -479,27 +540,20 @@ class ServerGameLoop {
             }
         }
     }
-
     /**
      * Checks for end condition and ends the game if it is met.
      */
     private void loopEndCondition(){
         //check end condition
         int winner = -1;
+        HashSet<Integer> stationOwners = new HashSet<>();
         for(Grid g : state.grids){
-            for(Station.Model t : g.station.packedStations){
-                if(t == Station.Model.Liquidator){
-                    winner = g.station.owner;
-                    break;
-                }
-            }
-            if(winner != -1) break;
+            if(g.station.owner != 0) stationOwners.add(g.station.owner);
         }
-        if(winner == -1) return;
+        if(stationOwners.size() > 1) return;
 
         //add event
         state.addToEventHistory(new EvGameEnd(winner));
-
         //tell host
         host.endGame(winner);
     }
@@ -515,8 +569,14 @@ class ServerGameLoop {
         int result = 0;
 
         //move the ship
-        s.pos.x += s.vel.x * GameHost.FRAC;
-        s.pos.y += s.vel.y * GameHost.FRAC;
+        if(Math.sqrt( Math.pow(s.pos.x + s.vel.x*GameHost.FRAC, 2) + Math.pow(s.pos.y + s.vel.y*GameHost.FRAC, 2) ) > g.radius){
+            s.vel.set(0, 0);
+            s.movement = Ship.Movement.STOPPING;
+        }
+        else {
+            s.pos.x += s.vel.x * GameHost.FRAC;
+            s.pos.y += s.vel.y * GameHost.FRAC;
+        }
 
         //set the rotation
         if(s.vel.len() != 0){
@@ -623,6 +683,9 @@ class ServerGameLoop {
             warpVel.nor();
             s.pos.set(s.warpLandPos.x - 1.4f*warpVel.x, s.warpLandPos.y - 1.4f*warpVel.y);
             s.vel.set(s.model.maxSpeed*warpVel.x, s.model.maxSpeed*warpVel.y);
+            if(s.pos.len() > state.grids[s.grid].radius){
+                s.pos.nor().scl(state.grids[s.grid].radius);
+            }
 
             //tell the users
             host.broadcastMessage(new MShipExitWarp(s.id, s.grid));
@@ -858,12 +921,19 @@ class ServerGameLoop {
 
         //check permissions
         MDenyRequest deny = new MDenyRequest(msg);
-        if(s.owner != userId || s.docked || s.grid == -1){
+        if(s.owner != userId || s.docked || s.grid == -1 || s.weapons[msg.weaponId].cooldown > 0 ||
+            s.warpCharge > 0){
             if(s.docked){
                 deny.reason = "Cannot command a docked ship";
             }
             else if(s.grid == -1){
                 deny.reason = "Cannot activate weapons while in warp";
+            }
+            else if(s.weapons[msg.weaponId].cooldown > 0){
+                deny.reason = "That weapon is on cooldown";
+            }
+            else if(s.warpCharge > 0){
+                deny.reason = "Cannot activate weapons while charging warp";
             }
             else {
                 deny.reason = "Cannot command ship for unexpected reason";
@@ -884,11 +954,11 @@ class ServerGameLoop {
                     else {
                         if(msg.active){
                             if(target == null  || !s.weapons[msg.weaponId].checkEntityInRange(target)){
-                                deny.reason = "Cannot activate weapon unexpectedly";
+                                deny.reason = "Cannot activate weapon unexpectedly due to target or range";
                                 host.sendMessage(userId, deny);
                             }
                             else {
-                                s.weapons[msg.weaponId].activate(target);
+                                s.weapons[msg.weaponId].activate(target, null);
                             }
                         }
                         else{
@@ -922,7 +992,7 @@ class ServerGameLoop {
                     //accept
                     else {
                         //activate or deactivate
-                        if(msg.active) s.weapons[msg.weaponId].activate(target);
+                        if(msg.active) s.weapons[msg.weaponId].activate(target, null);
                         else s.weapons[msg.weaponId].deactivate();
                     }
                     break;
@@ -941,7 +1011,7 @@ class ServerGameLoop {
                         }
                         //is valid
                         else {
-                            s.weapons[msg.weaponId].activate(null);
+                            s.weapons[msg.weaponId].activate(null, null);
                             s.movement = Ship.Movement.STOPPING;
                             s.warpCharge = 0;
                         }
@@ -951,6 +1021,23 @@ class ServerGameLoop {
                         s.weapons[msg.weaponId].deactivate();
                     }
 
+                    break;
+                }
+                case Doomsday: {
+                    //deny
+                    if(s.isValidBeacon() || s.vel.len() > 0){
+                        deny.reason = "Cannot activate weapons while moving or while beacon is active";
+                        host.sendMessage(userId, deny);
+                    }
+                    //activate or deactivate
+                    else {
+                        if(msg.active){
+                            s.weapons[msg.weaponId].activate(null, msg.location);
+                        }
+                        else{
+                            s.weapons[msg.weaponId].deactivate();
+                        }
+                    }
                     break;
                 }
             }
@@ -1132,7 +1219,7 @@ class ServerGameLoop {
                 ((StationTrans) sh.weapons[destIdx]).cargo = packedStationType;
 
                 //tell players
-                host.broadcastMessage(new MPackedStationMove(
+                host.sendMessage(userId, new MPackedStationMove(
                         EntPtr.createFromEntity(st), msg.idxRemoveFrom,
                         EntPtr.createFromEntity(sh), destIdx,
                         packedStationType));
@@ -1174,7 +1261,7 @@ class ServerGameLoop {
                 st.packedStations[destIdx] = packedStationType;
 
                 //tell players
-                host.broadcastMessage(new MPackedStationMove(
+                host.sendMessage(userId, new MPackedStationMove(
                         EntPtr.createFromEntity(sh), msg.idxRemoveFrom,
                         EntPtr.createFromEntity(st), destIdx,
                         packedStationType));
@@ -1238,11 +1325,9 @@ class ServerGameLoop {
                     sh.resources[msg.gemType.index] += amt;
 
                     //tell clients
-                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st));
-                    stMsg.resourceChanges[msg.gemType.index] = -amt;
+                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st), st.resources);
                     host.sendMessage(st.owner, stMsg);
-                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh));
-                    shMsg.resourceChanges[msg.gemType.index] = amt;
+                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh), sh.resources);
                     host.sendMessage(sh.owner, shMsg);
                 }
             }
@@ -1270,11 +1355,9 @@ class ServerGameLoop {
                     st.resources[msg.gemType.index] += amt;
 
                     //tell clients
-                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh));
-                    shMsg.resourceChanges[msg.gemType.index] = -amt;
+                    MResourceChange shMsg = new MResourceChange(EntPtr.createFromEntity(sh), sh.resources);
                     host.sendMessage(sh.owner, shMsg);
-                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st));
-                    stMsg.resourceChanges[msg.gemType.index] = amt;
+                    MResourceChange stMsg = new MResourceChange(EntPtr.createFromEntity(st), st.resources);
                     host.sendMessage(st.owner, stMsg);
                 }
             }

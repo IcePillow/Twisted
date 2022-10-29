@@ -26,6 +26,7 @@ public abstract class Weapon {
         return active;
     }
     public float timer; //counts down to 0
+    public float cooldown; //counts down to 0
 
 
     /* Constructor */
@@ -39,14 +40,18 @@ public abstract class Weapon {
     /* Action Methods */
 
     /**
-     * This is where the checks for firing are done and firing is done if appropriate.
+     * This is called each server tick when the ship is in a valid firing state.
      * Child classes should call super.tick() at the beginning of their tick().
-     * @param ship The ship that is firing this weapon.
-     * @param delta The amount of time that has passed since the last game loop.
+     * @param frac The amount of time that has passed since the last game loop.
      */
-    public abstract void tick(ServerGameState state, Grid grid, Ship ship, float delta);
+    public abstract void tick(ServerGameState state, Grid grid, float frac);
+    /**
+     * This is called each server tick when the ship is not in a valid firing state (such as docked
+     * or warping).
+     */
+    public abstract void invalidTick(float frac);
 
-    public void activate(Entity entity){
+    public void activate(Entity entity, Vector2 location){
         active = true;
     }
     public void deactivate(){
@@ -61,6 +66,7 @@ public abstract class Weapon {
         else if(this instanceof Laser) return Type.Laser;
         else if(this instanceof StationTrans) return Type.StationTrans;
         else if(this instanceof Beacon) return Type.Beacon;
+        else if(this instanceof Doomsday) return Type.Doomsday;
         else return null;
     }
     public abstract Model subtype();
@@ -104,7 +110,11 @@ public abstract class Weapon {
     }
 
     public abstract float getFullTimer();
+    public float getFullCooldown(){
+        return 0;
+    }
     public abstract boolean requiresTarget();
+    public abstract boolean requiresLocation();
 
 
     /* Server Data Copy Methods */
@@ -122,7 +132,8 @@ public abstract class Weapon {
         Blaster,
         Laser,
         StationTrans,
-        Beacon
+        Beacon,
+        Doomsday
     }
 
     public interface Model {

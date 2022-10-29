@@ -1,6 +1,9 @@
 package com.twisted.local.game;
 
+import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
@@ -10,6 +13,9 @@ import com.twisted.local.lib.Ribbon;
 
 class SecLog extends Sector {
 
+    //constants
+    private final float LOG_WIDTH = 294;
+
     //exterior references
     private final Game game;
 
@@ -18,7 +24,7 @@ class SecLog extends Sector {
 
     //graphics tree
     private Group parent;
-    private VerticalGroup vertical;
+    private Table table;
     private ScrollPane pane;
 
 
@@ -33,7 +39,7 @@ class SecLog extends Sector {
     @Override
     Group init() {
         parent = new Group();
-        parent.setBounds(0, 30, 300, 65);
+        parent.setBounds(0, 30, LOG_WIDTH+6, 65);
 
         //create the decoration
         Group decoration = new Group();
@@ -45,15 +51,14 @@ class SecLog extends Sector {
         decoration.addActor(ribbon);
 
         //create the scrollpane's child
-        vertical = new VerticalGroup();
-        vertical.bottom().left();
-        vertical.columnAlign(Align.left);
+        table = new Table();
+        table.bottom().left();
 
         //create the scrollpane
-        pane = new ScrollPane(vertical, skin);
-        pane.setBounds(3, 3, parent.getWidth()-6,
+        pane = new ScrollPane(table, skin);
+        pane.setBounds(3, 3, LOG_WIDTH,
                 parent.getHeight()-6);
-        pane.setScrollingDisabled(false, false);
+        pane.setScrollingDisabled(true, false);
         pane.setupFadeScrollBars(0.2f, 0.2f);
         pane.setSmoothScrolling(false);
         pane.setColor(Color.BLACK);
@@ -76,7 +81,7 @@ class SecLog extends Sector {
     void load() {
     }
     @Override
-    void render(float delta) {
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {
 
     }
     @Override
@@ -87,30 +92,20 @@ class SecLog extends Sector {
 
     /**
      * Adds a Label to the log with the designated string.
-     * TODO log glitches with strings that are wider than the scrollpane
      */
     void addToLog(String string, LogColor logColor){
         //create and add the label
-        Label label = new Label(string, Asset.labelStyle(Asset.Avenir.LIGHT_12)); //logColor.col
+        Label label = new Label("> " + string, Asset.labelStyle(Asset.Avenir.LIGHT_12));
         label.setColor(logColor.col);
-        vertical.addActor(label);
+        label.setWrap(true);
+        table.row();
+        table.add(label).width(LOG_WIDTH);
 
         //cap the number of children allowed
-        if(vertical.getChildren().size > 10){
-            vertical.removeActorAt(0, true);
-        }
+        if(table.getChildren().size > 20) table.removeActorAt(0, true);
 
         //snap the scrollpane
-        new Thread(() -> {
-            try {
-                Thread.sleep(20);
-            }
-            catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            pane.setScrollPercentY(1);
-
-        }).start();
+        Gdx.app.postRunnable(() -> pane.setScrollPercentY(1));
     }
 
 

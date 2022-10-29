@@ -26,6 +26,11 @@ public abstract class Station extends Entity {
     public Polygon polygon;
 
 
+    /* Logic (serverside) */
+
+    public float[] chargeResource;
+
+
     /* Variables */
 
     //final descriptive variables
@@ -206,19 +211,19 @@ public abstract class Station extends Entity {
                 new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
                 new JobType[]{JobType.Alke, JobType.Helios, JobType.Themis, JobType.Heron, JobType.Extractor, JobType.Harvester, JobType.Liquidator},
                 4, 100, 80, 5, 30,
-                1f
+                1f, 1, 0.2f
         ),
         Harvester(Tier.Station,
                 new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
                 new JobType[]{JobType.Alke, JobType.Helios, JobType.Themis, JobType.Extractor},
                 4, 10, 8, 5, 30,
-                1f
+                1f, 1, 0.2f
         ),
         Liquidator(Tier.Station,
                 new float[]{-0.64f,0,  -0.32f,0.64f,   0.32f,0.64f,  0.64f,0,  0.32f,-0.64f,  -0.32f,-0.64f},
                 new JobType[]{JobType.Alke, JobType.Helios, JobType.Extractor, JobType.Nyx},
                 4, 10, 8, 5, 30,
-                1f
+                1f, 1, 0.2f
         );
 
         //data methods from entity
@@ -244,18 +249,18 @@ public abstract class Station extends Entity {
         public final float deployTime;
         public final float[] vertices;
         public final JobType[] possibleJobs;
-        public final int maxShield;
-        public final int maxHull;
-        public final float armoredDuration;
-        public final float vulnerableDuration;
+        public final int maxShield, maxHull;
+        public final float armoredDuration, vulnerableDuration;
         public final float dockingRadius;
+        public final float shieldRegen, hullRegen;
 
 
         /**
          * Constructor
          */
         Model(Tier tier, float[] vertices, JobType[] possibleJobs, float deployTime, int maxShield,
-              int maxHull, float armoredDuration, float vulnerableDuration, float dockingRadius){
+              int maxHull, float armoredDuration, float vulnerableDuration, float dockingRadius,
+              float shieldRegen, float hullRegen){
             this.tier = tier;
             this.vertices = vertices;
             this.deployTime = deployTime;
@@ -265,6 +270,8 @@ public abstract class Station extends Entity {
             this.armoredDuration = armoredDuration;
             this.vulnerableDuration = vulnerableDuration;
             this.dockingRadius = dockingRadius;
+            this.shieldRegen = shieldRegen;
+            this.hullRegen = hullRegen;
         }
     }
 

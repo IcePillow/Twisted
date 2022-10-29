@@ -15,6 +15,8 @@ import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameUpdate.MShipDockingChange;
 import com.twisted.net.msg.gameUpdate.MShipUpd;
 import com.twisted.net.msg.lobby.MGameStart;
+import com.twisted.net.msg.summary.GridSum;
+import com.twisted.net.msg.summary.StationStartSum;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -74,14 +76,25 @@ public class ServerGameState {
 
         //grids and stations
         grids = new Grid[]{
-                new Grid(0, new Vector2(50, 320), "A"),
-                new Grid(1, new Vector2(200, 100), "B"),
-                new Grid(2, new Vector2(80, 920), "C"),
-                new Grid(3, new Vector2(950, 680), "D"),
-                new Grid(4, new Vector2(800, 900), "E"),
-                new Grid(5, new Vector2(920, 80), "F"),
-                new Grid(6, new Vector2(450, 550), "G"),
-                new Grid(7, new Vector2(550, 450), "H"),
+                //start blue
+                new Grid(0, new Vector2(50, 320), "A", 30,
+                        new float[]{1,0.5f,0,0}),
+                new Grid(1, new Vector2(200, 100), "B", 25,
+                        new float[]{0.8f,0.4f,0,0}),
+                new Grid(2, new Vector2(80, 920), "C", 25,
+                        new float[]{1.5f,0.2f,0.1f,0}),
+                //start orange
+                new Grid(3, new Vector2(950, 680), "D", 30,
+                        new float[]{1,0.5f,0,0}),
+                new Grid(4, new Vector2(800, 900), "E", 25,
+                        new float[]{0.8f,0.4f,0,0}),
+                new Grid(5, new Vector2(920, 80), "F", 25,
+                        new float[]{1.5f,0.2f,0.1f,0}),
+                //start gray
+                new Grid(6, new Vector2(450, 550), "G", 40,
+                        new float[]{2f,0.5f,0.1f,0.05f}),
+                new Grid(7, new Vector2(550, 450), "H", 40,
+                        new float[]{2f,0.5f,0.1f,0.05f}),
         };
         grids[0].station = new Extractor(0, grids[0].nickname, p[0].getId(), Station.Stage.SHIELDED);
         grids[1].station = new Extractor(1, grids[1].nickname, p[0].getId(), Station.Stage.SHIELDED);
@@ -93,6 +106,9 @@ public class ServerGameState {
         grids[7].station = new Liquidator(7, grids[7].nickname, 0, Station.Stage.RUBBLE);
 
         //add initial resources
+        for(Grid g : grids){
+            g.station.chargeResource = new float[4];
+        }
         grids[0].station.resources[0] += 20;
         grids[0].station.resources[1] += 6;
         grids[0].station.resources[2] += 2;
@@ -118,12 +134,8 @@ public class ServerGameState {
         for(int j=0; j<grids.length; j++){
             Grid g = grids[j];
 
-            msg.gridPositions[j] = g.pos;
-            msg.gridNicknames[j] = g.nickname;
-            msg.stationTypes[j] = g.station.entityModel();
-            msg.stationOwners[j] = g.station.owner;
-            msg.stationStages[j] = g.station.stage;
-            msg.stationResources[j] = g.station.resources;
+            msg.grids[j] = GridSum.createFromGrid(g);
+            msg.stations[j] = StationStartSum.createFromStation(g.station);
         }
     }
 

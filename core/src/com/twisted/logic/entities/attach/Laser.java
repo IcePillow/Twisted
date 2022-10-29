@@ -32,15 +32,15 @@ public class Laser extends TargetedWeapon{
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, float delta) {
-        super.tick(state, grid, ship, delta);
+    public void tick(ServerGameState state, Grid grid, float frac) {
+        super.tick(state, grid, frac);
 
         //do stuff while active
         if(active){
             Entity tgt = state.findEntity(target);
 
             //check if this should be deactivated
-            if(tgt == null || ship.pos.dst(tgt.pos) > model.range){
+            if(tgt == null || attached.pos.dst(tgt.pos) > model.range){
                 deactivate();
             }
             else if(isLocked()) {
@@ -53,7 +53,6 @@ public class Laser extends TargetedWeapon{
             }
         }
     }
-
     @Override
     public void deactivate(){
         super.deactivate();

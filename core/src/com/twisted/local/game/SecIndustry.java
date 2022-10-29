@@ -3,6 +3,8 @@ package com.twisted.local.game;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
@@ -389,7 +391,7 @@ public class SecIndustry extends Sector {
         }
     }
     @Override
-    void render(float delta) {}
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {}
     @Override
     void dispose() {
 

@@ -14,15 +14,25 @@ public abstract class TargetlessWeapon extends Weapon {
     /* Action Methods */
 
     @Override
-    public void tick(ServerGameState state, Grid grid, Ship ship, float delta){
-
+    public void tick(ServerGameState state, Grid grid, float frac){
+        //reduce cooldown
+        if(cooldown > 0){
+            cooldown -= frac;
+            if(cooldown < 0) cooldown = 0;
+        }
     }
+    @Override
+    public void invalidTick(float frac){ }
 
 
     /* Targeting Stuff */
 
     @Override
     public boolean requiresTarget() {
+        return false;
+    }
+    @Override
+    public boolean requiresLocation(){
         return false;
     }
     @Override

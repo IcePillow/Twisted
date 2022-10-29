@@ -4,6 +4,8 @@ import com.badlogic.gdx.math.Vector2;
 import com.twisted.Paint;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.Message;
+import com.twisted.net.msg.summary.GridSum;
+import com.twisted.net.msg.summary.StationStartSum;
 
 import java.util.HashMap;
 
@@ -35,13 +37,8 @@ public class MGameStart implements Message {
     public int mapHeight;
 
     //grid details, the id of the grid is the position in the array
-    public Vector2[] gridPositions;
-    public String[] gridNicknames;
-    public Station.Model[] stationTypes;
-    public String[] stationNames;
-    public int[] stationOwners;
-    public Station.Stage[] stationStages;
-    public int[][] stationResources;
+    public GridSum[] grids;
+    public StationStartSum[] stations;
 
 
     /**
@@ -53,13 +50,8 @@ public class MGameStart implements Message {
         this.playerFiles = playerFiles;
 
         //grid stuff
-        gridPositions = new Vector2[numGrids];
-        gridNicknames = new String[numGrids];
-        stationTypes = new Station.Model[numGrids];
-        stationNames = new String[numGrids];
-        stationOwners = new int[numGrids];
-        stationStages = new Station.Stage[numGrids];
-        stationResources = new int[numGrids][4];
+        grids = new GridSum[numGrids];
+        stations = new StationStartSum[numGrids];
     }
 
 }

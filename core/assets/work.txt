@@ -1,21 +1,14 @@
 Work
     Priority
     Large scale
-        TODO exterior target summaries for the current grid
-        TODO correct win condition
-        TODO replace polygons with sprites
+        TODO replace polygons with better art
+        TODO set correct-ish values for balanced game
+        TODO fog of war (clientside)
     Ui changes
         TODO shortcut keys for ship commands
-        TODO easier clicking on minimap icons
-        TODO cross sector listening for SecMinimap when displaying for a cluster
-        TODO change game log to wrap text instead of having horizontal scrolling
         TODO sorting in SecFleet based on conditions other than position
     Combat
         TODO make orbiting logic better
-        TODO make warp landing positioning logic better
-        TODO add doomsday weapons
-        TODO add station regen
-        TODO ship regen while docked
     Graphics
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
@@ -24,12 +17,10 @@ Work
         TODO improve the laser graphics
         TODO visuals for a ship charging and entering warp
         TODO visuals for a ship lighting a beacon
+        TODO visuals for a doomsday being fired
     Gameplay
         TODO add more ship models
-        TODO set correct-ish values for balanced game
-        TODO resource generation
-        TODO place ship in better place after warping
-        TODO consider removing the align command
+        TODO add (large) resource limits to stations
     Bugs
     Refactoring
         TODO break up pieces of game hosting code (like ShipEntersWarp) into methods

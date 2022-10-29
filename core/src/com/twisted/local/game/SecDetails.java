@@ -1,6 +1,8 @@
 package com.twisted.local.game;
 
 import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -11,6 +13,8 @@ import com.twisted.local.game.util.*;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.entities.Entity;
+import com.twisted.logic.entities.attach.Doomsday;
+import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameReq.*;
@@ -114,7 +118,7 @@ public class SecDetails extends Sector {
 
     }
     @Override
-    void render(float delta) {}
+    void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {}
     @Override
     void dispose() {
 
@@ -182,20 +186,37 @@ public class SecDetails extends Sector {
                     game.updateCrossSectorListening(null, null);
                 }
                 else if(externalWait == ExternalWait.WEAPON_TARGET){
-                    Entity target = state.findEntity(ptr);
-                    //deny
-                    if(target == null){
-                        game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                    if(((Ship) ent).weapons[storeIntClick].requiresTarget()){
+                        Entity target = state.findEntity(ptr);
+
+                        //deny
+                        if(target == null){
+                            game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                        }
+                        else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                            game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                        }
+                        //accept
+                        else {
+                            req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr, null);
+                        }
                     }
-                    else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
-                        game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
-                    }
-                    //accept
-                    else {
-                        req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr);
+                    else if(((Ship) ent).weapons[storeIntClick].requiresLocation()){
+                        //deny
+                        if(gamePos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                            game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                        }
+                        //accept
+                        else {
+                            req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, null, gamePos);
+                        }
                     }
 
                     game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                            null, null, 0);
+                    game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_1, false,
+                            null, null, 0);
+                    game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_2, false,
                             null, null, 0);
                     game.updateCrossSectorListening(null, null);
                 }
@@ -291,17 +312,34 @@ public class SecDetails extends Sector {
                 //valid
                 if(!ptr.docked && ptr.grid==ent.grid && !ptr.matches(ent)){
                     Entity target = state.findEntity(ptr);
-                    //deny
-                    if(target == null){
-                        game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+
+                    if(((Ship) ent).weapons[storeIntClick].requiresTarget()){
+                        //deny
+                        if(target == null){
+                            game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                        }
+                        else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                            game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                        }
+                        //accept
+                        else {
+                            req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr, null);
+                        }
                     }
-                    else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
-                        game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                    else if(((Ship) ent).weapons[storeIntClick].requiresLocation()){
+                        //deny
+                        if(target == null){
+                            game.addToLog("Unexpectedly could not find target", SecLog.LogColor.GRAY);
+                        }
+                        else if(target.pos.dst(ent.pos) >= ((Ship) ent).weapons[storeIntClick].subtype().getRange()){
+                            game.addToLog("Cannot target due to range", SecLog.LogColor.GRAY);
+                        }
+                        //accept
+                        else {
+                            req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, null, target.pos);
+                        }
                     }
-                    //accept
-                    else {
-                        req = new MWeaponActiveReq(ent.grid, ent.getId(), storeIntClick, true, ptr);
-                    }
+
                     game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
                             null, null, 0);
                 }
@@ -309,6 +347,13 @@ public class SecDetails extends Sector {
                 else {
                     game.addToLog("Cannot target that entity", SecLog.LogColor.GRAY);
                 }
+
+                game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false,
+                        null, null, 0);
+                game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_1, false,
+                        null, null, 0);
+                game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_2, false,
+                        null, null, 0);
                 game.updateCrossSectorListening(null, null);
             }
             else if(externalWait == ExternalWait.WARP){
@@ -341,6 +386,8 @@ public class SecDetails extends Sector {
         }
         else if(externalWait == ExternalWait.WEAPON_TARGET){
             game.viewportSelection(SecViewport.Select.CIRCLE_RANGE_IND_ROT, false, null,  null, 0);
+            game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_1, false, null,  null, 0);
+            game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_2, false, null,  null, 0);
         }
 
         externalWait = ExternalWait.NONE;
@@ -464,15 +511,26 @@ public class SecDetails extends Sector {
             case SHIP_WEAPON_TOGGLE: {
                 Ship sh = (Ship) ent;
                 //turning off or doesn't require target
-                if(sh.weapons[value].isActive() || !sh.weapons[value].requiresTarget()){
+                if(sh.weapons[value].isActive() ||
+                        (!sh.weapons[value].requiresTarget() && !sh.weapons[value].requiresLocation())){
                     game.sendGameRequest(new MWeaponActiveReq(ent.grid, ent.getId(), value,
-                            !((Ship) ent).weapons[value].isActive(), null));
+                            !((Ship) ent).weapons[value].isActive(), null, null));
                 }
-                //turning on and requires target
+                //turning on and requires target or requires location
                 else {
                     storeIntClick = value;
                     this.externalWait = ExternalWait.WEAPON_TARGET;
                     game.updateCrossSectorListening(this, "Weapon command...");
+
+                    //location
+                    if(sh.weapons[value].getType() == Weapon.Type.Doomsday){
+                        game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_1, true,
+                                EntPtr.createFromEntity(ent), Color.RED,
+                                ((Doomsday.Model)((Ship) ent).weapons[value].subtype()).innerBlastRadius);
+                        game.viewportSelection(SecViewport.Select.AOE_MOUSE_CIRCLE_2, true,
+                                EntPtr.createFromEntity(ent), Color.ORANGE,
+                                ((Doomsday.Model)((Ship) ent).weapons[value].subtype()).outerBlastRadius);
+                    }
                 }
                 break;
             }

@@ -5,10 +5,13 @@ import com.badlogic.gdx.Input;
 import com.badlogic.gdx.Screen;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.g2d.SpriteBatch;
+import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
+import com.badlogic.gdx.utils.viewport.Viewport;
 import com.twisted.Main;
 import com.twisted.local.curtain.Curtain;
 import com.twisted.local.game.cosmetic.Explosion;
@@ -85,6 +88,8 @@ public class Game implements Screen, ClientContact {
     //graphics high level utilities
     private final Stage stage;
     public Skin skin;
+    private final ShapeRenderer shape;
+    private final SpriteBatch sprite;
 
 
     /* Constructor */
@@ -99,6 +104,10 @@ public class Game implements Screen, ClientContact {
         initSectors();
         scrollFocus(null);
         keyboardFocus(null);
+
+        //prepare drawing objects
+        shape = new ShapeRenderer();
+        sprite = new SpriteBatch();
     }
 
 
@@ -121,7 +130,7 @@ public class Game implements Screen, ClientContact {
         if(state != null && state.readyToRender) {
             //render each sector
             for(Sector sector : sectors){
-                sector.render(delta);
+                sector.render(delta, shape, sprite);
             }
         }
 
@@ -223,20 +232,23 @@ public class Game implements Screen, ClientContact {
             state.mapHeight = m.mapHeight;
 
             //copy grid data
-            state.grids = new Grid[m.gridPositions.length];
+            state.grids = new Grid[m.grids.length];
             for(int i=0; i < state.grids.length; i++) {
-                state.grids[i] = new Grid(i, m.gridPositions[i], m.gridNicknames[i]);
-                if(m.stationTypes[i] == Station.Model.Extractor){
-                    state.grids[i].station = new Extractor(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
+                state.grids[i] = m.grids[i].createGridFromThis(i);
+                if(m.stations[i].type == Station.Model.Extractor){
+                    state.grids[i].station = new Extractor(i, state.grids[i].nickname,
+                            m.stations[i].owner, m.stations[i].stage);
                 }
-                else if(m.stationTypes[i] == Station.Model.Harvester){
-                    state.grids[i].station = new Harvester(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
+                else if(m.stations[i].type == Station.Model.Harvester){
+                    state.grids[i].station = new Harvester(i, state.grids[i].nickname,
+                             m.stations[i].owner, m.stations[i].stage);
                 }
-                else if(m.stationTypes[i] == Station.Model.Liquidator){
-                    state.grids[i].station = new Liquidator(i, state.grids[i].nickname, m.stationOwners[i], m.stationStages[i]);
+                else if(m.stations[i].type == Station.Model.Liquidator){
+                    state.grids[i].station = new Liquidator(i, state.grids[i].nickname,
+                            m.stations[i].owner, m.stations[i].stage);
                 }
 
-                System.arraycopy(m.stationResources[i], 0, state.grids[i].station.resources,
+                System.arraycopy(m.stations[i].resources, 0, state.grids[i].station.resources,
                         0, Gem.NUM_OF_GEMS);
             }
 
@@ -561,9 +573,7 @@ public class Game implements Screen, ClientContact {
         }
 
         //change the resources
-        for(int i=0; i<resources.length; i++){
-            resources[i] += m.resourceChanges[i];
-        }
+        System.arraycopy(m.resources, 0, resources, 0, resources.length);
 
         //update the sectors
         if(ent instanceof Station){
@@ -761,9 +771,10 @@ public class Game implements Screen, ClientContact {
     void switchGrid(int newGrid){
         if(state.ending) return;
 
+        int oldGrid = grid;
         grid = newGrid;
 
-        viewportSec.switchFocusedGrid();
+        viewportSec.switchFocusedGrid(oldGrid, newGrid);
         minimapSec.switchFocusedGrid(newGrid);
         fleetSec.switchGridFocus();
     }
@@ -868,5 +879,17 @@ public class Game implements Screen, ClientContact {
     float[] findViewportCamInfo(){
         return new float[]{viewportSec.camera.position.x, viewportSec.camera.position.y, viewportSec.camera.zoom};
     }
+
+    /**
+     * Gets the stage's viewport info.
+     */
+    Viewport getStageViewport(){
+        return stage.getViewport();
+    }
+
+    Entity currentFleetHover(){
+        return fleetSec.getCurrentHover();
+    }
+
 
 }

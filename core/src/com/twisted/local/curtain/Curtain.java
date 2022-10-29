@@ -194,11 +194,15 @@ public class Curtain implements Screen {
             resultLabel.setText("VICTORY");
             resultLabel.setColor(Color.GREEN);
         }
+        else if(end.winnerId == -1){
+            resultLabel.setText("DRAW");
+            resultLabel.setColor(Color.GRAY);
+        }
         else {
             resultLabel.setText("DEFEAT");
             resultLabel.setColor(Color.RED);
         }
-        table.add(resultLabel);
+        table.add(resultLabel).padRight(4);
 
         //duration
         int durMin = ((int) end.timeElapsed) / 60;

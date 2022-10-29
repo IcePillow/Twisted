@@ -2,17 +2,16 @@ package com.twisted.net.msg.gameUpdate;
 
 import com.twisted.logic.descriptors.EntPtr;
 
+import java.util.Arrays;
+
 public class MResourceChange implements MGameUpd {
 
     public final EntPtr entity;
-    /**
-     * The change in the resource amounts.
-     */
-    public final int[] resourceChanges;
+    public final int[] resources;
 
-    public MResourceChange(EntPtr entity){
+    public MResourceChange(EntPtr entity, int[] resources){
         this.entity = entity;
-        this.resourceChanges = new int[4];
+        this.resources = Arrays.copyOf(resources, resources.length);
     }
 
 }
