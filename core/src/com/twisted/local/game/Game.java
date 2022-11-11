@@ -14,7 +14,7 @@ import com.badlogic.gdx.utils.viewport.FitViewport;
 import com.badlogic.gdx.utils.viewport.Viewport;
 import com.twisted.Main;
 import com.twisted.local.curtain.Curtain;
-import com.twisted.local.game.cosmetic.Explosion;
+import com.twisted.local.game.cosmetic.Cosmetic;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
@@ -30,6 +30,7 @@ import com.twisted.logic.host.game.GameHost;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.*;
 import com.twisted.logic.mobs.BlasterBolt;
+import com.twisted.logic.mobs.DoomsdayBlast;
 import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.client.Client;
 import com.twisted.net.client.ClientContact;
@@ -39,8 +40,10 @@ import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
 import com.twisted.net.msg.lobby.MGameStart;
+import com.twisted.util.Quirk;
 
 import java.util.*;
+import java.util.List;
 
 
 /**
@@ -126,8 +129,11 @@ public class Game implements Screen, ClientContact {
         //input
         handleInput();
 
-        //live drawings
+        //other loop stuff
         if(state != null && state.readyToRender) {
+            //high level update
+            update(delta);
+
             //render each sector
             for(Sector sector : sectors){
                 sector.render(delta, shape, sprite);
@@ -189,6 +195,17 @@ public class Game implements Screen, ClientContact {
      */
     @Override
     public synchronized void clientReceived(Message m) {
+        //cosmetic creation
+        if(m instanceof CosmeticCheckable){
+            List<Cosmetic> list = ((CosmeticCheckable) m).createNewCosmetics(state);
+            if(list != null){
+                for(Cosmetic c : list){
+                    viewportSec.addCosmetic(c);
+                }
+            }
+        }
+
+        //general message handling
         if(m instanceof MGameStart) receiveGameStart((MGameStart) m);
         else if(m instanceof MJobTimerUpd) receiveGameOverview((MJobTimerUpd) m);
         else if(m instanceof MChangeJob) receiveChangeJob((MChangeJob) m);
@@ -219,7 +236,7 @@ public class Game implements Screen, ClientContact {
 
     private void receiveGameStart(MGameStart m){
         if(state != null){
-            System.out.println("[Warning] Unexpected MGameStart received with an active GameState");
+            new Quirk(Quirk.Q.UnexpectedMessageAtThisTime).print();
         }
         else {
             //get the message and create the state
@@ -262,7 +279,7 @@ public class Game implements Screen, ClientContact {
                 loadSectors();
 
                 for(Grid g : state.grids){
-                    fleetSec.checkAddEntity(g.station);
+                    fleetSec.addEntity(g.station);
                     industrySec.stationResourceUpdate(g.station);
                 }
 
@@ -329,7 +346,7 @@ public class Game implements Screen, ClientContact {
             }
 
             //tell sectors
-            fleetSec.checkAddEntity(ship);
+            fleetSec.addEntity(ship);
             if(ship.docked) industrySec.addDockedShip(ship);
         }
     }
@@ -349,7 +366,6 @@ public class Game implements Screen, ClientContact {
         else {
             s = state.inWarp.get(m.shipId);
         }
-
         m.copyDataToShip(s);
 
         //update visuals if not in warp
@@ -359,6 +375,7 @@ public class Game implements Screen, ClientContact {
         detailsSec.updateEntity(EntPtr.createFromEntity(s));
         viewportSec.updateSelectionGridsAsNeeded(s, m.grid);
         fleetSec.updEntityValues(s);
+        fleetSec.determineShowEntity(s);
         industrySec.shipUpdate(s);
     }
 
@@ -366,6 +383,10 @@ public class Game implements Screen, ClientContact {
         //move the ship to "in warp"
         Ship ship = state.grids[m.originGridId].ships.get(m.shipId);
         ship.grid = -1;
+        ship.warpSourceGrid = m.originGridId;
+        ship.warpDestGrid = m.destGridId;
+        ship.warpLandPos = m.warpLandPos;
+        ship.exitingWarpCosmeticExists = false;
         state.grids[m.originGridId].ships.remove(ship.id);
         state.inWarp.put(ship.id, ship);
 
@@ -404,7 +425,14 @@ public class Game implements Screen, ClientContact {
 
             switch(m.type){
                 case BlasterBolt:
-                    mob = new BlasterBolt(m.mobileId, m.pos, null, null);
+                    mob = new BlasterBolt((BlasterBolt.Model) m.model, m.mobileId, m.owner, m.pos,
+                            null, null);
+                    ((BlasterBolt) mob).setColor(state.findPaintCollectForOwner(m.owner).brightened.c);
+                    break;
+                case DoomsdayBlast:
+                    mob = new DoomsdayBlast((DoomsdayBlast.Model) m.model, m.mobileId, m.owner,
+                            m.pos, null, null);
+                    ((DoomsdayBlast) mob).setColor(state.findPaintCollectForOwner(m.owner).brightened.c);
                     break;
             }
 
@@ -431,14 +459,7 @@ public class Game implements Screen, ClientContact {
         //tell sectors
         detailsSec.deselectEntity(EntPtr.createFromEntity(ship));
         viewportSec.removeSelectionsOfEntity(ptr);
-        fleetSec.checkRemoveEntity(ship);
-
-        //explosion
-        if(m.grid != -1){
-            Explosion explosion = new Explosion(m.grid, ship.entityModel().getPaddedLogicalRadius(), 1f, ship.pos);
-            explosion.color = state.findColorForOwner(ship.owner);
-            viewportSec.addCosmetic(explosion);
-        }
+        fleetSec.removeEntity(ship);
     }
 
     private void receiveShipDockingChange(MShipDockingChange m){
@@ -454,7 +475,7 @@ public class Game implements Screen, ClientContact {
             //tell the sectors
             industrySec.addDockedShip(s);
             detailsSec.reloadEntity(s);
-            fleetSec.checkRemoveEntity(s);
+            fleetSec.removeEntity(s);
             fleetSec.updEntityValues(s);
         }
         else {
@@ -469,7 +490,7 @@ public class Game implements Screen, ClientContact {
             //tell the sectors
             industrySec.removeDockedShip(m.grid, s);
             detailsSec.reloadEntity(s);
-            fleetSec.checkAddEntity(s);
+            fleetSec.addEntity(s);
         }
     }
 
@@ -495,8 +516,8 @@ public class Game implements Screen, ClientContact {
         //update sectors on stage change
         if(oldStage != s.stage){
             minimapSec.updateStation(s);
-            fleetSec.checkRemoveEntity(s);
-            fleetSec.checkAddEntity(s);
+            fleetSec.removeEntity(s);
+            fleetSec.addEntity(s);
         }
     }
 
@@ -528,8 +549,7 @@ public class Game implements Screen, ClientContact {
                     break;
                 }
                 else if(i == st.packedStations.length-1){
-                    System.out.println("Trying to add packed station when there are no slots");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.NetworkIllegalGameState).print();
                 }
             }
 
@@ -567,8 +587,7 @@ public class Game implements Screen, ClientContact {
             resources = ((Barge) ent).resources;
         }
         else {
-            System.out.println("Unexpected entity changing resources");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.NetworkIllegalGameState).print();
             return;
         }
 
@@ -605,6 +624,59 @@ public class Game implements Screen, ClientContact {
      */
     void addToLog(String text, SecLog.LogColor logColor){
         logSec.addToLog(text, logColor);
+    }
+
+
+    /* High Level Updating */
+
+    private void update(float delta){
+        //fog of war
+        for(Grid g : state.grids){
+            //trigger fading into fog
+            if(g.fogTimer <= delta && g.fogTimer > 0){
+                updGridFadeToFog(g);
+            }
+
+            //update the timer
+            g.fogTimer -= delta;
+            if(g.fogTimer < 0) g.fogTimer = 0;
+
+            //check if it should be reset
+            if(g.station.owner == state.myId){
+                if(g.fogTimer == 0) updGridFadeOutOfFog(g);
+                g.fogTimer = 5;
+            }
+            else {
+                for(Ship s : g.ships.values()){
+                    if(s.owner == state.myId){
+                        if(g.fogTimer == 0) updGridFadeOutOfFog(g);
+                        g.fogTimer = 3;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    /**
+     * Called when the grid was not in fog and will now be.
+     */
+    private void updGridFadeToFog(Grid g){
+        for(Ship s : g.ships.values()){
+            EntPtr ptr = EntPtr.createFromEntity(s);
+            if(!g.entityShowing(s)){
+                viewportSec.removeSelectionsOfEntity(ptr);
+                detailsSec.deselectEntity(ptr);
+                fleetSec.removeEntity(s);
+            }
+        }
+    }
+    /**
+     * Called when the grid was in fog and will no longer be.
+     */
+    private void updGridFadeOutOfFog(Grid g){
+        for(Ship s : g.ships.values()) {
+            fleetSec.addEntity(s);
+        }
     }
 
 
@@ -649,9 +721,9 @@ public class Game implements Screen, ClientContact {
         //normal behavior
         if(crossSectorListener == null){
             //selecting a ship for details
-            if(ptr != null && button == Input.Buttons.LEFT){
-                Entity entity = state.findEntity(ptr);
-                entitySelectedForDetails(entity);
+            if(button == Input.Buttons.LEFT){
+                if(ptr != null) entitySelectedForDetails(state.findEntity(ptr));
+                else entitySelectedForDetails(null);
             }
         }
         //responding to external listeners

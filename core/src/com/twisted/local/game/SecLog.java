@@ -7,8 +7,7 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.badlogic.gdx.utils.Align;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.lib.Ribbon;
 
 class SecLog extends Sector {

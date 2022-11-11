@@ -1,9 +1,8 @@
 package com.twisted.local.game.util;
 
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.station.Station;
 

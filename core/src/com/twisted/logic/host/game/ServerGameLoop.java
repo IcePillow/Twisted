@@ -1,5 +1,6 @@
 package com.twisted.logic.host.game;
 
+import com.badlogic.gdx.math.Circle;
 import com.badlogic.gdx.math.Vector2;
 import com.twisted.Main;
 import com.twisted.logic.descriptors.*;
@@ -14,11 +15,9 @@ import com.twisted.logic.mobs.Mobile;
 import com.twisted.net.msg.gameReq.*;
 import com.twisted.net.msg.gameUpdate.*;
 import com.twisted.net.msg.remaining.MDenyRequest;
+import com.twisted.util.Quirk;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.*;
 
 class ServerGameLoop {
 
@@ -141,9 +140,9 @@ class ServerGameLoop {
 
                             //tell users
                             host.broadcastMessage(MAddShip.createFromShipBody(sh));
-                        } else {
-                            System.out.println("Unexpectedly not able to create ship");
-                            new Exception().printStackTrace();
+                        }
+                        else {
+                            new Quirk(Quirk.Q.UnknownGameData).print();
                         }
                     }
                     else if (job.jobType.getType() == Entity.Type.Station) {
@@ -167,7 +166,7 @@ class ServerGameLoop {
                         }
                     }
                     else {
-                        System.out.println("Unexpected job type in GameHost.updateStationTimers()");
+                        new Quirk(Quirk.Q.UnknownClientDataSpecification).print();
                     }
 
                     //end the job and tell the user
@@ -211,8 +210,10 @@ class ServerGameLoop {
 
                     if(st.chargeResource[i] >= 1/g.resourceGen[i]){
                         st.chargeResource[i] -= 1/g.resourceGen[i];
-                        st.resources[i] += 1;
-                        resourceChange = true;
+                        if(st.resources[i] < 10000){
+                            st.resources[i] += 1;
+                            resourceChange = true;
+                        }
                     }
                 }
                 //tell clients
@@ -411,7 +412,7 @@ class ServerGameLoop {
             //loop through mobiles on the grid
             for (Mobile m : g.mobiles.values()) {
                 //take the time step and check for fizzle
-                if(m.update(GameHost.FRAC, g)) {
+                if(!m.update(GameHost.FRAC, g)) {
                     mobilesToRemove.add(m.id);
                     //tell clients
                     host.broadcastMessage(MMobileUps.createFromMobile(m, g.id, true));
@@ -559,7 +560,7 @@ class ServerGameLoop {
     }
 
 
-    /* Loop Helper Children */
+    /* Loop Extension Helper Children */
 
     /**
      * Handles the physics for a single ship in space on a grid.
@@ -599,8 +600,8 @@ class ServerGameLoop {
 
                 //set rotation
                 s.rot = (float) Math.atan2(
-                        state.grids[target.grid].pos.y - state.grids[s.grid].pos.y,
-                        state.grids[target.grid].pos.x - state.grids[s.grid].pos.x);
+                        state.grids[target.grid].loc.y - state.grids[s.grid].loc.y,
+                        state.grids[target.grid].loc.x - state.grids[s.grid].loc.x);
 
                 //charge
                 s.warpCharge += 1f / (s.model.warpChargeTime*GameHost.TPS);
@@ -615,16 +616,19 @@ class ServerGameLoop {
                 //update warping stuff
                 s.warpCharge = 0;
                 s.warpTarget = null;
-                s.warpPos.set(state.grids[s.grid].pos);
+                s.warpPos.set(state.grids[s.grid].loc);
                 s.warping = Ship.Warping.InWarp;
                 s.warpSourceGrid = g.id;
                 s.warpDestGrid = target.grid;
-                s.warpLandPos.set(target.pos);
+
+                //update warping physics
+                chooseShipWarpLandingPos(s, target, state.grids[s.warpSourceGrid],
+                        state.grids[s.warpDestGrid]);
 
                 //update the movement description, physics, and targeting
                 s.movement = Ship.Movement.WARPING;
                 s.moveDescription = "Warping to " + state.grids[target.grid].nickname;
-                s.pos.set(0, 0);
+                s.pos.set(s.warpLandPos);
                 s.grid = -1;
 
                 //disable weapons
@@ -633,7 +637,7 @@ class ServerGameLoop {
                 }
 
                 //tell the users
-                host.broadcastMessage(new MShipEnterWarp(s.id, g.id, target.grid));
+                host.broadcastMessage(new MShipEnterWarp(s.id, g.id, target.grid, s.warpLandPos));
             }
         }
         //check if the ship should dock
@@ -660,13 +664,13 @@ class ServerGameLoop {
         int result = 0;
 
         Vector2 warpVel = new Vector2(
-                state.grids[s.warpDestGrid].pos.x-state.grids[s.warpSourceGrid].pos.x,
-                state.grids[s.warpDestGrid].pos.y-state.grids[s.warpSourceGrid].pos.y
+                state.grids[s.warpDestGrid].loc.x-state.grids[s.warpSourceGrid].loc.x,
+                state.grids[s.warpDestGrid].loc.y-state.grids[s.warpSourceGrid].loc.y
         );
         warpVel.nor().scl(s.model.warpSpeed/GameHost.TPS);
 
         //drop out of warp
-        if(s.warpPos.dst(state.grids[s.warpDestGrid].pos) <= s.model.warpSpeed/GameHost.TPS){
+        if(s.warpPos.dst(state.grids[s.warpDestGrid].loc) <= s.model.warpSpeed/GameHost.TPS){
             //remove from warp space
             result = 1;
             //add it to the correct grid
@@ -680,9 +684,8 @@ class ServerGameLoop {
             s.movement = Ship.Movement.STOPPING;
 
             //placing with correct physics
-            warpVel.nor();
-            s.pos.set(s.warpLandPos.x - 1.4f*warpVel.x, s.warpLandPos.y - 1.4f*warpVel.y);
-            s.vel.set(s.model.maxSpeed*warpVel.x, s.model.maxSpeed*warpVel.y);
+            s.pos.set(s.warpLandPos);
+            s.vel.set(0, 0);
             if(s.pos.len() > state.grids[s.grid].radius){
                 s.pos.nor().scl(state.grids[s.grid].radius);
             }
@@ -706,15 +709,75 @@ class ServerGameLoop {
             w.deactivate();
         }
     }
+    /**
+     * Chooses and sets the warp landing point.
+     */
+    private void chooseShipWarpLandingPos(Ship ship, Entity target, Grid origin, Grid dest){
+        //prepare geometry
+        Vector2 warpDir = new Vector2(dest.loc.x-origin.loc.x, dest.loc.y-origin.loc.y).nor();
+        Vector2 offset = new Vector2();
+        Circle spot = new Circle(0, 0, ship.model.getLogicalRadius());
+
+        //find all colliding points
+        List<Circle> circles = new ArrayList<>();
+        for(Ship s : dest.ships.values()){
+            circles.add(new Circle(s.pos.x, s.pos.y, s.model.getLogicalRadius()));
+        }
+        for(Ship s : state.shipsInWarp.values()){
+            if(s.warpDestGrid == dest.id){
+                circles.add(new Circle(s.warpLandPos.x, s.warpLandPos.y, s.model.getLogicalRadius()));
+            }
+        }
+
+        //find valid spot
+        int ct = 1;
+        boolean success = false;
+        while(true){
+            float d = 1.01f * (ct-1) * ship.model.getLogicalRadius();
+            offset.set(-d*warpDir.x, -d*warpDir.y);
+
+            for(int i=0; i<ct; i+=1){
+                //increment from last
+                if(i % 2 == 0){
+                    offset.rotateDeg(i * 180f/ct);
+                }
+                else {
+                    offset.rotateDeg(-i * 180f/ct);
+                }
+
+                //prepare values
+                success = true;
+                spot.setPosition(target.pos.x-warpDir.x, target.pos.y-warpDir.y);
+                spot.x += offset.x;
+                spot.y += offset.y;
+
+                //loop through colliders
+                for(Circle c : circles){
+                    if(spot.overlaps(c)){
+                        success = false;
+                        break;
+                    }
+                }
+                if(success) break;
+            }
+
+            if(success) break;
+            //increment for next loop
+            ct += 2;
+        }
+
+        ship.warpLandPos.set(spot.x, spot.y);
+    }
 
 
     /* Client Request Handling */
 
     private void handleJobReq(int userId, MJobReq msg) {
+        state.grids[6].ships.get(7).weapons[2].activate(null, null);
         Station s = (Station) state.findEntity(Entity.Type.Station, msg.stationGrid, msg.stationGrid, false);
         JobType j = msg.job;
         if(s == null) {
-            System.out.println("Couldn't find ship in GameHost.handleJobRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -750,7 +813,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -786,7 +849,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -832,7 +895,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipMoveRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -870,7 +933,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipWarpRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -912,7 +975,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleWeaponActiveRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -1048,7 +1111,7 @@ class ServerGameLoop {
         //get the ship
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.grid, false);
         if(s == null){
-            System.out.println("Couldn't find ship in GameHost.handleShipStopRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -1080,7 +1143,7 @@ class ServerGameLoop {
     private void handleShipUndockReq(int userId, MShipUndockReq msg){
         Ship s = (Ship) state.findEntity(Entity.Type.Ship, msg.shipId, msg.stationId, true);
         if(s == null) {
-            System.out.println("Couldn't find ship in GameHost.handleShipUndockRequest()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -1129,7 +1192,7 @@ class ServerGameLoop {
     private void handleShipDockReq(int userId, MShipDockReq msg){
         Ship s = state.grids[msg.grid].ships.get(msg.shipId);
         if(s == null) {
-            System.out.println("Couldn't find ship in GameHost.handleShipDockReq()");
+            new Quirk(Quirk.Q.MessageFromClientMismatch).print();
             return;
         }
 
@@ -1199,8 +1262,7 @@ class ServerGameLoop {
 
                 //errors
                 if(packedStationType == null){
-                    System.out.println("Unexpected error while transferring");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.MessageFromClientImprecise).print();
 
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Unexpectedly unable to transfer";
@@ -1241,8 +1303,7 @@ class ServerGameLoop {
 
                 //errors
                 if(packedStationType == null){
-                    System.out.println("Unexpected error while transferring");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.MessageFromClientImprecise).print();
 
                     MDenyRequest deny = new MDenyRequest(msg);
                     deny.reason = "Unexpectedly unable to transfer";
@@ -1267,8 +1328,7 @@ class ServerGameLoop {
                         packedStationType));
             }
             else {
-                System.out.println("Unexpected requested inventory move");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.MessageFromClientImprecise).print();
             }
         }
     }
@@ -1362,8 +1422,7 @@ class ServerGameLoop {
                 }
             }
             else {
-                System.out.println("Unexpected requested inventory move");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.MessageFromClientImprecise).print();
             }
         }
 

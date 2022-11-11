@@ -11,9 +11,9 @@ import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.state.GamePlayer;
 import com.twisted.local.lib.RectTextButton;
@@ -121,7 +121,7 @@ public class Curtain implements Screen {
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
         //draw background
-        shape.setColor(Paint.SPACE.col);
+        shape.setColor(Paint.SPACE.c);
         shape.rect(0, 0, stage.getWidth(), stage.getHeight());
 
         for(float[] s : stars){
@@ -217,7 +217,7 @@ public class Curtain implements Screen {
         int ct = 0;
         for(GamePlayer p : state.players.values()){
             nameLabel = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-            nameLabel.setColor(p.getPaint().col);
+            nameLabel.setColor(p.getCollect().base.c);
             table.add(nameLabel).bottom();
 
             //add the versus
@@ -295,7 +295,7 @@ public class Curtain implements Screen {
 
             //player name
             Label name = new Label(p.getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_16));
-            name.setColor(p.getPaint().col);
+            name.setColor(p.getCollect().base.c);
             child.addActor(name);
 
             //ship summaries
@@ -325,7 +325,7 @@ public class Curtain implements Screen {
                         Ship.Tier sh = Ship.Tier.values()[k-1];
                         if(j==0){
                             Image img = new Image(Asset.retrieveEntityIcon(sh));
-                            img.setColor(p.getPaint().col);
+                            img.setColor(p.getCollect().base.c);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
                         else if(j==1) {
@@ -344,7 +344,7 @@ public class Curtain implements Screen {
                         Station.Tier st = Station.Tier.values()[k-Ship.Tier.values().length-1];
                         if(j==0){
                             Image img = new Image(Asset.retrieveEntityIcon(st));
-                            img.setColor(p.getPaint().col);
+                            img.setColor(p.getCollect().base.c);
                             table.add(img).width(16).padLeft(12).padRight(12);
                         }
                         else if(j==1){

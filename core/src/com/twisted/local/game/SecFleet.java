@@ -16,8 +16,8 @@ import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
 import com.twisted.Main;
-import com.twisted.Asset;
-import com.twisted.Paint;
+import com.twisted.util.Asset;
+import com.twisted.util.Paint;
 import com.twisted.local.game.util.FleetContainer;
 import com.twisted.local.game.util.FleetTab;
 import com.twisted.local.lib.Ribbon;
@@ -26,6 +26,7 @@ import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
+import com.twisted.util.Quirk;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,6 +39,7 @@ public class SecFleet extends Sector {
     private final static float TYPE_PANEL_WID=20, GRID_TAG_WID=26, PANEL_NAME_WID=95,
             SHIP_NAME_WID=PANEL_NAME_WID-GRID_TAG_WID, PANEL_DIST_WID=35, PANEL_SPD_WID=35,
             PANEL_HP_WID=50, PANEL_STAGE_WID=16;
+    private final static float TIME_BTWN_SORTS = 0.5f;
 
     //reference variables
     private final Game game;
@@ -51,7 +53,7 @@ public class SecFleet extends Sector {
     private Group headerBar;
 
     //row tracking
-    private final ArrayList<Entity> entities;
+    private final ArrayList<Entity> entities; //stores order of entities
     private final HashMap<Entity, HorizontalGroup> entityToRow; //stores created rows
 
     //state
@@ -134,7 +136,6 @@ public class SecFleet extends Sector {
 
         return decoration;
     }
-
     private Group initTabs(){
         Group group = new Group();
         group.setPosition(3, 421);
@@ -168,7 +169,6 @@ public class SecFleet extends Sector {
 
         return group;
     }
-
     private Group initHeaderBar(){
         headerBar = new Group();
         headerBar.setPosition(5, 405);
@@ -177,7 +177,6 @@ public class SecFleet extends Sector {
 
         return headerBar;
     }
-
     private ScrollPane initPane(){
         vertical = new VerticalGroup();
         vertical.top().left();
@@ -190,6 +189,17 @@ public class SecFleet extends Sector {
         pane.setSmoothScrolling(false);
         pane.setColor(Color.BLACK);
 
+        //listeners
+        pane.addListener(event -> {
+            if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.enter){
+                game.scrollFocus(pane);
+            }
+            else if(event instanceof InputEvent && ((InputEvent) event).getType()== InputEvent.Type.exit) {
+                game.scrollFocus(null);
+            }
+            return true;
+        });
+
         return pane;
     }
 
@@ -199,7 +209,8 @@ public class SecFleet extends Sector {
     @Override
     void render(float delta, ShapeRenderer shape, SpriteBatch sprite) {
         timeWithoutSorting += delta;
-        if(timeWithoutSorting > 0.5f){
+
+        if(timeWithoutSorting >= TIME_BTWN_SORTS){
             sortEntities();
             timeWithoutSorting = 0;
         }
@@ -223,23 +234,26 @@ public class SecFleet extends Sector {
 
             //generate the new grid stuff
             addAllEntities(selectedType);
+            timeWithoutSorting = TIME_BTWN_SORTS;
         }
     }
 
     /**
-     * Adds an entity to the correct spot and updates its values.
+     * Adds an entity to the correct spot and updates its values, but only if it is valid for being
+     * in this tab right now.
      */
-    void checkAddEntity(Entity entity){
+    void addEntity(Entity entity){
         //check if this entity should be added
         if(selectedType == TabType.Fleet){
             if(state.myId != entity.owner || entity.isDocked()) return;
         }
         else {
-            if(game.getGrid() != entity.grid || entity.grid == -1 || entity.isDocked()) return;
+            if(game.getGrid() != entity.grid || entity.grid == -1 || entity.isDocked() ||
+                !state.grids[game.getGrid()].entityShowing(entity)) return;
         }
 
-        //remove it if it already exists
-        forceRemoveEntity(entity);
+        //check if it already exists
+        if(entities.contains(entity)) return;
 
         //find the correct position
         int index = 0;
@@ -253,11 +267,10 @@ public class SecFleet extends Sector {
         vertical.addActorAt(index, getEntityRow(entity, selectedType));
         updEntityValues(entity);
     }
-
     /**
-     * Removes the entity from the display.
+     * Removes the entity from the display if it does valid for the current display.
      */
-    void checkRemoveEntity(Entity entity){
+    void removeEntity(Entity entity){
         //check if the entity should be removed
         if(state.findEntity(EntPtr.createFromEntity(entity)) != null){
             if(selectedType == TabType.Fleet && entity.owner == state.myId && !entity.isDocked()){
@@ -266,7 +279,8 @@ public class SecFleet extends Sector {
             else {
                 //check if it is still in space on the grid
                 if(entity instanceof Ship &&
-                        state.grids[game.getGrid()].ships.containsKey(entity.getId())){
+                        state.grids[game.getGrid()].ships.containsKey(entity.getId()) &&
+                        state.grids[game.getGrid()].entityShowing(entity)){
                     //check ownership
                     switch(selectedType){
                         case Ally:
@@ -284,6 +298,17 @@ public class SecFleet extends Sector {
 
         forceRemoveEntity(entity);
     }
+    /**
+     * Adds or removes an entity if needed.
+     */
+    void determineShowEntity(Entity entity){
+        if(entities.contains(entity)){
+            removeEntity(entity);
+        }
+        else {
+            addEntity(entity);
+        }
+    }
 
     /**
      * Reload entity.
@@ -300,35 +325,8 @@ public class SecFleet extends Sector {
         }
 
         //add it back
-        checkAddEntity(entity);
+        addEntity(entity);
     }
-
-    /**
-     * Sorts the entities based on their proximity to the origin. Does not operate if type is fleet.
-     * TODO add different comparing functions
-     */
-    void sortEntities(){
-        Actor swappingOne, swappingTwo;
-
-        if(selectedType != TabType.Fleet){
-            //double loop
-            for(int i=0; i<entities.size(); i++){
-                for(int j=i+1; j<entities.size(); j++){
-                    if(entities.get(i).pos.len() > entities.get(j).pos.len()){
-                        //perform the swap
-                        Collections.swap(entities, i, j);
-
-                        //swap on vertical (had to do manually, the method didn't swap them visually)
-                        swappingOne = vertical.removeActorAt(j, false);
-                        swappingTwo = vertical.removeActorAt(i, false);
-                        vertical.addActorAt(i, swappingOne);
-                        vertical.addActorAt(j, swappingTwo);
-                    }
-                }
-            }
-        }
-    }
-
     /**
      * Updates the UI to match the entity's current logical values.
      */
@@ -337,13 +335,13 @@ public class SecFleet extends Sector {
         HorizontalGroup group = entityToRow.get(entity);
         if(group == null) return;
 
+        //update values
         for(Actor a : group.getChildren()){
             if(a instanceof FleetContainer<?>){
                 ((FleetContainer<?>) a).updateValuesFromEntity(entity);
             }
             else {
-                System.out.println("Unexpected actor type");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.IncorrectClassType).print();
             }
         }
     }
@@ -370,6 +368,7 @@ public class SecFleet extends Sector {
 
         //add all the needed entities
         addAllEntities(type);
+        timeWithoutSorting = TIME_BTWN_SORTS;
         loadHeaderBar(type);
     }
 
@@ -378,6 +377,34 @@ public class SecFleet extends Sector {
      */
     private void entityClicked(int button, Entity entity){
         game.fleetClickEvent(entity);
+    }
+
+    /**
+     * Sorts the entities based on their proximity to the origin. Does not operate if type is fleet.
+     * TODO add different comparing functions
+     */
+    private void sortEntities(){
+        Actor swappingOne, swappingTwo;
+
+        //TODO use a more efficient sorting algorithm
+        if(selectedType != TabType.Fleet){
+            //double loop
+            for(int i=0; i<entities.size(); i++){
+                for(int j=i+1; j<entities.size(); j++){
+                    //make sure the later one is showing before swapping
+                    if(entities.get(i).pos.len() > entities.get(j).pos.len()){
+                        //perform the swap
+                        Collections.swap(entities, i, j);
+
+                        //swap on vertical (had to do manually, the method didn't swap them visually)
+                        swappingOne = vertical.removeActorAt(j, false);
+                        swappingTwo = vertical.removeActorAt(i, false);
+                        vertical.addActorAt(i, swappingOne);
+                        vertical.addActorAt(j, swappingTwo);
+                    }
+                }
+            }
+        }
     }
 
 
@@ -468,21 +495,21 @@ public class SecFleet extends Sector {
         if(type == TabType.Fleet){
             //ships in warp
             for(Ship s : state.inWarp.values()){
-                checkAddEntity(s);
+                addEntity(s);
             }
             //not in warp
             for(Grid g : state.grids){
                 //station
                 if(g.station.owner == state.myId){
-                    checkAddEntity(g.station);
+                    addEntity(g.station);
                 }
                 //ships in space
                 for(Ship s : g.ships.values()){
-                    checkAddEntity(s);
+                    addEntity(s);
                 }
                 //docked ships
                 for(Ship s : g.station.dockedShips.values()){
-                    checkAddEntity(s);
+                    addEntity(s);
                 }
             }
         }
@@ -492,14 +519,14 @@ public class SecFleet extends Sector {
             if(type == TabType.Grid ||
                     (type == TabType.Ally && g.station.owner == state.myId) ||
                     (type == TabType.Enemy && g.station.owner != state.myId)){
-                checkAddEntity(g.station);
+                addEntity(g.station);
             }
             //add ships
             for(Ship s : g.ships.values()){
                 if(type == TabType.Grid ||
                         (type == TabType.Ally && s.owner == state.myId) ||
                         (type == TabType.Enemy && s.owner != state.myId)){
-                    checkAddEntity(s);
+                    addEntity(s);
                 }
             }
 
@@ -577,7 +604,7 @@ public class SecFleet extends Sector {
                 true, false) {
             @Override
             public void updateValuesFromEntity(Entity entity) {
-                actor().setColor(state.findColorForOwner(entity.owner));
+                actor().setColor(state.findBaseColorForOwner(entity.owner));
             }
             @Override
             public void eventLeftClick(){
@@ -634,7 +661,7 @@ public class SecFleet extends Sector {
         hpGroup.addActor(hpBground);
         Image hpValue = new Image();
         hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
-        hpValue.setColor(state.findColorForOwner(ship.owner));
+        hpValue.setColor(state.findBaseColorForOwner(ship.owner));
         hpGroup.addActor(hpValue);
         group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
                 @Override
@@ -642,10 +669,10 @@ public class SecFleet extends Sector {
                     Ship sh = (Ship) entity;
                     hpValue.setWidth((PANEL_HP_WID-2) * sh.health/sh.model.maxHealth);
                     if(entity.owner != 0){
-                        hpValue.setColor(state.findColorForOwner(entity.owner));
+                        hpValue.setColor(state.findBaseColorForOwner(entity.owner));
                     }
                     else {
-                        hpValue.setColor(Paint.HEALTH_GREEN.col);
+                        hpValue.setColor(Paint.HEALTH_GREEN.c);
                     }
                 }
             });
@@ -705,7 +732,7 @@ public class SecFleet extends Sector {
                 true, false) {
             @Override
             public void updateValuesFromEntity(Entity entity) {
-                actor().setColor(state.findColorForOwner(entity.owner));
+                actor().setColor(state.findBaseColorForOwner(entity.owner));
             }
 
             @Override
@@ -724,62 +751,66 @@ public class SecFleet extends Sector {
             }
         });
 
-        //requires asset loading
+        //stage img
+        Image stageImg = new Image();
+        stageImg.setColor(Color.GRAY);
+        group.addActor(new FleetContainer<Image>(stageImg, PANEL_STAGE_WID) {
+
+            @Override
+            public void updateValuesFromEntity(Entity entity) {
+                stageImg.setDrawable(stationStageTextures.get(((Station) entity).stage));
+            }
+        });
+
+        //filler
+        group.addActor(new FleetContainer<Actor>(new Actor(), stageImgRightSpace) {
+            @Override
+            public void updateValuesFromEntity(Entity entity) {
+
+            }
+        });
+
+        //hp group
+        Group hpGroup = new Group();
+        Image hpOutline = new Image();
+        hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
+        hpGroup.addActor(hpOutline);
+        Image hpBground = new Image();
+        hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
+        hpGroup.addActor(hpBground);
+        Image hpValue = new Image();
+        hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
+        hpGroup.addActor(hpValue);
+        group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
+            @Override
+            public void updateValuesFromEntity(Entity entity) {
+                Station s = (Station) entity;
+                switch(s.stage){
+                    case SHIELDED:
+                        hpValue.setWidth((PANEL_HP_WID-2) * s.shieldHealth/s.model.maxShield);
+                        break;
+                    case ARMORED:
+                    case VULNERABLE:
+                        hpValue.setWidth((PANEL_HP_WID-2) * s.hullHealth/s.model.maxHull);
+                        break;
+                    case RUBBLE:
+                        hpValue.setWidth(0);
+                        break;
+                }
+                if(entity.owner != 0){
+                    hpValue.setColor(state.findBaseColorForOwner(entity.owner));
+                }
+                else {
+                    hpValue.setColor(Paint.HEALTH_GREEN.c);
+                }
+            }
+        });
+
+        //runnable for asset loading
         Gdx.app.postRunnable(() -> {
-            //stage img
-            Image stageImg = new Image(Asset.retrieve(Asset.UiIcon.STATION_SHIELDED));
-            stageImg.setColor(Color.GRAY);
-            group.addActor(new FleetContainer<Image>(stageImg, PANEL_STAGE_WID) {
-
-                @Override
-                public void updateValuesFromEntity(Entity entity) {
-                    stageImg.setDrawable(stationStageTextures.get(((Station) entity).stage));
-                }
-            });
-
-            //filler
-            group.addActor(new FleetContainer<Actor>(new Actor(), stageImgRightSpace) {
-                @Override
-                public void updateValuesFromEntity(Entity entity) {
-
-                }
-            });
-
-            //hp group
-            Group hpGroup = new Group();
-            Image hpOutline = new Image(Asset.retrieve(Asset.Pixel.GRAY));
-            hpOutline.setBounds(0, -5, PANEL_HP_WID, 10);
-            hpGroup.addActor(hpOutline);
-            Image hpBground = new Image(Asset.retrieve(Asset.Pixel.DARKGRAY));
-            hpBground.setBounds(1, -4, PANEL_HP_WID-2, 8);
-            hpGroup.addActor(hpBground);
-            Image hpValue = new Image(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
-            hpValue.setBounds(1, -4, PANEL_HP_WID-2, 8);
-            hpGroup.addActor(hpValue);
-            group.addActor(new FleetContainer<Group>(hpGroup, PANEL_HP_WID) {
-                @Override
-                public void updateValuesFromEntity(Entity entity) {
-                    Station s = (Station) entity;
-                    switch(s.stage){
-                        case SHIELDED:
-                            hpValue.setWidth((PANEL_HP_WID-2) * s.shieldHealth/s.model.maxShield);
-                            break;
-                        case ARMORED:
-                        case VULNERABLE:
-                            hpValue.setWidth((PANEL_HP_WID-2) * s.hullHealth/s.model.maxHull);
-                            break;
-                        case RUBBLE:
-                            hpValue.setWidth(0);
-                            break;
-                    }
-                    if(entity.owner != 0){
-                        hpValue.setColor(state.findColorForOwner(entity.owner));
-                    }
-                    else {
-                        hpValue.setColor(Paint.HEALTH_GREEN.col);
-                    }
-                }
-            });
+            hpOutline.setDrawable(Asset.retrieve(Asset.Pixel.GRAY));
+            hpBground.setDrawable(Asset.retrieve(Asset.Pixel.DARKGRAY));
+            hpValue.setDrawable(Asset.retrieve(Asset.Pixel.LIGHTGRAY));
         });
 
         return group;

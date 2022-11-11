@@ -5,7 +5,7 @@ import com.badlogic.gdx.scenes.scene2d.Event;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.net.msg.remaining.MChat;
 

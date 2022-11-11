@@ -3,7 +3,6 @@ package com.twisted.local.lib;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.twisted.Asset;
 
 /**
  * Four images that make a ribbon on the inside of a rectangle.

@@ -8,6 +8,7 @@ import com.twisted.net.msg.remaining.MChat;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
 import com.twisted.local.lobby.Lobby;
+import com.twisted.util.Quirk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,6 +38,7 @@ public class LobbyHost implements ServerContact {
 
     //state
     private final MatchSettings settings;
+    private boolean startingGame;
 
 
     /* Constructor */
@@ -45,6 +47,7 @@ public class LobbyHost implements ServerContact {
         //initialize
         users = new HashMap<>();
         settings = MatchSettings.createWithDefaults();
+        this.startingGame = false;
 
         //external references
         this.lobby = lobby;
@@ -71,7 +74,7 @@ public class LobbyHost implements ServerContact {
     /* ServerContact Methods */
 
     @Override
-    public void serverReceived(int clientId, Message msg) {
+    public synchronized void serverReceived(int clientId, Message msg) {
         if(msg instanceof MChat){
             String string = "[" + users.get(clientId).name + "] " + ((MChat) msg).string;
 
@@ -83,8 +86,10 @@ public class LobbyHost implements ServerContact {
             switch(c.getType()){
                 case START: {
                     //do the start
-                    if(clientId == hostId){
+                    if(clientId == hostId && !startingGame){
+                        startingGame = true;
                         server.stopListening();
+
                         new Thread(() -> {
                             //initial broadcast
                             server.broadcastMessage(new MChat(MChat.Type.LOGISTICAL,"[Server] Starting the game..."));
@@ -124,15 +129,25 @@ public class LobbyHost implements ServerContact {
                     }
                     //otherwise, send rejection message
                     else {
-                        server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
-                                "> Only the host can start the game"));
+                        if(clientId != hostId){
+                            server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
+                                    "> Only the host can start the game"));
+                        }
+                        else {
+                            server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
+                                    "> Game is already starting"));
+                        }
                     }
                     break;
                 }
                 case NAME: {
                     String string = fixName(c.strings[1], clientId==hostId);
 
-                    if(string != null && users.get(clientId) != null){
+                    if(startingGame){
+                        server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
+                                "> Cannot change name while game is starting"));
+                    }
+                    else if(string != null && users.get(clientId) != null){
                         //broadcast the name change
                         MLobbyPlayerChange m = new MLobbyPlayerChange(clientId, MLobbyPlayerChange.ChangeType.RENAME);
                         m.oldName = users.get(clientId).name;
@@ -147,14 +162,15 @@ public class LobbyHost implements ServerContact {
                                 "> Names must be unique, alphabetical, and 4-12 characters"));
                     }
                     else {
+                        new Quirk(Quirk.Q.MessageFromClientImprecise).print();
+
                         server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
                                 "> Unrecognized name change request"));
-                        new Exception().printStackTrace();
                     }
                     break;
                 }
                 case KICK: {
-                    if(clientId == hostId){
+                    if(clientId == hostId && !startingGame){
                         int kickId = -1;
                         for(Player p : users.values()){
                             if(p.name.equals(c.strings[1])){
@@ -177,9 +193,13 @@ public class LobbyHost implements ServerContact {
                                     "> Kicked player " + c.strings[1]));
                         }
                     }
-                    else {
+                    else if(clientId != hostId) {
                         server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
                                 "> Only the host can kick players"));
+                    }
+                    else {
+                        server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
+                                "> Cannot kick players while game is starting"));
                     }
 
                     break;
@@ -187,7 +207,7 @@ public class LobbyHost implements ServerContact {
             }
         }
         else if(msg instanceof MSettingRequest){
-            if(clientId == hostId){
+            if(clientId == hostId && !startingGame){
                 MSettingRequest m = (MSettingRequest) msg;
 
                 //make the change
@@ -200,16 +220,19 @@ public class LobbyHost implements ServerContact {
                         change = new MSettingChange(MatchSettings.Type.MAP, settings.map);
                         break;
                     default:
-                        System.out.println("Unexpected setting type");
-                        new Exception().printStackTrace();
+                        new Quirk(Quirk.Q.UnknownClientDataSpecification).print();
                 }
 
                 //tell the users
                 if(change != null) server.broadcastMessage(change);
             }
-            else {
+            else if(clientId != hostId) {
                 server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
                         "> Only the host can change the settings"));
+            }
+            else {
+                server.sendMessage(clientId, new MChat(MChat.Type.LOGISTICAL,
+                        "> Cannot change settings while game is starting"));
             }
         }
     }

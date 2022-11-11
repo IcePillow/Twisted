@@ -79,6 +79,7 @@ public abstract class Entity implements Serializable {
      */
     public abstract boolean isValidBeacon();
     public abstract float getSigRadius();
+    public abstract boolean isShowingThroughFog();
 
 
     /* Naming Methods */
@@ -104,7 +105,7 @@ public abstract class Entity implements Serializable {
 
     public enum Type {
         Station,
-        Ship;
+        Ship
     }
 
     public interface Tier {
@@ -115,6 +116,7 @@ public abstract class Entity implements Serializable {
         Tier getTier();
 
         float[] getVertices();
+        float getLogicalRadius();
         /**
          * Returns the logical radius (i.e. not in visual coords) padded a little. Currently, used
          * to display the selection circle on the viewport.

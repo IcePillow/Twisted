@@ -10,16 +10,13 @@ import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Config;
+import com.twisted.util.Config;
 import com.twisted.Main;
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 import com.twisted.local.game.cosmetic.Cosmetic;
-import com.twisted.local.game.cosmetic.LaserBeam;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
-import com.twisted.logic.entities.attach.Laser;
-import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.mobs.Mobile;
 
@@ -54,7 +51,7 @@ public class SecViewport extends Sector {
     private float[] gridCamZoom;
 
     //cosmetics
-    private ArrayList<Cosmetic> cosmetics;
+    private List<Cosmetic> cosmetics;
 
     //selected
     private Map<Select, EntPtr> selections;
@@ -64,6 +61,9 @@ public class SecViewport extends Sector {
     //background
     private float[][][] stars; //NumGrids x NumStars x 4 (x,y,si,col)
 
+    //scratch
+    private final Color innerBackColorCircle;
+
 
     /**
      * Constructor
@@ -71,6 +71,8 @@ public class SecViewport extends Sector {
     SecViewport(Game game, Stage stage){
         this.game = game;
         this.stage = stage;
+
+        this.innerBackColorCircle = new Color();
     }
 
     @Override
@@ -84,7 +86,7 @@ public class SecViewport extends Sector {
         cursor = new Vector2(0, 0);
 
         //prepare graphics storage
-        cosmetics = new ArrayList<>();
+        cosmetics = Collections.synchronizedList(new ArrayList<>());
         selections = Collections.synchronizedMap(new HashMap<>());
         selectionColors = Collections.synchronizedMap(new HashMap<>());
         selectionValues = Collections.synchronizedMap(new HashMap<>());
@@ -158,19 +160,13 @@ public class SecViewport extends Sector {
         sprite.setProjectionMatrix(camera.combined);
         shape.setProjectionMatrix(camera.combined);
 
-        //draw background
-        shape.begin(ShapeRenderer.ShapeType.Filled);
-        renderBackground(delta, shape, g);
-        shape.end();
-
         //draw rest of viewport
-        shape.begin(ShapeRenderer.ShapeType.Line);
+        renderBackground(delta, shape, g);
         renderStations(delta, shape, g);
         renderCosmetics(delta, shape, g);
         renderMobiles(delta, shape, g);
         renderShips(delta, shape, g);
         renderSelections(delta, shape, g);
-        shape.end();
     }
     @Override
     void dispose() {}
@@ -178,20 +174,27 @@ public class SecViewport extends Sector {
 
     /* Rendering */
 
-    /**
-     * Expects ShapeType.Filled
-     */
     private void renderBackground(float delta, ShapeRenderer shape, Grid g){
+        shape.begin(ShapeRenderer.ShapeType.Filled);
+
         //deep space background
-        shape.setColor(Paint.DEEP_SPACE.col);
+        shape.setColor(Paint.DEEP_SPACE.c);
         shape.rect(camera.position.x-camera.zoom*stage.getWidth()/2f,
                 camera.position.y-camera.zoom*stage.getHeight()/2f,
                 camera.zoom*stage.getWidth(), camera.zoom*stage.getHeight());
 
         //draw circle of shallow space
-        shape.setColor(Paint.SPACE.col);
+        shape.setColor(Paint.SPACE.c);
         shape.circle(0, 0, g.radius*LTR);
 
+        //draw fog of war circle
+        if(g.fogTimer < 3){
+            innerBackColorCircle.set(Paint.DEEP_SPACE.c).mul(1 + g.fogTimer/3);
+            shape.setColor(innerBackColorCircle);
+            shape.circle(0, 0, g.radius*LTR-4);
+        }
+
+        //draw stars
         for(float[] s : stars[g.id]){
             shape.setColor(s[3], s[3], s[3], 1f);
 
@@ -203,37 +206,34 @@ public class SecViewport extends Sector {
                     rawY + MAX_ZOOM*Main.HEIGHT * (float)Math.round((camera.position.y-rawY)/(MAX_ZOOM*Main.HEIGHT)),
                     s[2] * (float)Math.sqrt(camera.zoom));
         }
+
+        shape.end();
     }
 
     private void renderStations(float delta, ShapeRenderer shape, Grid g){
-        if(g.station.owner == 0){
-            shape.setColor(NEUTRAL_COL);
+        if(g.station.isShowingThroughFog() || g.fogTimer > 0){
+            shape.begin(ShapeRenderer.ShapeType.Line);
+
+            if(g.station.owner == 0){
+                shape.setColor(NEUTRAL_COL);
+            }
+            else {
+                shape.setColor(state.players.get(g.station.owner).getCollect().base.c);
+            }
+            Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
+            stationDrawable.scale(LTR);
+            shape.polygon(stationDrawable.getTransformedVertices());
+
+            shape.end();
         }
-        else {
-            shape.setColor(state.players.get(g.station.owner).getPaint().col);
-        }
-        Polygon stationDrawable = new Polygon(g.station.polygon.getVertices());
-        stationDrawable.scale(LTR);
-        shape.polygon(stationDrawable.getTransformedVertices());
     }
 
     private void renderCosmetics(float delta, ShapeRenderer shape, Grid g){
-        //check for new cosmetics
-        for(Ship s : g.ships.values()){
-            for(Weapon w : s.weapons){
-                //check for laser beams
-                if(w instanceof Laser && w.isActive() && !((Laser) w).cosmeticBeamExists){
-                    LaserBeam c = new LaserBeam(g.id, (Laser) w);
-                    cosmetics.add(c);
-                }
-            }
-        }
-
         //draw the cosmetics
         Set<Cosmetic> cosmeticToRemove = new HashSet<>();
         for(Cosmetic c : cosmetics){
             if(!c.tick(delta)) cosmeticToRemove.add(c);
-            else if(c.gridId == g.id) c.draw(shape, g);
+            else if(c.gridId == g.id && (g.fogTimer > 0 || c.showsThroughFog(state))) c.draw(shape, g);
         }
         for(Cosmetic c : cosmeticToRemove){
             cosmetics.remove(c);
@@ -241,37 +241,41 @@ public class SecViewport extends Sector {
     }
 
     private void renderMobiles(float delta, ShapeRenderer shape, Grid g){
-        Polygon mobDrawable;
-        shape.setColor(Color.LIGHT_GRAY); //TODO color based on the particular mobile
-        for(Mobile m : g.mobiles.values()){
-            mobDrawable = new Polygon(m.getVertices());
-            mobDrawable.scale(LTR);
-            mobDrawable.translate(m.pos.x*LTR, m.pos.y*LTR);
-            mobDrawable.rotate((float) (m.rot*180/Math.PI)-90);
-            shape.polygon(mobDrawable.getTransformedVertices());
+        if(g.fogTimer > 0){
+            for(Mobile m : g.mobiles.values()){
+                m.draw(shape);
+            }
         }
     }
 
     private void renderShips(float delta, ShapeRenderer shape, Grid g){
+        shape.begin(ShapeRenderer.ShapeType.Line);
+
         Polygon shipDrawable;
         for(Ship s : g.ships.values()){
-            if(s.owner == 0){
-                shape.setColor(NEUTRAL_COL);
-            }
-            else {
-                shape.setColor(state.players.get(s.owner).getPaint().col);
-            }
+            if(g.fogTimer > 0 || s.isShowingThroughFog()){
+                if(s.owner == 0){
+                    shape.setColor(NEUTRAL_COL);
+                }
+                else {
+                    shape.setColor(state.players.get(s.owner).getCollect().base.c);
+                }
 
-            //draw the ship
-            shipDrawable = new Polygon(s.entityModel().getVertices());
-            shipDrawable.scale(LTR);
-            shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
-            shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
-            shape.polygon(shipDrawable.getTransformedVertices());
+                //draw the ship
+                shipDrawable = new Polygon(s.entityModel().getVertices());
+                shipDrawable.scale(LTR);
+                shipDrawable.translate(s.pos.x*LTR, s.pos.y*LTR);
+                shipDrawable.rotate((float) (s.rot*180/Math.PI)-90 );
+                shape.polygon(shipDrawable.getTransformedVertices());
+            }
         }
+
+        shape.end();
     }
 
     private void renderSelections(float delta, ShapeRenderer shape, Grid g){
+        shape.begin(ShapeRenderer.ShapeType.Line);
+
         //draw the basic selection circle
         if(selections.get(Select.BASE_SELECT) != null){
             EntPtr sel = selections.get(Select.BASE_SELECT);
@@ -420,6 +424,8 @@ public class SecViewport extends Sector {
                 }
             }
         }
+
+        shape.end();
     }
 
 
@@ -491,24 +497,29 @@ public class SecViewport extends Sector {
         EntPtr ptr = null;
 
         //check if something was directly clicked on
-        if(g.station.polygon.contains(adjX, adjY)){
+        if(g.station.polygon.contains(adjX, adjY) &&
+                (g.fogTimer > 0 || g.station.isShowingThroughFog())){
             ptr = new EntPtr(Entity.Type.Station, g.id, g.id, false);
         }
         for(Ship s : g.ships.values()){
-            //create slightly larger polygon
-            Polygon sPoly = new Polygon(s.polygon.getVertices());
-            sPoly.translate(s.pos.x, s.pos.y);
-            //check if it contains
-            if(sPoly.contains(adjX, adjY)){
-                ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+            if(g.fogTimer > 0 || s.isShowingThroughFog()){
+                //create slightly larger polygon
+                Polygon sPoly = new Polygon(s.polygon.getVertices());
+                sPoly.translate(s.pos.x, s.pos.y);
+                //check if it contains
+                if(sPoly.contains(adjX, adjY)){
+                    ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+                }
             }
         }
 
         //otherwise, check if a ship was near to being clicked on
         if(ptr == null){
             for(Ship s : g.ships.values()){
-                if(s.pos.dst(adjX, adjY) < s.model.getPaddedLogicalRadius()){
-                    ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+                if(g.fogTimer > 0 || s.isShowingThroughFog()) {
+                    if (s.pos.dst(adjX, adjY) < s.model.getPaddedLogicalRadius()) {
+                        ptr = new EntPtr(Entity.Type.Ship, s.id, g.id, false);
+                    }
                 }
             }
         }

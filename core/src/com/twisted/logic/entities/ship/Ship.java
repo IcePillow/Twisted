@@ -8,12 +8,15 @@ import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.Faction;
 import com.twisted.logic.entities.attach.*;
 import com.twisted.net.msg.gameUpdate.MAddShip;
+import com.twisted.util.Quirk;
 
 public abstract class Ship extends Entity {
 
     /* Graphics (clientside) */
 
     public Polygon polygon; //used for click detection
+
+    public boolean exitingWarpCosmeticExists;
 
     /* Logic (serverside) */
 
@@ -25,11 +28,6 @@ public abstract class Ship extends Entity {
     public Vector2 moveTargetPos;
     public EntPtr moveTargetEnt; //used for orbiting
     public float moveRelativeDist; //used for orbit radius
-
-    //warping
-    public int warpSourceGrid;
-    public int warpDestGrid;
-    public Vector2 warpLandPos;
 
     /* State */
 
@@ -54,6 +52,11 @@ public abstract class Ship extends Entity {
     public Vector2 warpPos; //meaningless unless warping==InWarp
     public EntPtr warpTarget;
 
+    //warping details
+    public int warpSourceGrid;
+    public Vector2 warpLandPos;
+    public int warpDestGrid;
+
     //attachments
     public Weapon[] weapons;
 
@@ -72,7 +75,7 @@ public abstract class Ship extends Entity {
         this.vel = new Vector2(0, 0);
         this.rot = 0;
         this.docked = docked;
-        this.polygon = new Polygon(this.model.vertices); //TODO make clientside only
+        this.polygon = new Polygon(this.model.vertices);
 
         //command data
         this.moveDescription = "Stationary";
@@ -92,23 +95,32 @@ public abstract class Ship extends Entity {
         for(int i=0; i<this.weapons.length; i++){
             switch(model.weapons[i].getType()){
                 case Blaster:
-                    this.weapons[i] = new Blaster(this, (Blaster.Model) model.weapons[i]);
+                    this.weapons[i] = new Blaster(this,
+                            new Vector2(model.weaponMounts[2*i], model.weaponMounts[2*i+1]),
+                            (Blaster.Model) model.weapons[i]);
                     break;
                 case Laser:
-                    this.weapons[i] = new Laser(this, (Laser.Model) model.weapons[i]);
+                    this.weapons[i] = new Laser(this,
+                            new Vector2(model.weaponMounts[2*i], model.weaponMounts[2*i+1]),
+                            (Laser.Model) model.weapons[i]);
                     break;
                 case StationTrans:
-                    this.weapons[i] = new StationTrans(this, (StationTrans.Model) model.weapons[i]);
+                    this.weapons[i] = new StationTrans(this,
+                            new Vector2(model.weaponMounts[2*i], model.weaponMounts[2*i+1]),
+                            (StationTrans.Model) model.weapons[i]);
                     break;
                 case Beacon:
-                    this.weapons[i] = new Beacon(this, (Beacon.Model) model.weapons[i]);
+                    this.weapons[i] = new Beacon(this,
+                            new Vector2(model.weaponMounts[2*i], model.weaponMounts[2*i+1]),
+                            (Beacon.Model) model.weapons[i]);
                     break;
                 case Doomsday:
-                    this.weapons[i] = new Doomsday(this, (Doomsday.Model) model.weapons[i]);
+                    this.weapons[i] = new Doomsday(this,
+                            new Vector2(model.weaponMounts[2*i], model.weaponMounts[2*i+1]),
+                            (Doomsday.Model) model.weapons[i]);
                     break;
                 default:
-                    System.out.println("Unknown weapon type");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.UnknownGameData).print();
             }
         }
 
@@ -134,8 +146,7 @@ public abstract class Ship extends Entity {
             case Titan:
                 return new Titan(msg.model, msg.shipId, msg.grid, msg.ownerId, msg.docked);
             default:
-                System.out.println("Unexpected ship tier");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }
@@ -149,14 +160,8 @@ public abstract class Ship extends Entity {
     }
     @Override
     public String getFleetName(){
-        switch(this.model){
-            case Alke:
-                return this.model.name();
-            default:
-                System.out.println("Unexpected type");
-                new Exception().printStackTrace();
-                return null;
-        }
+        //TODO see if this needs to be changed for any of the ship names
+        return this.model.name();
     }
 
 
@@ -272,6 +277,10 @@ public abstract class Ship extends Entity {
     public float getSigRadius(){
         return model.tier.sigRadius;
     }
+    @Override
+    public boolean isShowingThroughFog(){
+        return isValidBeacon();
+    }
 
 
     /* Enums */
@@ -306,33 +315,38 @@ public abstract class Ship extends Entity {
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
                 1.4f*0.0849f, 0.9f, 0.4f, 3,
                 new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
-                200, 2
+                new float[]{-0.03f,0, 0.03f,0},
+                200, 2, new Vector2(0, -0.06f)
         ),
         Alke(Tier.Frigate, Faction.Republic,
                 new float[]{-0.06f,-0.06f,  0,-0.03f,  0.06f,-0.06f,  0,0.06f},
                 1.4f*0.0849f, 0.8f, 0.4f, 6,
                 new Weapon.Model[]{Blaster.Model.Small, Blaster.Model.Small},
-                200, 2
+                new float[]{-0.03f,0, 0.03f,0},
+                200, 2, new Vector2(0, -0.06f)
         ),
         Helios(Tier.Cruiser, Faction.Republic,
                 new float[]{0,0.15f,  0.12f,-0.02f,  0,-0.12f,  -0.12f,-0.02f},
                 1.3f*0.15f, 0.4f, 0.2f, 10,
                 new Weapon.Model[]{Blaster.Model.Medium, Blaster.Model.Medium, Blaster.Model.Medium},
-                100, 4
+                new float[]{-0.6f,0.65f, 0,0.15f, 0.6f,0.65f},
+                100, 4, new Vector2(0, -0.16f)
         ),
         Themis(Tier.Battleship, Faction.Republic,
                 new float[]{0,0.252f,  0.144f,-0.036f,  0.096f,-0.096f,  0.144f,-0.144f,  0.048f,-0.144f,
                             0,-0.204f,  -0.048f,-0.144f,  -0.144f,-0.144f,  -0.096f,-0.096f,  -0.144f,-0.036f},
                 1.2f*0.25f, 0.18f, 0.1f, 16,
                 new Weapon.Model[]{Blaster.Model.Large, Laser.Model.Large, Beacon.Model.Medium},
-                50, 10
+                new float[]{-0.072f,0.108f, 0,0.252f, 0,0.252f},
+                50, 10, new Vector2(0, -0.234f)
         ),
         Heron(Tier.Barge, Faction.Federation,
                 new float[]{-0.16f,-0.2f,  0f,-0.12f,  0.16f,-0.2f,
                             0.16f,0.14f,  0.12f,0.18f,  -0.12f,0.18f,  -0.16f,0.14f},
                 1.2f*0.25f, 0.1f, 0.02f, 10,
                 new Weapon.Model[]{StationTrans.Model.Medium},
-                40, 20
+                new float[]{0,0.18f},
+                40, 20, new Vector2(0, -0.16f)
         ),
         Nyx(Tier.Titan, Faction.Republic,
                 new float[]{-0.2f,-0.45f,  -0.075f,-0.45f,  0f,-0.5f,  0.075f,-0.45f,  0.2f,-0.45f,  //base
@@ -342,13 +356,18 @@ public abstract class Ship extends Entity {
                 },
                 1.1f*0.5f, 0.06f, 0.02f,20,
                 new Weapon.Model[]{Doomsday.Model.Capital},
-                10, 60
+                new float[]{0,0.34f},
+                10, 60, new Vector2(0, -0.53f)
         );
 
         //data methods from entity
         @Override
         public float[] getVertices(){
             return vertices;
+        }
+        @Override
+        public float getLogicalRadius(){
+            return logicalRadius;
         }
         @Override
         public float getPaddedLogicalRadius() {
@@ -367,13 +386,13 @@ public abstract class Ship extends Entity {
         public final Tier tier;
         public final Faction faction;
         public final float[] vertices;
-        public final float paddedLogicalRadius;
-        public final float maxSpeed;
-        public final float maxAccel;
+        public final float logicalRadius, paddedLogicalRadius;
+        public final float maxSpeed, maxAccel;
         public final int maxHealth;
         public final Weapon.Model[] weapons;
-        public final float warpSpeed;
-        public final float warpChargeTime;
+        private final float[] weaponMounts;
+        public final float warpSpeed, warpChargeTime;
+        public final Vector2 warpSource;
 
         //tier reflection
         public float getDockedRegenMult(){
@@ -382,10 +401,12 @@ public abstract class Ship extends Entity {
 
         /**
          * Constructor
+         * @param vertices This is in visual coordinates where 0 is +y.
+         * @param weaponMounts This is in visual coordinates where 0 is +y.
          */
         Model(Tier tier, Faction faction, float[] vertices, float paddedLogicalRadius, float maxSpeed,
-              float maxAccel, int maxHealth, Weapon.Model[] weapons, float warpSpeed,
-              float warpChargeTime){
+              float maxAccel, int maxHealth, Weapon.Model[] weapons, float[] weaponMounts,
+              float warpSpeed, float warpChargeTime, Vector2 warpSource){
             //copy
             this.tier = tier;
             this.faction = faction;
@@ -395,8 +416,19 @@ public abstract class Ship extends Entity {
             this.maxAccel = maxAccel;
             this.maxHealth = maxHealth;
             this.weapons = weapons;
+            this.weaponMounts = weaponMounts;
             this.warpSpeed = warpSpeed;
             this.warpChargeTime = warpChargeTime;
+            this.warpSource = warpSource;
+
+            //calculate
+            float r=0;
+            float t;
+            for(int i=0; i<vertices.length; i+=2){
+                t = (float) Math.sqrt(vertices[i]*vertices[i] + vertices[i+1]*vertices[i+1]);
+                if (t > r) r = t;
+            }
+            this.logicalRadius = r;
         }
     }
 

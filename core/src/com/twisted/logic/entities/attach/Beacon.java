@@ -1,8 +1,8 @@
 package com.twisted.logic.entities.attach;
 
-import com.twisted.Asset;
+import com.badlogic.gdx.math.Vector2;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.Grid;
-import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.host.game.ServerGameState;
 
@@ -10,8 +10,8 @@ public class Beacon extends TargetlessWeapon{
 
     public final Model model;
 
-    public Beacon(Ship attached, Model model) {
-        super(attached);
+    public Beacon(Ship attached, Vector2 sourcePoint, Model model) {
+        super(attached, sourcePoint);
 
         this.model = model;
     }

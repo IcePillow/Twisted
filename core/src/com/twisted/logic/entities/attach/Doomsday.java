@@ -1,7 +1,8 @@
 package com.twisted.logic.entities.attach;
 
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Asset;
+import com.twisted.logic.mobs.DoomsdayBlast;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
@@ -10,17 +11,17 @@ import com.twisted.logic.host.game.ServerGameState;
 public class Doomsday extends TargetGrdWeapon {
 
     public final Model model;
-    public Vector2 ground;
+    public Vector2 groundTarget;
 
 
     /**
      * Constructor
      */
-    public Doomsday(Ship attached, Model model) {
-        super(attached);
+    public Doomsday(Ship attached, Vector2 sourcePoint, Model model) {
+        super(attached, sourcePoint);
 
         this.model = model;
-        this.ground = new Vector2();
+        this.groundTarget = new Vector2();
     }
 
 
@@ -40,20 +41,12 @@ public class Doomsday extends TargetGrdWeapon {
 
             //fire
             if(timer < 0){
-                //deal damage
-                for(Entity ent : grid.entitiesInSpace()){
-                    float dist = ent.pos.dst(ground);
-                    if(!(ent.matches(attached) || dist > model.outerBlastRadius)){
-                        //inside inner radius
-                        if(dist < model.innerBlastRadius){
-                            ent.takeDamage(grid, attached.owner, model.maxDmg);
-                        }
-                        //inside outer radius
-                        else {
-                            ent.takeDamage(grid, attached.owner, outerDamageCalc(dist));
-                        }
-                    }
-                }
+                //create doomsday blast
+                DoomsdayBlast mob = new DoomsdayBlast(DoomsdayBlast.chooseModel(this),
+                        state.useNextMobileId(), attached.owner,
+                        mountPoint.cpy().rotateRad(attached.rot - (float)Math.PI/2).add(attached.pos),
+                        this, groundTarget);
+                grid.mobiles.put(mob.id, mob);
 
                 //deactivate
                 cooldown = model.coolTime;
@@ -71,26 +64,14 @@ public class Doomsday extends TargetGrdWeapon {
 
         //time and target updating
         timer = model.chargeTime;
-        ground.set(location);
+        groundTarget.set(location);
 
         //orient
-        attached.rot = (float)Math.atan2(ground.y-attached.pos.y, ground.x-attached.pos.x);
+        attached.rot = (float)Math.atan2(groundTarget.y-attached.pos.y, groundTarget.x-attached.pos.x);
     }
     @Override
     public void deactivate(){
         super.deactivate();
-    }
-
-
-    /* Utility Methods */
-
-    private float outerDamageCalc(float distance){
-        float p = (distance-model.innerBlastRadius) / (model.outerBlastRadius-model.innerBlastRadius);
-        p = 1 - p;
-
-        float dmgRatio = 4f/3f * ((1f/(float)Math.pow(p+1, 2)) - 1f/4f);
-
-        return dmgRatio * (model.maxDmg-model.minDmg) + model.minDmg;
     }
 
 
@@ -124,10 +105,10 @@ public class Doomsday extends TargetGrdWeapon {
 
     public enum Model implements Weapon.Model {
         Capital(5, 0.8f, 1.5f,
-                3, 60, 50, 10);
+                3, 60, 50, 10, 1.8f);
 
         //data
-        public final float range;
+        public final float range, flightSpd;
         public final float innerBlastRadius, outerBlastRadius;
         public final float chargeTime, coolTime;
         public final float maxDmg, minDmg;
@@ -150,7 +131,7 @@ public class Doomsday extends TargetGrdWeapon {
          * @param coolTime Allowed time between blasts.
          */
         Model(float range, float innerBlastRadius, float outerBlastRadius, float chargeTime, float coolTime,
-              float maxDmg, float minDmg){
+              float maxDmg, float minDmg, float flightSpd){
             this.range = range;
             this.innerBlastRadius = innerBlastRadius;
             this.outerBlastRadius = outerBlastRadius;
@@ -158,6 +139,7 @@ public class Doomsday extends TargetGrdWeapon {
             this.coolTime = coolTime;
             this.maxDmg = maxDmg;
             this.minDmg = minDmg;
+            this.flightSpd = flightSpd;
         }
     }
 }

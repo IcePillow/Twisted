@@ -6,7 +6,7 @@ import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.lobby.SecTeaser;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;

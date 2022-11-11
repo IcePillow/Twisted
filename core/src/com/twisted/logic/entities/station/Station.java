@@ -2,10 +2,11 @@ package com.twisted.logic.entities.station;
 
 import com.badlogic.gdx.math.Polygon;
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.*;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
+import com.twisted.util.Quirk;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -97,8 +98,7 @@ public abstract class Station extends Entity {
             case RUBBLE:
                 return null;
             default:
-                System.out.println("Unexpected station stage");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }
@@ -120,8 +120,7 @@ public abstract class Station extends Entity {
             case Harvester:
                 return "Harves " + gridNick;
             default:
-                System.out.println("Unexpected type");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }
@@ -185,14 +184,21 @@ public abstract class Station extends Entity {
 
     /* State Methods */
 
+    @Override
     public boolean isDocked(){
         return false;
     }
+    @Override
     public boolean isValidBeacon(){
         return true;
     }
+    @Override
     public float getSigRadius(){
         return 30;
+    }
+    @Override
+    public boolean isShowingThroughFog(){
+        return true;
     }
 
 
@@ -238,6 +244,10 @@ public abstract class Station extends Entity {
         @Override
         public float[] getVertices() {
             return vertices;
+        }
+        @Override
+        public float getLogicalRadius(){
+            return 1.28f;
         }
         @Override
         public float getPaddedLogicalRadius(){

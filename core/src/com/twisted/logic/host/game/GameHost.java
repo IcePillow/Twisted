@@ -1,6 +1,6 @@
 package com.twisted.logic.host.game;
 
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 import com.twisted.logic.Player;
 import com.twisted.logic.entities.ship.*;
 import com.twisted.net.msg.*;
@@ -10,6 +10,7 @@ import com.twisted.net.msg.lobby.MGameStart;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.server.Server;
 import com.twisted.net.server.ServerContact;
+import com.twisted.util.Quirk;
 
 import java.util.*;
 
@@ -110,14 +111,14 @@ public class GameHost implements ServerContact {
         for (Player p : state.players.values()){
             idToName.put(p.getId(), p.name);
         }
-        HashMap<Integer, Paint> idToFile = new HashMap<>();
+        HashMap<Integer, Paint.Collect> idToFile = new HashMap<>();
         int i = 0;
         for(Player p : state.players.values()){
             if(i==0){
-                idToFile.put(p.getId(), Paint.PL_BLUE);
+                idToFile.put(p.getId(), Paint.Collect.BLUE);
             }
             else if(i==1){
-                idToFile.put(p.getId(), Paint.PL_ORANGE);
+                idToFile.put(p.getId(), Paint.Collect.ORANGE);
             }
             else break;
             i++;
@@ -154,7 +155,7 @@ public class GameHost implements ServerContact {
         server.broadcastMessage(MAddShip.createFromShipBody(s2));
 
         Ship s3 = new Battleship(Ship.Model.Themis, state.useNextShipId(), 0, 1, false);
-        s3.pos.set(0, 2.5f);
+        s3.pos.set(-2, 2.5f);
         state.grids[0].ships.put(s3.id, s3);
         server.broadcastMessage(MAddShip.createFromShipBody(s3));
 
@@ -169,6 +170,19 @@ public class GameHost implements ServerContact {
         s5.rot = (float) -Math.PI/2;
         state.grids[0].ships.put(s5.id, s5);
         server.broadcastMessage(MAddShip.createFromShipBody(s5));
+
+        //off grid
+        Ship s6 = new Battleship(Ship.Model.Themis, state.useNextShipId(), 6, 2, false);
+        s6.pos.set(1.5f, 1.5f);
+        s6.rot = (float) -Math.PI/2;
+        state.grids[6].ships.put(s6.id, s6);
+        server.broadcastMessage(MAddShip.createFromShipBody(s6));
+
+        Ship s7 = new Battleship(Ship.Model.Themis, state.useNextShipId(), 6, 2, false);
+        s7.pos.set(2, 2);
+        s7.rot = (float) -Math.PI/2;
+        state.grids[6].ships.put(s7.id, s7);
+        server.broadcastMessage(MAddShip.createFromShipBody(s7));
 
         //gallery
         Ship alke = new Frigate(Ship.Model.Alke, state.useNextShipId(), 0, 2, false);
@@ -271,11 +285,11 @@ public class GameHost implements ServerContact {
                         Thread.sleep(sleepTime);
                     }
                     catch (InterruptedException e) {
-                        e.printStackTrace();
+                        new Quirk(Quirk.Q.ErrorDuringThreadSleep).print();
                     }
                 }
                 else {
-                    System.out.println("[Warning] Game loop sleep time was " + sleepTime);
+                    new Quirk(Quirk.Q.ErrorDuringThreadSleep).printWithMessage("Game loop sleep time was " + sleepTime);
                 }
             }
 

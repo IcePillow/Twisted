@@ -1,7 +1,7 @@
 package com.twisted.local.game.state;
 
 import com.badlogic.gdx.graphics.Color;
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 import com.twisted.logic.descriptors.CurrentJob;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
@@ -48,7 +48,8 @@ public class ClientGameState {
     /**
      * Basic constructor.
      */
-    public ClientGameState(HashMap<Integer, String> playerNames, HashMap<Integer, Paint> playerFiles){
+    public ClientGameState(HashMap<Integer, String> playerNames,
+                           HashMap<Integer, Paint.Collect> playerFiles){
         this.readyToRender = false;
         this.ending = false;
 
@@ -76,42 +77,49 @@ public class ClientGameState {
      * Finds an entity in the state given the pointer.
      */
     public Entity findEntity(EntPtr ptr){
-        if(ptr == null){
-            return null;
+        if(ptr == null) return null;
+        return findEntity(ptr.grid, ptr.type, ptr.id, ptr.docked);
+    }
+    /**
+     * Finds an entity in the state.
+     */
+    public Entity findEntity(int grid, Entity.Type type, int id, boolean docked){
+        if(type == Entity.Type.Station){
+            return grids[grid].station;
         }
-        else if(ptr.type == Entity.Type.Station){
-            return grids[ptr.grid].station;
-        }
-        else if(ptr.type == Entity.Type.Ship){
+        else if(type == Entity.Type.Ship){
             //in space
-            if(ptr.grid != -1 && !ptr.docked){
-                return grids[ptr.grid].ships.get(ptr.id);
+            if(grid != -1 && !docked){
+                return grids[grid].ships.get(id);
             }
             //docked
-            else if(ptr.grid != -1){
-                return grids[ptr.grid].station.dockedShips.get(ptr.id);
+            else if(grid != -1){
+                return grids[grid].station.dockedShips.get(id);
             }
             //in warp
             else {
-                return inWarp.get(ptr.id);
+                return inWarp.get(id);
             }
         }
 
         return null;
     }
 
-    /**
-     * Gets the color for a given owner id.
-     */
-    public Color findColorForOwner(int owner){
+    public Paint.Collect findPaintCollectForOwner(int owner){
         GamePlayer player = players.get(owner);
 
         if(player != null){
-            return player.getPaint().col;
+            return player.getCollect();
         }
         else {
-            return Paint.PL_GRAY.col;
+            return Paint.Collect.GRAY;
         }
+    }
+    /**
+     * Gets the color for a given owner id.
+     */
+    public Color findBaseColorForOwner(int owner){
+        return findPaintCollectForOwner(owner).base.c;
     }
 
 }

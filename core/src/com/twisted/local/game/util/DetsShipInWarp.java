@@ -1,23 +1,19 @@
 package com.twisted.local.game.util;
 
 import com.badlogic.gdx.Gdx;
-import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
-import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Asset;
-import com.twisted.Main;
+import com.twisted.util.Asset;
 import com.twisted.local.game.SecDetails;
-import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
+import com.twisted.util.Quirk;
 
 public class DetsShipInWarp extends DetsGroup {
 
@@ -114,15 +110,14 @@ public class DetsShipInWarp extends DetsGroup {
     public void selectEntity(Entity entity) {
         //copy entity
         if(!(entity instanceof Ship)){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.Inaccessible).print();
             return;
         }
         sel = (Ship) entity;
 
         //update the name
         shipName.setText(sel.entityModel().toString());
-        shipName.setColor(state.players.get(sel.owner).getPaint().col);
+        shipName.setColor(state.players.get(sel.owner).getCollect().base.c);
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
     }
 

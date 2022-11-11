@@ -8,14 +8,14 @@ import com.twisted.logic.entities.station.Station;
 public class WeaponSum implements Summary {
 
     //required data
-    private final boolean active;
-    private final float locking;
-    private final float timer;
-    private final float cooldown;
-    private final EntPtr target;
+    public final boolean active;
+    public final float locking;
+    public final float timer;
+    public final float cooldown;
+    public final EntPtr target;
 
     //optional data
-    private Station.Model cargo;
+    public Station.Model cargo;
 
     /**
      * Constructor

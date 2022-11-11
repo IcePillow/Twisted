@@ -23,7 +23,7 @@ public class GridSum implements Summary{
 
 
     public static GridSum createFromGrid(Grid g){
-        return new GridSum(g.pos, g.nickname, g.radius, g.resourceGen);
+        return new GridSum(g.loc, g.nickname, g.radius, g.resourceGen);
     }
 
     public Grid createGridFromThis(int id){

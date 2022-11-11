@@ -1,7 +1,7 @@
 package com.twisted.logic.entities.attach;
 
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.descriptors.events.EvStationStageChange;
 import com.twisted.logic.entities.Entity;
@@ -23,8 +23,8 @@ public class StationTrans extends TargetedWeapon {
 
     /* Construction */
 
-    public StationTrans(Ship attached, Model model){
-        super(attached);
+    public StationTrans(Ship attached, Vector2 sourcePoint, Model model){
+        super(attached,sourcePoint);
 
         this.model = model;
 

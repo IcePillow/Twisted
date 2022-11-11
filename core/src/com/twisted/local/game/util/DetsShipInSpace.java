@@ -11,13 +11,14 @@ import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
 import com.twisted.local.game.SecDetails;
 import com.twisted.local.lib.ProgressButton;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
+import com.twisted.util.Quirk;
 
 public class DetsShipInSpace extends DetsGroup {
 
@@ -303,15 +304,14 @@ public class DetsShipInSpace extends DetsGroup {
     public void selectEntity(Entity entity) {
         //copy entity
         if(!(entity instanceof Ship)){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.Inaccessible).print();
             return;
         }
         sel = (Ship) entity;
 
         //update the name and grid and icon
         shipName.setText(sel.model.toString());
-        shipName.setColor(state.findColorForOwner(sel.owner));
+        shipName.setColor(state.findBaseColorForOwner(sel.owner));
         shipGrid.setText("[" + state.grids[sel.grid].nickname  +"]");
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
@@ -387,7 +387,7 @@ public class DetsShipInSpace extends DetsGroup {
                 targetIconImages[i].setVisible(true);
                 targetTimerLabels[i].setVisible(false);
 
-                targetIconImages[i].setColor(state.findColorForOwner(cacheWeaponTarget(i).owner));
+                targetIconImages[i].setColor(state.findBaseColorForOwner(cacheWeaponTarget(i).owner));
                 int iSave = i;
                 Gdx.app.postRunnable(() -> targetIconImages[iSave].setDrawable(Asset.retrieveEntityIcon(
                         cacheWeaponTarget(iSave).entityModel().getTier())));
@@ -421,6 +421,7 @@ public class DetsShipInSpace extends DetsGroup {
         float[] rounded = sel.roundedPos(1);
         shipPosition.setText("X = " + rounded[0] + "\nY = " + rounded[1]);
         rounded = sel.roundedBear(2);
+        //TODO figure out why this sometimes throws ArrayIndexOutOfBoundsException from StringBuilder
         shipVelocity.setText("Sp = " + rounded[0] + "\nAg = " + (int) rounded[1]);
     }
     @Override

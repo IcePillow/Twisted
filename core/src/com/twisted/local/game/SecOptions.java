@@ -6,7 +6,7 @@ import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
 import com.twisted.local.lib.RectTextButton;
 import com.twisted.net.msg.gameUpdate.MGameEnd;

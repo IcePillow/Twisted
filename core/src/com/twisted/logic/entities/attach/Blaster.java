@@ -1,6 +1,7 @@
 package com.twisted.logic.entities.attach;
 
-import com.twisted.Asset;
+import com.badlogic.gdx.math.Vector2;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
@@ -14,8 +15,8 @@ public class Blaster extends TargetedWeapon {
     /**
      * Constructor
      */
-    public Blaster(Ship attached, Model model) {
-        super(attached);
+    public Blaster(Ship attached, Vector2 sourcePoint, Model model) {
+        super(attached, sourcePoint);
 
         this.model = model;
         this.active = false;
@@ -43,7 +44,9 @@ public class Blaster extends TargetedWeapon {
             else if(isLocked()) {
                 //fire
                 if(timer <= 0){
-                    BlasterBolt bolt = new BlasterBolt(state.useNextMobileId(), attached.pos.cpy(),
+                    BlasterBolt bolt = new BlasterBolt(BlasterBolt.chooseModel(this),
+                            state.useNextMobileId(), attached.owner,
+                            mountPoint.cpy().rotateRad(attached.rot - (float)Math.PI/2).add(attached.pos),
                             this, target);
                     grid.mobiles.put(bolt.id, bolt);
 

@@ -13,7 +13,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
 
 public class RectTextButton extends Group {

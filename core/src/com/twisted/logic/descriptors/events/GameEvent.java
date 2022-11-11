@@ -1,15 +1,9 @@
 package com.twisted.logic.descriptors.events;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
-import com.badlogic.gdx.scenes.scene2d.Actor;
-import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.badlogic.gdx.utils.Align;
-import com.twisted.Asset;
-import com.twisted.Main;
+import com.twisted.util.Asset;
 import com.twisted.local.game.state.ClientGameState;
 
 import java.io.Serializable;

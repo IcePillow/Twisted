@@ -17,10 +17,15 @@ import java.util.Map;
  */
 public class Grid implements Serializable {
 
+    /* Clientside */
+
+    public float fogTimer;
+
+
     /* Constants */
 
     public final int id; //this is also the index in the grid array
-    public final Vector2 pos;
+    public final Vector2 loc; //location (named to not confuse with position)
     public final String nickname;
     public final float radius;
     public final float[] resourceGen;
@@ -39,9 +44,9 @@ public class Grid implements Serializable {
      * Constructor
      * @param resourceGen Array of length Gem.NUM_OF_GEMS
      */
-    public Grid(int id, Vector2 pos, String nickname, float radius, float[] resourceGen){
+    public Grid(int id, Vector2 loc, String nickname, float radius, float[] resourceGen){
         this.id = id;
-        this.pos = pos;
+        this.loc = loc;
         this.nickname = nickname;
         this.radius = radius;
         this.resourceGen = resourceGen;
@@ -71,6 +76,13 @@ public class Grid implements Serializable {
         entities.add(station);
 
         return entities;
+    }
+
+    /**
+     * Client side only. Determines whether an entity is showing taking into account fog.
+     */
+    public boolean entityShowing(Entity entity){
+        return fogTimer > 0 || entity.isShowingThroughFog();
     }
 
 }

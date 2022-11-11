@@ -1,6 +1,7 @@
 package com.twisted.logic.entities.attach;
 
-import com.twisted.Asset;
+import com.badlogic.gdx.math.Vector2;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
@@ -10,22 +11,17 @@ public class Laser extends TargetedWeapon{
 
     public final Model model;
 
-    //graphics only
-    public boolean cosmeticBeamExists;
-
     //state
     private float curDmg;
 
     /**
      * Constructor
      */
-    public Laser(Ship attached, Model model){
-        super(attached);
+    public Laser(Ship attached, Vector2 sourcePoint, Model model){
+        super(attached,sourcePoint);
 
         this.model = model;
         this.active = false;
-
-        this.cosmeticBeamExists = false;
     }
 
 

@@ -1,9 +1,8 @@
 Work
     Priority
     Large scale
-        TODO replace polygons with better art
         TODO set correct-ish values for balanced game
-        TODO fog of war (clientside)
+        TODO bulk commands to ships in fleet
     Ui changes
         TODO shortcut keys for ship commands
         TODO sorting in SecFleet based on conditions other than position
@@ -13,16 +12,14 @@ Work
         TODO visual indicators for station entering different stages
         TODO visual indicator for station transport deploying
         TODO figure out what happens if a user has a screen larger than necessary (no over-scaling)
-        TODO different explosions for different ships
-        TODO improve the laser graphics
-        TODO visuals for a ship charging and entering warp
-        TODO visuals for a ship lighting a beacon
-        TODO visuals for a doomsday being fired
+    Art
+        TODO more varied explosions for different ships
     Gameplay
         TODO add more ship models
-        TODO add (large) resource limits to stations
+        TODO ships lighting beacons show through fog
     Bugs
     Refactoring
         TODO break up pieces of game hosting code (like ShipEntersWarp) into methods
+        TODO refactor lobby MCommand into different kinds of messages decided on clientside
     Misc
         TODO make sure everything disposed in each screen

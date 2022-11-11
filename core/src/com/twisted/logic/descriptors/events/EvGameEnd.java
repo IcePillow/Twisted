@@ -3,8 +3,7 @@ package com.twisted.logic.descriptors.events;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.game.state.ClientGameState;
 
 public class EvGameEnd extends GameEvent {
@@ -31,7 +30,7 @@ public class EvGameEnd extends GameEvent {
         if(winnerId != -1){
             //name label
             Label label1 = new Label(state.players.get(winnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-            label1.setColor(state.players.get(winnerId).getPaint().col);
+            label1.setColor(state.players.get(winnerId).getCollect().base.c);
             group.addActor(label1);
 
             //text label

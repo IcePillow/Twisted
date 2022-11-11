@@ -7,7 +7,7 @@ import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.scenes.scene2d.*;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
 import com.badlogic.gdx.utils.viewport.FitViewport;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
 import com.twisted.logic.host.lobby.LobbyHost;
 import com.twisted.net.client.Client;
@@ -17,6 +17,7 @@ import com.twisted.net.msg.lobby.*;
 import com.twisted.net.msg.remaining.MSceneChange;
 import com.twisted.net.msg.remaining.MChat;
 import com.twisted.local.game.Game;
+import com.twisted.util.Quirk;
 
 import java.util.Arrays;
 
@@ -165,8 +166,7 @@ public class Lobby implements Screen, ClientContact {
                 );
             }
             else {
-                System.out.println("[Error] Unexpected scene change.");
-                System.out.println(Arrays.toString(new Exception().getStackTrace()));
+                new Quirk(Quirk.Q.UnknownClientDataSpecification).print();
             }
         }
         else if(msg instanceof MLobbyPlayerChange){
@@ -211,8 +211,7 @@ public class Lobby implements Screen, ClientContact {
                     sideSec.settingMap(m.value.toString());
                     break;
                 default:
-                    System.out.println("Unexpected setting type");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.UnknownClientDataSpecification).print();
             }
         }
     }
@@ -355,8 +354,7 @@ public class Lobby implements Screen, ClientContact {
                 case NONE:
                     break;
                 default:
-                    System.out.println("Unrecognized command");
-                    new Exception().printStackTrace();
+                    new Quirk(Quirk.Q.UnknownClientDataSpecification).print();
             }
         }
         //basic chats

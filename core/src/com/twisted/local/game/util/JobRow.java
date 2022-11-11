@@ -3,7 +3,7 @@ package com.twisted.local.game.util;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 
 public class JobRow extends Table {
 

@@ -2,7 +2,6 @@ package com.twisted;
 
 import com.badlogic.gdx.Game;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.g2d.GlyphLayout;
 import com.twisted.local.lobby.Lobby;
 

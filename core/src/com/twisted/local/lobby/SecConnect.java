@@ -3,7 +3,7 @@ package com.twisted.local.lobby;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.TextField;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.lib.RectTextButton;
 import com.twisted.local.lib.Ribbon;
 

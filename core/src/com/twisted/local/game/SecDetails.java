@@ -7,7 +7,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.local.game.util.*;
 import com.twisted.local.lib.Ribbon;
@@ -18,6 +18,7 @@ import com.twisted.logic.entities.attach.Weapon;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameReq.*;
+import com.twisted.util.Quirk;
 
 import java.util.HashMap;
 
@@ -132,8 +133,7 @@ public class SecDetails extends Sector {
         Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
 
         if(ent == null){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.MissingDataAfterInput).print();
             return;
         }
         else if(ent instanceof Ship){
@@ -247,8 +247,7 @@ public class SecDetails extends Sector {
     void minimapClickEvent(int grid){
         Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
         if(ent == null){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.MissingDataAfterInput).print();
             return;
         }
         else if(ent instanceof Ship){
@@ -260,8 +259,8 @@ public class SecDetails extends Sector {
                 }
                 else if(externalWait == ExternalWait.ALIGN){
                     //calculate the angle
-                    Vector2 g2 = state.grids[grid].pos;
-                    Vector2 g1 = state.grids[ent.grid].pos;
+                    Vector2 g2 = state.grids[grid].loc;
+                    Vector2 g1 = state.grids[ent.grid].loc;
                     float angle = (float) Math.atan2(g2.y-g1.y, g2.x-g1.x);
 
                     //create the request
@@ -285,8 +284,7 @@ public class SecDetails extends Sector {
         Entity ent = displayGroups.get(activeDisplay).getSelectedEntity();
 
         if(ent == null){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.MissingDataAfterInput).print();
             return;
         }
         else if(ent instanceof Ship){

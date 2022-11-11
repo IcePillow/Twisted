@@ -1,6 +1,5 @@
 package com.twisted.local.lobby;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -11,8 +10,8 @@ import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
-import com.twisted.Asset;
-import com.twisted.Paint;
+import com.twisted.util.Asset;
+import com.twisted.util.Paint;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lobby.util.TeaserModelList;
 import com.twisted.logic.entities.Entity;
@@ -206,7 +205,7 @@ public class SecTeaser extends Sector {
     private void selectEntityTier(Entity.Tier tier, Image tierImage){
         //update the image colors
         if(selectTierImage != null) selectTierImage.setColor(Color.GRAY);
-        tierImage.setColor(Paint.VERY_LIGHT_GRAY.col);
+        tierImage.setColor(Paint.VERY_LIGHT_GRAY.c);
         selectTierImage = tierImage;
 
         //model bar
@@ -225,7 +224,7 @@ public class SecTeaser extends Sector {
     public void selectEntityModel(Entity.Model model, Image modelImage){
         //update the image
         if(selectModelImage != null) selectModelImage.setColor(Color.GRAY);
-        if(modelImage != null) modelImage.setColor(Paint.VERY_LIGHT_GRAY.col);
+        if(modelImage != null) modelImage.setColor(Paint.VERY_LIGHT_GRAY.c);
         selectModelImage = modelImage;
 
         if(model == null){

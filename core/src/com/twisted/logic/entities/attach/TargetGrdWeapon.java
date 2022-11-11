@@ -1,5 +1,6 @@
 package com.twisted.logic.entities.attach;
 
+import com.badlogic.gdx.math.Vector2;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.ship.Ship;
@@ -7,8 +8,8 @@ import com.twisted.logic.host.game.ServerGameState;
 
 public abstract class TargetGrdWeapon extends Weapon {
 
-    protected TargetGrdWeapon(Ship attached) {
-        super(attached);
+    protected TargetGrdWeapon(Ship attached, Vector2 sourcePoint) {
+        super(attached, sourcePoint);
     }
 
 

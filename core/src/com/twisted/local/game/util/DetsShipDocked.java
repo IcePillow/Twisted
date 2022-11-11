@@ -11,8 +11,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ChangeListener;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.Drawable;
 import com.badlogic.gdx.utils.Align;
-import com.twisted.Asset;
-import com.twisted.Main;
+import com.twisted.util.Asset;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Gem;
@@ -23,6 +22,7 @@ import com.twisted.logic.entities.station.Station;
 import com.twisted.logic.entities.attach.StationTrans;
 import com.twisted.net.msg.gameReq.MGemMoveReq;
 import com.twisted.net.msg.gameReq.MPackedStationMoveReq;
+import com.twisted.util.Quirk;
 
 public class DetsShipDocked extends DetsGroup {
 
@@ -315,15 +315,14 @@ public class DetsShipDocked extends DetsGroup {
     public void selectEntity(Entity entity) {
         //copy entity
         if(!(entity instanceof Ship)){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.Inaccessible).print();
             return;
         }
         sel = (Ship) entity;
 
         //update the name, grid, and icon
         shipName.setText(sel.entityModel().toString());
-        shipName.setColor(state.players.get(sel.owner).getPaint().col);
+        shipName.setColor(state.players.get(sel.owner).getCollect().base.c);
         shipGrid.setText("[" + state.grids[sel.grid].nickname + "]");
         shipIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 

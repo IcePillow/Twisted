@@ -1,7 +1,7 @@
 package com.twisted.logic.entities.attach;
 
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Util;
+import com.twisted.util.Util;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
@@ -21,8 +21,8 @@ public abstract class TargetedWeapon extends Weapon {
     }
 
 
-    protected TargetedWeapon(Ship attached) {
-        super(attached);
+    protected TargetedWeapon(Ship attached, Vector2 sourcePoint) {
+        super(attached, sourcePoint);
     }
 
 

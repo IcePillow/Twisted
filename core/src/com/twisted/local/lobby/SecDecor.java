@@ -6,9 +6,9 @@ import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.scenes.scene2d.Group;
 import com.badlogic.gdx.scenes.scene2d.Stage;
 import com.badlogic.gdx.scenes.scene2d.ui.*;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 
 public class SecDecor extends Sector {
 
@@ -52,7 +52,7 @@ public class SecDecor extends Sector {
         shape.begin(ShapeRenderer.ShapeType.Filled);
 
         //draw background
-        shape.setColor(Paint.SPACE.col);
+        shape.setColor(Paint.SPACE.c);
         shape.rect(0, 0, stage.getWidth(), stage.getHeight());
 
         //draw stars
@@ -79,11 +79,11 @@ public class SecDecor extends Sector {
         HorizontalGroup text = new HorizontalGroup();
         group.addActor(text);
         Label firstText = new Label("ARM", Asset.labelStyle(Asset.Avenir.BLACK_48));
-        firstText.setColor(Paint.TITLE_PURPLE.col);
+        firstText.setColor(Paint.TITLE_PURPLE.c);
         text.addActor(firstText);
         Label midText = new Label("A", Asset.labelStyle(Asset.Avenir.BLACK_48));
         midText.setRotation(90);
-        midText.setColor(Paint.TITLE_PURPLE.col);
+        midText.setColor(Paint.TITLE_PURPLE.c);
         Container<Label> midTextCont = new Container<>(midText);
         midTextCont.setTransform(true);
         midTextCont.setOrigin(midText.getWidth()/2f, midText.getHeight()/2f);
@@ -91,7 +91,7 @@ public class SecDecor extends Sector {
         midTextCont.setRotation(180);
         text.addActor(midTextCont);
         Label lastText = new Label("DA", Asset.labelStyle(Asset.Avenir.BLACK_48));
-        lastText.setColor(Paint.TITLE_PURPLE.col);
+        lastText.setColor(Paint.TITLE_PURPLE.c);
         text.addActor(lastText);
 
         //positioning
@@ -100,11 +100,11 @@ public class SecDecor extends Sector {
 
         Image botBar = new Image(Asset.retrieve(Asset.Pixel.WHITE));
         botBar.setBounds(text.getX()-5, -firstText.getHeight()/2f, textWid+10, 5);
-        botBar.setColor(Paint.TITLE_PURPLE.col);
+        botBar.setColor(Paint.TITLE_PURPLE.c);
         group.addActor(botBar);
         Image topBar = new Image(Asset.retrieve(Asset.Pixel.WHITE));
         topBar.setBounds(text.getX()-5, botBar.getY()+firstText.getHeight()-5, textWid+10, 5);
-        topBar.setColor(Paint.TITLE_PURPLE.col);
+        topBar.setColor(Paint.TITLE_PURPLE.c);
         group.addActor(topBar);
 
         return group;

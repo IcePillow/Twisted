@@ -14,9 +14,9 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.Main;
-import com.twisted.Paint;
+import com.twisted.util.Paint;
 import com.twisted.local.lib.Ribbon;
 import com.twisted.local.lib.TogImgButton;
 import com.twisted.logic.descriptors.Grid;
@@ -96,7 +96,7 @@ class SecMinimap extends Sector {
             stationSprites.put(g.station.getId(), image);
 
             //position is (indent + scaled positioning - half the width)
-            image.setPosition(3 + g.pos.x*250f/1000f - 6, 3 + g.pos.y*250f/1000f - 6);
+            image.setPosition(3 + g.loc.x*250f/1000f - 6, 3 + g.loc.y*250f/1000f - 6);
             image.setSize(12, 12);
 
             //load the minimap label
@@ -105,16 +105,16 @@ class SecMinimap extends Sector {
             label.setVisible(false);
             if(image.getX() < 3+label.getWidth()/2f){
                 label.setPosition(
-                        (g.pos.x*250f/1000f-label.getWidth()/2f) + (3+label.getWidth()/2f) - (image.getX()),
-                        g.pos.y*250f/1000f + 8);
+                        (g.loc.x*250f/1000f-label.getWidth()/2f) + (3+label.getWidth()/2f) - (image.getX()),
+                        g.loc.y*250f/1000f + 8);
             }
             else if(image.getX() + label.getWidth()/2f > 248){
                 label.setPosition(
-                        (g.pos.x*250f/1000f-label.getWidth()/2f) - (image.getX()+label.getWidth()/2f) + (248),
-                        g.pos.y*250f/1000f + 8);
+                        (g.loc.x*250f/1000f-label.getWidth()/2f) - (image.getX()+label.getWidth()/2f) + (248),
+                        g.loc.y*250f/1000f + 8);
             }
             else {
-                label.setPosition((g.pos.x*250f/1000f-label.getWidth()/2f), g.pos.y*250f/1000f + 6);
+                label.setPosition((g.loc.x*250f/1000f-label.getWidth()/2f), g.loc.y*250f/1000f + 6);
             }
 
             //add to the minimap group
@@ -145,7 +145,7 @@ class SecMinimap extends Sector {
 
         //move the active square
         Grid g = state.grids[game.getGrid()];
-        activeSquare.setPosition(3 + g.pos.x*250f/1000f - 10, 3 + g.pos.y*250f/1000f - 10);
+        activeSquare.setPosition(3 + g.loc.x*250f/1000f - 10, 3 + g.loc.y*250f/1000f - 10);
     }
     @Override
     void render(float delta, ShapeRenderer shape, SpriteBatch sprite){
@@ -174,7 +174,7 @@ class SecMinimap extends Sector {
                 for(Ship s : state.inWarp.values()){
                     float radius = (s.model.tier==Ship.Tier.Battleship || s.model.tier==Ship.Tier.Titan) ? 1.6f : 1;
 
-                    shape.setColor(state.findColorForOwner(s.owner));
+                    shape.setColor(state.findBaseColorForOwner(s.owner));
                     shape.circle(s.warpPos.x*CON_RECT.width/1000f + CON_RECT.x,
                             s.warpPos.y*CON_RECT.height/1000f + CON_RECT.y,
                             radius);
@@ -305,8 +305,13 @@ class SecMinimap extends Sector {
 
         //draw the system circle
         if(systemGroup.isVisible()){
-            shape.setColor(Paint.SPACE.col);
+            shape.setColor(Paint.SPACE.c);
             shape.circle(0, 0, 125);
+
+            if(grid.fogTimer == 0){
+                shape.setColor(Paint.DEEP_SPACE.c);
+                shape.circle(0, 0, 123);
+            }
         }
 
         shape.end();
@@ -316,7 +321,7 @@ class SecMinimap extends Sector {
 
         //draw the station
         shape.begin(ShapeRenderer.ShapeType.Line);
-        shape.setColor(state.findColorForOwner(grid.station.owner));
+        shape.setColor(state.findBaseColorForOwner(grid.station.owner));
         Polygon stationDrawable = new Polygon(grid.station.polygon.getVertices());
         stationDrawable.scale(sysScale);
         shape.polygon(stationDrawable.getTransformedVertices());
@@ -325,26 +330,32 @@ class SecMinimap extends Sector {
         //draw the ships
         shape.begin(ShapeRenderer.ShapeType.Filled);
         for(Ship s : grid.ships.values()){
-            calcSysPos(s.pos, pos);
-            if(!(Math.abs(s.pos.x) > parent.getWidth()/(2* sysScale)
-                    || Math.abs(s.pos.y) > parent.getWidth()/(2* sysScale))){
-                float radius;
-                switch(s.model.tier){
-                    case Titan:
-                        radius = 2;
-                        break;
-                    case Barge:
-                    case Battleship:
-                        radius = 1.2f;
-                        break;
-                    case Cruiser:
-                    case Frigate:
-                    default:
-                        radius = 0.8f;
-                }
+            //fog check
+            if(grid.fogTimer > 0 || s.isShowingThroughFog()){
+                calcSysPos(s.pos, pos);
+                //position check
+                if(!(Math.abs(s.pos.x) > parent.getWidth()/(2*sysScale)
+                        || Math.abs(s.pos.y) > parent.getWidth()/(2*sysScale))){
+                    float radius;
+                    switch(s.model.tier){
+                        case Titan:
+                            radius = 2f;
+                            break;
+                        case Barge:
+                        case Battleship:
+                            radius = 1.4f;
+                            break;
+                        case Cruiser:
+                            radius = 1.1f;
+                            break;
+                        case Frigate:
+                        default:
+                            radius = 1;
+                    }
 
-                shape.setColor(state.findColorForOwner(s.owner));
-                shape.circle(pos.x, pos.y, radius);
+                    shape.setColor(state.findBaseColorForOwner(s.owner));
+                    shape.circle(pos.x, pos.y, radius);
+                }
             }
         }
         shape.end();
@@ -377,8 +388,8 @@ class SecMinimap extends Sector {
      * This method changes where the focus square on the minimap is.
      */
     void switchFocusedGrid(int newGrid){
-        activeSquare.setPosition(3 + state.grids[newGrid].pos.x*250f/1000f - 10,
-                3 + state.grids[newGrid].pos.y*250f/1000f - 10);
+        activeSquare.setPosition(3 + state.grids[newGrid].loc.x*250f/1000f - 10,
+                3 + state.grids[newGrid].loc.y*250f/1000f - 10);
 
         sysScale = CON_RECT.width / (2*state.grids[newGrid].radius);
     }

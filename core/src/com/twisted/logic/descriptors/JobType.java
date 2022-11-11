@@ -4,6 +4,7 @@ import com.sun.org.apache.xml.internal.serializer.EncodingInfo;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
+import com.twisted.util.Quirk;
 
 /**
  * The possible things (ships/stations) that can be constructed.
@@ -54,8 +55,7 @@ public enum JobType {
             case Crystal:
                 return this.crystal;
             default:
-                System.out.println("[Error] Unexpected gem type.");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return 0;
         }
     }
@@ -74,8 +74,7 @@ public enum JobType {
             case Liquidator:
                 return Entity.Type.Station;
             default:
-                System.out.println("Unexpected JobType");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }
@@ -103,8 +102,7 @@ public enum JobType {
             case Nyx:
                 return Ship.Model.Nyx;
             default:
-                System.out.println("Unexpected JobType");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }

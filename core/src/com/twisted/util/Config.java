@@ -1,4 +1,4 @@
-package com.twisted;
+package com.twisted.util;
 
 public class Config {
 

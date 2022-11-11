@@ -1,8 +1,6 @@
 package com.twisted.net.msg.lobby;
 
-import com.badlogic.gdx.math.Vector2;
-import com.twisted.Paint;
-import com.twisted.logic.entities.station.Station;
+import com.twisted.util.Paint;
 import com.twisted.net.msg.Message;
 import com.twisted.net.msg.summary.GridSum;
 import com.twisted.net.msg.summary.StationStartSum;
@@ -18,8 +16,8 @@ public class MGameStart implements Message {
     public HashMap<Integer, String> getPlayers(){
         return idToName;
     }
-    private final HashMap<Integer, Paint> playerFiles;
-    public HashMap<Integer, Paint> getPlayerFiles(){
+    private final HashMap<Integer, Paint.Collect> playerFiles;
+    public HashMap<Integer, Paint.Collect> getPlayerFiles(){
         return playerFiles;
     }
 
@@ -44,7 +42,7 @@ public class MGameStart implements Message {
     /**
      * Constructor.
      */
-    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, Paint> playerFiles,
+    public MGameStart(HashMap<Integer, String> idToName, HashMap<Integer, Paint.Collect> playerFiles,
                       int numGrids){
         this.idToName = idToName;
         this.playerFiles = playerFiles;

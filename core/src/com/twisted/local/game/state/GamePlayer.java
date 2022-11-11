@@ -1,7 +1,8 @@
 package com.twisted.local.game.state;
 
-import com.twisted.Asset;
-import com.twisted.Paint;
+import com.twisted.util.Asset;
+import com.twisted.util.Paint;
+import com.twisted.util.Quirk;
 
 /**
  * Clientside representation of a player.
@@ -21,34 +22,33 @@ public class GamePlayer {
     }
 
     //file
-    private final Paint paint;
-    public Paint getPaint(){
-        return paint;
+    private final Paint.Collect collect;
+    public Paint.Collect getCollect(){
+        return collect;
     }
 
     /**
      * Constructor
      */
-    public GamePlayer(int id, Paint paint, String name){
+    public GamePlayer(int id, Paint.Collect collect, String name){
         this.id = id;
         this.name = name;
-        this.paint = paint;
+        this.collect = collect;
     }
 
 
     /* Utility */
 
     public Asset.Circle getMinimapShapeAsset(){
-        switch(paint){
-            case PL_BLUE:
+        switch(collect){
+            case BLUE:
                 return Asset.Circle.CIRCLE_BLUE;
-            case PL_ORANGE:
+            case ORANGE:
                 return Asset.Circle.CIRCLE_ORANGE;
-            case PL_GRAY:
+            case GRAY:
                 return Asset.Circle.CIRCLE_GRAY;
             default:
-                System.out.println("Unexpected player file");
-                new Exception().printStackTrace();
+                new Quirk(Quirk.Q.UnknownGameData).print();
                 return null;
         }
     }

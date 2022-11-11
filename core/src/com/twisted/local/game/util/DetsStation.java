@@ -1,6 +1,5 @@
 package com.twisted.local.game.util;
 
-import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.scenes.scene2d.Group;
@@ -8,12 +7,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.ui.Skin;
 import com.badlogic.gdx.scenes.scene2d.ui.Table;
-import com.twisted.Asset;
-import com.twisted.Main;
-import com.twisted.Paint;
+import com.twisted.util.Asset;
+import com.twisted.util.Paint;
 import com.twisted.local.game.SecDetails;
 import com.twisted.logic.entities.Entity;
 import com.twisted.logic.entities.station.Station;
+import com.twisted.util.Quirk;
 
 public class DetsStation extends DetsGroup {
 
@@ -78,13 +77,13 @@ public class DetsStation extends DetsGroup {
         group.addActor(healthInline);
 
         healthFill = new Image(Asset.retrieve(Asset.Pixel.WHITE));
-        healthFill.setColor(Paint.HEALTH_GREEN.col);
+        healthFill.setColor(Paint.HEALTH_GREEN.c);
         healthFill.setBounds(1, 1, 200, 8);
         group.addActor(healthFill);
 
         healthLabel = new Label("[health]", Asset.labelStyle(Asset.Avenir.MEDIUM_14));
         healthLabel.setPosition(204, -3);
-        healthLabel.setColor(Paint.HEALTH_GREEN.col);
+        healthLabel.setColor(Paint.HEALTH_GREEN.c);
         group.addActor(healthLabel);
 
         return group;
@@ -97,15 +96,14 @@ public class DetsStation extends DetsGroup {
     public void selectEntity(Entity entity) {
         //copy entity
         if(!(entity instanceof Station)){
-            System.out.println("Unexpected state");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.Inaccessible).print();
             return;
         }
         sel = (Station) entity;
 
         //update the name
         stationName.setText(sel.entityModel().toString());
-        stationName.setColor(state.findColorForOwner(sel.owner));
+        stationName.setColor(state.findBaseColorForOwner(sel.owner));
         stationIcon.setDrawable(Asset.retrieveEntityIcon(sel.model.tier));
 
         //update the grid
@@ -114,7 +112,7 @@ public class DetsStation extends DetsGroup {
     @Override
     public void updateEntity() {
         //name
-        stationName.setColor(state.findColorForOwner(sel.owner));
+        stationName.setColor(state.findBaseColorForOwner(sel.owner));
 
         //update stage
         stageImage.setVisible(sel.stage != Station.Stage.RUBBLE);

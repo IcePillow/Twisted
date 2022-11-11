@@ -4,8 +4,7 @@ import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.scenes.scene2d.ui.HorizontalGroup;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
-import com.badlogic.gdx.scenes.scene2d.ui.Skin;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.game.state.ClientGameState;
 import com.twisted.logic.entities.station.Station;
 
@@ -49,12 +48,12 @@ public class EvStationStageChange extends GameEvent {
 
         //prev image
         Image image1 = new Image(Asset.retrieveEntityIcon(Station.Model.Extractor));
-        image1.setColor(state.findColorForOwner(prevOwnerId));
+        image1.setColor(state.findBaseColorForOwner(prevOwnerId));
         group.addActor(image1);
 
         //prev name label
         Label label1 = new Label(" " + state.grids[stationId].station.getFullName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-        label1.setColor(state.findColorForOwner(prevOwnerId));
+        label1.setColor(state.findBaseColorForOwner(prevOwnerId));
         group.addActor(label1);
 
         //descriptive label
@@ -79,7 +78,7 @@ public class EvStationStageChange extends GameEvent {
         //next name label
         if(prevStage == Station.Stage.RUBBLE){
             Label label3 = new Label(state.players.get(nextOwnerId).getName(), Asset.labelStyle(Asset.Avenir.MEDIUM_14));
-            label3.setColor(state.findColorForOwner(nextOwnerId));
+            label3.setColor(state.findBaseColorForOwner(nextOwnerId));
             group.addActor(label3);
         }
 

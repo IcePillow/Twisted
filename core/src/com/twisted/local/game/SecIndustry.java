@@ -14,7 +14,7 @@ import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.utils.Align;
 import com.badlogic.gdx.utils.Null;
 import com.twisted.Main;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.local.game.util.IndPackedStationRow;
 import com.twisted.local.game.util.IndShipRow;
 import com.twisted.local.game.util.IndustryRow;
@@ -28,6 +28,7 @@ import com.twisted.logic.entities.ship.Ship;
 import com.twisted.logic.entities.station.Station;
 import com.twisted.net.msg.gameReq.MJobReq;
 import com.twisted.net.msg.gameReq.MShipUndockReq;
+import com.twisted.util.Quirk;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -218,7 +219,7 @@ public class SecIndustry extends Sector {
         resourceLabels = new HashMap<>();
 
         //update ui with state info
-        focusStationName.setColor(state.findColorForOwner(state.myId));
+        focusStationName.setColor(state.findBaseColorForOwner(state.myId));
 
         //loop through the grids
         for(Grid g : state.grids){
@@ -567,8 +568,7 @@ public class SecIndustry extends Sector {
             game.sendGameRequest(new MShipUndockReq(ship.id, ship.grid));
         }
         else {
-            System.out.println("Unexpected non-docked ship in SecIndustry.undockButtonClicked()");
-            new Exception().printStackTrace();
+            new Quirk(Quirk.Q.MissingDataAfterInput).print();
         }
     }
 

@@ -1,7 +1,7 @@
 package com.twisted.logic.entities.attach;
 
 import com.badlogic.gdx.math.Vector2;
-import com.twisted.Asset;
+import com.twisted.util.Asset;
 import com.twisted.logic.descriptors.EntPtr;
 import com.twisted.logic.descriptors.Grid;
 import com.twisted.logic.entities.Entity;
@@ -18,7 +18,7 @@ public abstract class Weapon {
     public final Ship attached;
 
     //graphics
-    public final Vector2 sourcePoint;
+    public final Vector2 mountPoint;
 
     //active state
     protected boolean active;
@@ -31,9 +31,9 @@ public abstract class Weapon {
 
     /* Constructor */
 
-    protected Weapon(Ship attached){
+    protected Weapon(Ship attached, Vector2 mountPoint){
         this.attached = attached;
-        this.sourcePoint = new Vector2(0, 0);
+        this.mountPoint = mountPoint;
     }
 
 

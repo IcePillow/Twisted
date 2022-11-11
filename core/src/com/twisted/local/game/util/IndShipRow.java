@@ -3,13 +3,11 @@ package com.twisted.local.game.util;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.scenes.scene2d.Actor;
 import com.badlogic.gdx.scenes.scene2d.InputEvent;
 import com.badlogic.gdx.scenes.scene2d.ui.Image;
 import com.badlogic.gdx.scenes.scene2d.ui.Label;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
-import com.twisted.Asset;
-import com.twisted.Main;
+import com.twisted.util.Asset;
 import com.twisted.local.game.SecIndustry;
 import com.twisted.logic.entities.ship.Ship;
 
